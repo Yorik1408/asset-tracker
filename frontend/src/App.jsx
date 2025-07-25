@@ -89,24 +89,44 @@ function App() {
   };
 
   // Экспорт в Excel
-const handleExport = async () => {
+  const handleExport = async () => {
   try {
-    const res = await fetch('http://10.0.1.225:8000/export/excel', {
+    // Формируем параметры запроса
+    const params = new URLSearchParams();
+    if (filter !== 'Все') {
+      params.append('type', filter);
+    }
+    if (searchQuery) {
+      params.append('q', searchQuery);
+    }
+
+    const url = `http://10.0.1.225:8000/export/excel?${params.toString()}`;
+
+    const res = await fetch(url, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
-    if (!res.ok) throw new Error();
-    
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: 'Ошибка экспорта' }));
+      alert(error.detail);
+      return;
+    }
+
     const blob = await res.blob();
-    const url = window.URL.createObjectURL(blob);
+    const filenameMatch = res.headers.get('Content-Disposition')?.match(/filename[^;=\n]*=([^;\n]*)/);
+    const filename = decodeURIComponent(filenameMatch?.[1]?.replace(/['"]/g, '') || 'активы.xlsx');
+
+    const urlBlob = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
-    a.download = 'активы.xlsx';
+    a.href = urlBlob;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
-    window.URL.revokeObjectURL(url);
+    window.URL.revokeObjectURL(urlBlob);
     document.body.removeChild(a);
   } catch (err) {
-    alert('Ошибка экспорта');
+    alert('Ошибка сети при экспорте');
+    console.error(err);
   }
 };
 
@@ -373,12 +393,52 @@ const handleImport = async (e) => {
 
       {/* Кнопки фильтрации */}
       <div className="btn-group mb-4" role="group">
-        <button className={`btn btn-outline-primary ${filter === 'Все' ? 'active' : ''}`} onClick={() => setFilter('Все')}>Все</button>
-        <button className={`btn btn-outline-primary ${filter === 'Монитор' ? 'active' : ''}`} onClick={() => setFilter('Монитор')}>Мониторы</button>
-        <button className={`btn btn-outline-primary ${filter === 'Компьютер' ? 'active' : ''}`} onClick={() => setFilter('Компьютер')}>Компьютеры</button>
-        <button className={`btn btn-outline-primary ${filter === 'Ноутбук' ? 'active' : ''}`} onClick={() => setFilter('Ноутбук')}>Ноутбуки</button>
-        <button className={`btn btn-outline-primary ${filter === 'Прочее' ? 'active' : ''}`} onClick={() => setFilter('Прочее')}>Прочее</button>
-      </div>
+  <button
+    className={`btn btn-outline-primary ${filter === 'Все' ? 'active' : ''}`}
+    onClick={() => {
+      setFilter('Все');
+      setPage(1);
+    }}
+  >
+    Все
+  </button>
+  <button
+    className={`btn btn-outline-primary ${filter === 'Монитор' ? 'active' : ''}`}
+    onClick={() => {
+      setFilter('Монитор');
+      setPage(1);
+    }}
+  >
+    Мониторы
+  </button>
+  <button
+    className={`btn btn-outline-primary ${filter === 'Компьютер' ? 'active' : ''}`}
+    onClick={() => {
+      setFilter('Компьютер');
+      setPage(1);
+    }}
+  >
+    Компьютеры
+  </button>
+  <button
+    className={`btn btn-outline-primary ${filter === 'Ноутбук' ? 'active' : ''}`}
+    onClick={() => {
+      setFilter('Ноутбук');
+      setPage(1);
+    }}
+  >
+    Ноутбуки
+  </button>
+  <button
+    className={`btn btn-outline-primary ${filter === 'Прочее' ? 'active' : ''}`}
+    onClick={() => {
+      setFilter('Прочее');
+      setPage(1);
+    }}
+  >
+    Прочее
+  </button>
+</div>
 
       {/* Поле поиска */}
       <div className="mb-4">

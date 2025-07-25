@@ -6,7 +6,8 @@ import pandas as pd
 from urllib.parse import quote
 from io import BytesIO
 from sqlalchemy.orm import Session
-from typing import List
+from sqlalchemy import or_
+from typing import List, Optional
 import models
 from database import engine, SessionLocal
 from schemas import AssetResponse, AssetCreate, AssetUpdate, UserLogin, UserCreate, UserResponse
@@ -112,14 +113,37 @@ def delete_existing_asset(asset_id: int, db: Session = Depends(get_db), token: s
 
 # Экспорт в эксель
 @app.get("/export/excel")
-def export_to_excel(db: Session = Depends(get_db)):
-    # Получаем все активы
-    assets = db.query(models.Asset).all()
-    
-    # Преобразуем в список словарей
-    data = []
+def export_to_excel(
+    type: Optional[str] = None,
+    q: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    # Формируем запрос с фильтрацией
+    query = db.query(models.Asset)
+    if type and type in ["Монитор", "Компьютер", "Ноутбук", "Прочее"]:
+        query = query.filter(models.Asset.type == type)
+    if q:
+        search = f"%{q}%"
+        query = query.filter(
+            or_(
+                models.Asset.inventory_number.ilike(search),
+                models.Asset.serial_number.ilike(search),
+                models.Asset.model.ilike(search),
+                models.Asset.location.ilike(search),
+                models.Asset.user_name.ilike(search),
+                models.Asset.comment.ilike(search),
+            )
+        )
+
+    assets = query.all()
+
+    # Основные данные активов
+    asset_data = []
+    # Данные об истории изменений
+    history_data = []
+
     for asset in assets:
-        data.append({
+        asset_data.append({
             "ID": asset.id,
             "Инвентарный номер": asset.inventory_number,
             "Серийный номер": asset.serial_number,
@@ -136,24 +160,38 @@ def export_to_excel(db: Session = Depends(get_db)):
             "ОЗУ": asset.ram,
             "Комментарий": asset.comment
         })
-    
-    # Создаём DataFrame
-    df = pd.DataFrame(data)
-    
-    # Сохраняем в буфер
+
+        # Добавляем историю изменений
+        for h in asset.history:
+            history_data.append({
+                "Asset ID": asset.id,
+                "Инвентарный номер": asset.inventory_number,
+                "Поле": h.field,
+                "Старое значение": h.old_value,
+                "Новое значение": h.new_value,
+                "Дата изменения": h.changed_at
+            })
+
+    # Создаём Excel с двумя листами
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name="Активы")
-    
+        pd.DataFrame(asset_data).to_excel(writer, index=False, sheet_name="Активы")
+        if history_data:
+            pd.DataFrame(history_data).to_excel(writer, index=False, sheet_name="История изменений")
+        else:
+            pd.DataFrame(columns=["Asset ID", "Инвентарный номер", "Поле", "Старое значение", "Новое значение", "Дата изменения"]).to_excel(
+                writer, index=False, sheet_name="История изменений"
+            )
+
     buffer.seek(0)
-    filename = "активы.xlsx"
-    encoded_filename = quote(filename)    
+
+    filename = "активы_с_историей.xlsx"
+    encoded_filename = quote(filename)
+
     return StreamingResponse(
         buffer,
         media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        headers={
-            "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"
-        }
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"}
     )
 
 #Импорт из экселя
@@ -164,22 +202,23 @@ def import_from_excel(file: UploadFile = File(...), db: Session = Depends(get_db
 
     try:
         contents = file.file.read()
-        df = pd.read_excel(BytesIO(contents))
+        df_assets = pd.read_excel(BytesIO(contents), sheet_name="Активы")
+        # Попробуем прочитать лист "История"
+        try:
+            df_history = pd.read_excel(BytesIO(contents), sheet_name="История изменений")
+            has_history = True
+        except:
+            has_history = False
+            df_history = pd.DataFrame()
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Ошибка чтения файла: {str(e)}")
-
-    # Проверяем обязательные столбцы
-    required_columns = ["Инвентарный номер", "Расположение", "Тип"]
-    for col in required_columns:
-        if col not in df.columns:
-            raise HTTPException(status_code=400, detail=f"Отсутствует столбец: {col}")
 
     imported = 0
     errors = []
 
-    for index, row in df.iterrows():
+    # Сначала импортируем активы
+    for index, row in df_assets.iterrows():
         try:
-            # Проверяем обязательные поля
             inv_num = str(row["Инвентарный номер"]).strip()
             location = str(row["Расположение"]).strip()
             asset_type = str(row["Тип"]).strip()
@@ -188,39 +227,76 @@ def import_from_excel(file: UploadFile = File(...), db: Session = Depends(get_db
                 errors.append(f"Строка {index+2}: пустое обязательное поле")
                 continue
 
-            # Проверяем, существует ли уже актив
-            existing = db.query(models.Asset).filter(models.Asset.inventory_number == inv_num).first()
-
-            # Подготовка данных
             data = {
- 	        "inventory_number": str(row["Инвентарный номер"]).strip(),
-                "serial_number": clean_value(row.get("Серийный номер")),
-                "model": clean_value(row.get("Модель")),
-                "type": str(row["Тип"]).strip(),
-                "status": clean_value(row.get("Статус")) or "в эксплуатации",
-                "location": str(row["Расположение"]).strip(),
-                "user_name": clean_value(row.get("ФИО пользователя")),
+                "inventory_number": inv_num,
+                "serial_number": str(row.get("Серийный номер", "")).strip() or None,
+                "model": str(row.get("Модель", "")).strip() or None,
+                "type": asset_type,
+                "status": str(row.get("Статус", "в эксплуатации")).strip() or "в эксплуатации",
+                "location": location,
+                "user_name": str(row.get("ФИО пользователя", "")).strip() or None,
                 "issue_date": pd.to_datetime(row.get("Дата выдачи")).date() if pd.notna(row.get("Дата выдачи")) else None,
                 "purchase_date": pd.to_datetime(row.get("Дата покупки")).date() if pd.notna(row.get("Дата покупки")) else None,
                 "warranty_until": pd.to_datetime(row.get("Гарантия до")).date() if pd.notna(row.get("Гарантия до")) else None,
-                "motherboard": clean_value(row.get("Мат. плата")),
-                "processor": clean_value(row.get("Процессор")),
-                "ram": clean_value(row.get("ОЗУ")),
-                "comment": clean_value(row.get("Комментарий"))
+                "motherboard": str(row.get("Мат. плата", "")).strip() or None,
+                "processor": str(row.get("Процессор", "")).strip() or None,
+                "ram": str(row.get("ОЗУ", "")).strip() or None,
+                "comment": str(row.get("Комментарий", "")).strip() or None
             }
+
+            existing = db.query(models.Asset).filter(models.Asset.inventory_number == inv_num).first()
 
             if existing:
                 # Обновляем
                 for k, v in data.items():
                     setattr(existing, k, v)
+                db_asset = existing
             else:
                 # Создаём новый
-                new_asset = models.Asset(**data)
-                db.add(new_asset)
+                db_asset = models.Asset(**data)
+                db.add(db_asset)
+
+            db.flush()  # Чтобы получить ID
 
             imported += 1
         except Exception as e:
-            errors.append(f"Строка {index+2}: {str(e)}")
+            errors.append(f"Строка {index+2} (актив): {str(e)}")
+
+    # Сохраняем, чтобы получить ID
+    db.commit()
+
+    # Теперь импортируем историю изменений
+    if has_history and not df_history.empty:
+        for index, row in df_history.iterrows():
+            try:
+                inv_num = str(row["Инвентарный номер"]).strip()
+                asset = db.query(models.Asset).filter(models.Asset.inventory_number == inv_num).first()
+                if not asset:
+                    errors.append(f"Строка {index+2} (история): актив с инв. номером {inv_num} не найден")
+                    continue
+
+                history_data = {
+                    "asset_id": asset.id,
+                    "field": str(row["Поле"]).strip(),
+                    "old_value": str(row["Старое значение"]).strip() or None,
+                    "new_value": str(row["Новое значение"]).strip() or None,
+                    "changed_at": pd.to_datetime(row["Дата изменения"]).date()
+                }
+
+                # Проверяем, нет ли уже такой записи
+                existing_history = db.query(models.AssetHistory).filter(
+                    models.AssetHistory.asset_id == asset.id,
+                    models.AssetHistory.field == history_data["field"],
+                    models.AssetHistory.old_value == history_data["old_value"],
+                    models.AssetHistory.new_value == history_data["new_value"],
+                    models.AssetHistory.changed_at == history_data["changed_at"]
+                ).first()
+
+                if not existing_history:
+                    history = models.AssetHistory(**history_data)
+                    db.add(history)
+            except Exception as e:
+                errors.append(f"Строка {index+2} (история): {str(e)}")
 
     db.commit()
 
