@@ -181,6 +181,56 @@ const handleImport = async (e) => {
   e.target.value = null;
 };
 
+const handleClearDatabase = async () => {
+  // 1. Спросим: хочешь ли скачать резервную копию?
+  const wantBackup = window.confirm(
+    "Перед очисткой базы рекомендуется сделать резервную копию.\n\nСкачать Excel-файл со всеми данными перед удалением?"
+  );
+
+  // 2. Если да — скачиваем
+  if (wantBackup) {
+    const link = document.createElement('a');
+    link.href = `http://10.0.1.225:8000/export/excel`;
+    link.setAttribute('download', '');
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // Ждём 1 секунду, чтобы файл начал скачиваться
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
+
+  // 3. Подтверждение очистки
+  const confirmed = window.confirm(
+    "ВНИМАНИЕ: Все активы и история изменений будут безвозвратно удалены.\n\nВы уверены, что хотите очистить всю базу?"
+  );
+
+  if (!confirmed) return;
+
+  // 4. Отправляем запрос на очистку
+  try {
+    const res = await fetch('http://10.0.1.225:8000/admin/clear-db', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    const result = await res.json();
+
+    if (res.ok) {
+      alert(result.message);
+      setAssets([]); // Очищаем локально
+    } else {
+      alert(`Ошибка: ${result.detail}`);
+    }
+  } catch (err) {
+    alert('Ошибка сети');
+    console.error(err);
+  }
+};
+
   // Обработка формы
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -221,60 +271,77 @@ const handleImport = async (e) => {
 
   // Отправка формы
   const handleSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (!formData.inventory_number.trim()) {
-      alert("Поле 'Инвентарный номер' обязательно для заполнения");
-      return;
+  // Валидация
+  if (!formData.inventory_number || !formData.inventory_number.trim()) {
+    alert("Поле 'Инвентарный номер' обязательно для заполнения");
+    return;
+  }
+  if (!formData.location || !formData.location.trim()) {
+    alert("Поле 'Расположение' обязательно для заполнения");
+    return;
+  }
+  if (!formData.type) {
+    alert("Пожалуйста, выберите тип оборудования из списка");
+    return;
+  }
+
+  // Формируем payload
+  const payload = {};
+  for (const key in formData) {
+    const value = formData[key];
+
+  // Если это поле даты и значение пустое — отправляем null
+    if (['purchase_date', 'warranty_until'].includes(key)) {
+      payload[key] = value ? value : null;
+    } else if (value !== null && value !== undefined) {
+      payload[key] = value;
     }
-    if (!formData.location.trim()) {
-      alert("Поле 'Расположение' обязательно для заполнения");
-      return;
-    }
-    if (!formData.type) {
-      alert("Пожалуйста, выберите тип оборудования из списка");
-      return;
-    }
+  }
 
-    const payload = {};
-    for (const key in formData) {
-      if (formData[key] !== null && formData[key] !== undefined) {
-        payload[key] = formData[key];
-      }
-    }
+  const url = isEditing
+    ? `http://10.0.1.225:8000/assets/${formData.id}`
+    : 'http://10.0.1.225:8000/assets/';
+  const method = isEditing ? 'PUT' : 'POST';
 
-    const url = isEditing
-      ? `http://10.0.1.225:8000/assets/${formData.id}`
-      : 'http://10.0.1.225:8000/assets/';
-    const method = isEditing ? 'PUT' : 'POST';
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(payload)
+    });
 
-    try {
-      const res = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (res.ok) {
-        const updated = await res.json();
-        if (isEditing) {
-          setAssets(assets.map(a => a.id === updated.id ? updated : a));
-        } else {
-          setAssets([...assets, updated]);
-        }
-        closeModal();
+    if (res.ok) {
+      const updated = await res.json();
+      if (isEditing) {
+        setAssets(assets.map(a => a.id === updated.id ? updated : a));
       } else {
-        const errorData = await res.json().catch(() => null);
-        alert(errorData?.detail || 'Ошибка сохранения актива');
+        setAssets([...assets, updated]);
       }
-    } catch (err) {
-      alert('Ошибка сети');
-      console.error(err);
+      closeModal();
+    } else {
+      const errorData = await res.json().catch(() => null);
+      if (errorData?.detail) {
+        // Попробуем разобрать ошибку Pydantic
+        if (Array.isArray(errorData.detail)) {
+          const messages = errorData.detail.map(err => `${err.loc?.[1]}: ${err.msg}`).join('; ');
+          alert(`Ошибка валидации: ${messages}`);
+        } else {
+          alert(errorData.detail);
+        }
+      } else {
+        alert('Ошибка сохранения актива');
+      }
     }
-  };
+  } catch (err) {
+    alert('Ошибка сети');
+    console.error(err);
+  }
+};
 
   // Хуманизация полей
   const getHumanFieldName = (field) => {
@@ -362,6 +429,16 @@ const handleImport = async (e) => {
           </button>
         </div>
       )}
+      
+      <div className="text-center my-4">
+        <img
+          src="/home/server/asset-tracker/frontend/public/asset-logo.png"
+          style={{
+            height: '10px',
+            opacity: 0.9
+          }}
+        />
+      </div>
 
       {/* Информация о пользователе */}
       {token && (
@@ -373,7 +450,7 @@ const handleImport = async (e) => {
 
       {/* Кнопка "Добавить актив" (только для админа) */}
       {user?.is_admin && (
-        <div className="d-flex justify-content-end mt-2 sticky-top bg-white p-2 shadow-sm">
+        <div className="d-flex justify-content-end mt-2 sticky-top bg-white p-2">
           <button
             className="btn btn-success"
             onClick={() => openModal()}
@@ -404,8 +481,16 @@ const handleImport = async (e) => {
         onChange={handleImport}
       />
     </label>
+    {/* Кнопка очистки базы — только для админа */}
+    <button
+      className="btn btn-danger ms-auto"
+      onClick={handleClearDatabase}
+    >
+      <i className="fas fa-trash-alt"></i> Очистить всю базу
+    </button>
   </div>
 )}
+
 
       {/* Кнопки фильтрации */}
       <div className="btn-group mb-4" role="group">
@@ -457,14 +542,25 @@ const handleImport = async (e) => {
 </div>
 
       {/* Поле поиска */}
-      <div className="mb-4">
+      <div className="input-group">
         <input
-          type="text"
-          className="form-control"
-          placeholder="Поиск по нужным данным..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+	  type="text"
+	  className="form-control"
+	  placeholder="Введите данные актива для поиска..."
+	  value={searchQuery}
+	  onChange={(e) => setSearchQuery(e.target.value)}
+	/>
+	{searchQuery && (
+	  <button
+	    className="btn btn-outline-secondary"
+            type="button"
+            onClick={() => setSearchQuery('')}
+            style={{ display: 'flex', alignItems: 'center', padding: '0 10px' }}
+            title="Очистить поиск"
+          >
+            <i className="fas fa-times"></i>
+	  </button>
+	)}
       </div>
 
       {/* Таблица */}
