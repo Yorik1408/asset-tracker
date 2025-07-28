@@ -90,8 +90,24 @@ function App() {
 
   // Экспорт в Excel
   const handleExport = async () => {
+  // Формируем текст уведомления
+  let filterText = "всех активов";
+  if (filter !== 'Все') {
+    filterText = `активов типа "${filter}"`;
+  }
+  if (searchQuery) {
+    filterText += ` с поиском по "${searchQuery}"`;
+  }
+
+  const confirmExport = window.confirm(
+    `Экспорт будет выполнен согласено выбранному фильтру ${filterText}.\n\nПродолжить?`
+  );
+
+  if (!confirmExport) {
+    return; // Пользователь отменил
+  }
+
   try {
-    // Формируем параметры запроса
     const params = new URLSearchParams();
     if (filter !== 'Все') {
       params.append('type', filter);
@@ -222,7 +238,7 @@ const handleImport = async (e) => {
 
     const payload = {};
     for (const key in formData) {
-      if (formData[key]) {
+      if (formData[key] !== null && formData[key] !== undefined) {
         payload[key] = formData[key];
       }
     }
@@ -305,15 +321,15 @@ const handleImport = async (e) => {
 
   // Фильтрация + поиск
   const filteredAssets = assets.filter((asset) => {
-    const matchesFilter = filter === 'Все' || asset.type === filter;
-    const matchesSearch = !searchQuery || Object.values(asset).some(val => {
-      if (typeof val === "string") {
-        return val.toLowerCase().includes(searchQuery.toLowerCase());
-      }
+  const matchesFilter = filter === 'Все' || asset.type === filter;
+  const matchesSearch = !searchQuery || Object.values(asset).some(val => {
+    if (val == null || typeof val === 'number' || val instanceof Date) {
       return false;
-    });
-    return matchesFilter && matchesSearch;
+    }
+    return String(val).toLowerCase().includes(searchQuery.toLowerCase());
   });
+  return matchesFilter && matchesSearch;
+});
 
   const totalPages = Math.ceil(filteredAssets.length / itemsPerPage);
   const paginatedAssets = filteredAssets.slice(
@@ -477,29 +493,37 @@ const handleImport = async (e) => {
                     <td data-label="Статус">{asset.status}</td>
                     <td data-label="Расположение">{asset.location}</td>
                     <td data-label="ФИО пользователя">{asset.user_name || '-'}</td>
-                    <td data-label="Комментарий">{asset.comment || '-'}</td>
-                    {user?.is_admin && (
-                      <td>
+                    <td data-label="Комментарий">{asset.comment || ''}</td>
+		    {user?.is_admin && (
+                      <td className="text-center">
+                        {/* Редактировать — карандаш */}
                         <button
-                          className="btn btn-primary btn-sm me-2"
+                          className="btn btn-sm btn-outline-primary me-1"
+                          title="Редактировать"
                           onClick={() => handleEdit(asset)}
                         >
-                          Редактировать
+                          <i className="fas fa-edit"></i>
                         </button>
-                        <button
-                          className="btn btn-danger btn-sm"
-                          onClick={() => handleDelete(asset.id)}
-                        >
-                          Удалить
-                        </button>
-                        <button
-                          className="btn btn-outline-secondary btn-sm ms-2"
-                          onClick={() => setShowHistory(showHistory === asset.id ? null : asset.id)}
-                        >
-                          {showHistory === asset.id ? 'Скрыть' : 'Показать'} историю
-                        </button>
-                      </td>
-                    )}
+
+                       {/* Удалить — корзина */}
+                       <button
+                         className="btn btn-sm btn-outline-danger me-1"
+                         title="Удалить"
+                         onClick={() => handleDelete(asset.id)}
+                       >
+                         <i className="fas fa-trash"></i>
+                      </button>
+
+                      {/* Показать/скрыть историю — часы/история */}
+                      <button
+                        className="btn btn-sm btn-outline-secondary"
+                        title={showHistory === asset.id ? "Скрыть историю" : "Показать историю"}
+      			onClick={() => setShowHistory(showHistory === asset.id ? null : asset.id)}
+    		      >
+                       <i className={`fas ${showHistory === asset.id ? 'fa-eye-slash' : 'fa-history'}`}></i>
+                      </button>
+                    </td>
+                   )}
                   </tr>
 
                   {/* История изменений */}
@@ -529,23 +553,48 @@ const handleImport = async (e) => {
       </div>
 
       {/* Пагинация */}
-      <div className="d-flex justify-content-between align-items-center mt-3">
-        <button
-          className="btn btn-outline-primary"
-          onClick={() => setPage(p => Math.max(1, p - 1))}
-          disabled={page === 1}
-        >
-          Назад
-        </button>
-        <span>Страница {page} из {totalPages}</span>
-        <button
-          className="btn btn-outline-primary"
-          onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-          disabled={page === totalPages || totalPages === 0}
-        >
-          Вперёд
-        </button>
-      </div>
+      {/* Пагинация с быстрым переходом */}
+<div className="d-flex justify-content-between align-items-center mt-3">
+  <button
+    className="btn btn-outline-primary"
+    onClick={() => setPage(p => Math.max(1, p - 1))}
+    disabled={page === 1}
+  >
+    Назад
+  </button>
+
+  <div className="d-flex align-items-center gap-2">
+    <span>Страница</span>
+    <input
+      type="number"
+      min="1"
+      max={Math.ceil(filteredAssets.length / itemsPerPage)}
+      value={page}
+      onChange={(e) => {
+        const value = e.target.value;
+        if (value === '') {
+          setPage(1); // или оставить пустым, если хочешь
+          return;
+        }
+        const num = parseInt(value, 10);
+        if (num >= 1 && num <= Math.ceil(filteredAssets.length / itemsPerPage)) {
+          setPage(num);
+        }
+      }}
+      className="form-control text-center"
+      style={{ width: '70px' }}
+    />
+    <span>из {Math.ceil(filteredAssets.length / itemsPerPage)}</span>
+  </div>
+  <button
+    className="btn btn-outline-primary"
+    onClick={() => setPage(p => Math.min(Math.ceil(filteredAssets.length / itemsPerPage), p + 1))}
+    disabled={page === Math.ceil(filteredAssets.length / itemsPerPage) || filteredAssets.length === 0}
+  >
+    Вперёд
+  </button>
+</div>
+
 
       {/* Модальное окно */}
       {isModalOpen && (

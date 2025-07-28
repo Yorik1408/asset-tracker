@@ -158,7 +158,9 @@ def export_to_excel(
             "Мат. плата": asset.motherboard,
             "Процессор": asset.processor,
             "ОЗУ": asset.ram,
-            "Комментарий": asset.comment
+            "Комментарий": asset.comment,
+  	    "Ключ Windows": asset.windows_key,
+            "Тип ОС": asset.os_type
         })
 
         # Добавляем историю изменений
@@ -228,22 +230,23 @@ def import_from_excel(file: UploadFile = File(...), db: Session = Depends(get_db
                 continue
 
             data = {
-                "inventory_number": inv_num,
-                "serial_number": str(row.get("Серийный номер", "")).strip() or None,
-                "model": str(row.get("Модель", "")).strip() or None,
-                "type": asset_type,
-                "status": str(row.get("Статус", "в эксплуатации")).strip() or "в эксплуатации",
-                "location": location,
-                "user_name": str(row.get("ФИО пользователя", "")).strip() or None,
+                "inventory_number": str(row["Инвентарный номер"]).strip(),
+                "serial_number": clean_value(row.get("Серийный номер")),
+                "model": clean_value(row.get("Модель")),
+                "type": str(row["Тип"]).strip(),
+                "status": clean_value(row.get("Статус")) or "в эксплуатации",
+                "location": str(row["Расположение"]).strip(),
+                "user_name": clean_value(row.get("ФИО пользователя")),
                 "issue_date": pd.to_datetime(row.get("Дата выдачи")).date() if pd.notna(row.get("Дата выдачи")) else None,
                 "purchase_date": pd.to_datetime(row.get("Дата покупки")).date() if pd.notna(row.get("Дата покупки")) else None,
                 "warranty_until": pd.to_datetime(row.get("Гарантия до")).date() if pd.notna(row.get("Гарантия до")) else None,
-                "motherboard": str(row.get("Мат. плата", "")).strip() or None,
-                "processor": str(row.get("Процессор", "")).strip() or None,
-                "ram": str(row.get("ОЗУ", "")).strip() or None,
-                "comment": str(row.get("Комментарий", "")).strip() or None
+                "motherboard": clean_value(row.get("Мат. плата")),
+                "processor": clean_value(row.get("Процессор")),
+                "ram": clean_value(row.get("ОЗУ")),
+                "comment": clean_value(row.get("Комментарий")),
+                "windows_key": clean_value(row.get("Ключ Windows")),
+                "os_type": clean_value(row.get("Тип ОС"))
             }
-
             existing = db.query(models.Asset).filter(models.Asset.inventory_number == inv_num).first()
 
             if existing:

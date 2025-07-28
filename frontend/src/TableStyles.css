@@ -11,6 +11,7 @@
 .custom-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
   font-size: 14px;
   background-color: white;
 }
@@ -53,6 +54,34 @@
 /* Кнопка добавить актив */
 .d-flex.justify-content-end {
   margin-top: 1rem;
+}
+
+/* Анимация боковых кнопок */
+/* Фиксируем ширину колонки "Действия" */
+.table-container table th:last-child,
+.table-container table td:last-child {
+  width: 150px;
+  white-space: nowrap;
+  text-align: center;
+}
+
+/* Обрезаем длинные комментарии и добавляем перенос */
+.table-container td:nth-last-child(2) { /* Предпоследняя колонка — комментарий */
+  max-width: 200px;
+  white-space: normal;
+  word-wrap: break-word;
+}
+
+/* Для адаптива — на малых экранах */
+@media (max-width: 768px) {
+  .table-container table td:nth-last-child(2) {
+    max-width: 120px;
+    font-size: 0.85rem;
+  }
+}
+
+.btn:hover i {
+  transform: scale(1.1);
 }
 
 .btn-group {
@@ -134,10 +163,9 @@
   }
 
   .custom-table td {
-    position: relative;
-    padding-left: 50%;
-    text-align: left;
-    border: none;
+    padding: 0.5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .custom-table td::before {
