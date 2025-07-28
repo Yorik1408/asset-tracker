@@ -54,19 +54,19 @@ class AssetBase(BaseModel):
     inventory_number: str
     serial_number: Optional[str] = None
     model: Optional[str] = None
-    purchase_date: Optional[date] = None
-    warranty_until: Optional[date] = None
-    status: Optional[AssetStatus] = None
+    type: str
+    status: str = "в эксплуатации"
     location: str
     user_name: Optional[str] = None
+    issue_date: Optional[date] = None
+    purchase_date: Optional[date] = None
+    warranty_until: Optional[date] = None
     motherboard: Optional[str] = None
     processor: Optional[str] = None
     ram: Optional[str] = None
     comment: Optional[str] = None
-    type: Optional[AssetType] = None
     windows_key: Optional[str] = None
     os_type: Optional[str] = None
-    issue_date: Optional[date] = None
 
 class AssetCreate(AssetBase):
     pass

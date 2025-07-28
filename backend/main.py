@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Response, UploadFile, File
+from fastapi import FastAPI, Depends, HTTPException, status, Response, UploadFile, File, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import StreamingResponse
 import numpy as np
@@ -42,7 +42,7 @@ def get_db():
 def clean_value(val):
     if pd.isna(val) or val is None:
         return None
-    return str(val).strip() if str(val).strip() != "" else None
+    return str(val).strip()
 
 # Простая проверка пользователя (в реальном приложении используйте хэширование)
 fake_users_db = {
@@ -230,22 +230,22 @@ def import_from_excel(file: UploadFile = File(...), db: Session = Depends(get_db
                 continue
 
             data = {
-                "inventory_number": str(row["Инвентарный номер"]).strip(),
-                "serial_number": clean_value(row.get("Серийный номер")),
-                "model": clean_value(row.get("Модель")),
-                "type": str(row["Тип"]).strip(),
-                "status": clean_value(row.get("Статус")) or "в эксплуатации",
-                "location": str(row["Расположение"]).strip(),
-                "user_name": clean_value(row.get("ФИО пользователя")),
-                "issue_date": pd.to_datetime(row.get("Дата выдачи")).date() if pd.notna(row.get("Дата выдачи")) else None,
-                "purchase_date": pd.to_datetime(row.get("Дата покупки")).date() if pd.notna(row.get("Дата покупки")) else None,
-                "warranty_until": pd.to_datetime(row.get("Гарантия до")).date() if pd.notna(row.get("Гарантия до")) else None,
-                "motherboard": clean_value(row.get("Мат. плата")),
-                "processor": clean_value(row.get("Процессор")),
-                "ram": clean_value(row.get("ОЗУ")),
-                "comment": clean_value(row.get("Комментарий")),
-                "windows_key": clean_value(row.get("Ключ Windows")),
-                "os_type": clean_value(row.get("Тип ОС"))
+                "inventory_number": clean_value(row.get("Инвентарный номер")),
+    		"serial_number": clean_value(row.get("Серийный номер")),
+    		"model": clean_value(row.get("Модель")),
+    		"type": clean_value(row.get("Тип")) or "Компьютер",
+    		"status": clean_value(row.get("Статус")) or "в эксплуатации",
+    		"location": clean_value(row.get("Расположение")),
+    		"user_name": clean_value(row.get("ФИО пользователя")),
+    		"issue_date": pd.to_datetime(row.get("Дата выдачи")).date() if pd.notna(row.get("Дата выдачи")) else None,
+    		"purchase_date": pd.to_datetime(row.get("Дата покупки")).date() if pd.notna(row.get("Дата покупки")) else None,
+    		"warranty_until": pd.to_datetime(row.get("Гарантия до")).date() if pd.notna(row.get("Гарантия до")) else None,
+    		"motherboard": clean_value(row.get("Мат. плата")),
+    		"processor": clean_value(row.get("Процессор")),
+    		"ram": clean_value(row.get("ОЗУ")),
+    		"comment": clean_value(row.get("Комментарий")),
+    		"windows_key": clean_value(row.get("Ключ Windows")),
+    		"os_type": clean_value(row.get("Тип ОС"))
             }
             existing = db.query(models.Asset).filter(models.Asset.inventory_number == inv_num).first()
 
@@ -307,3 +307,19 @@ def import_from_excel(file: UploadFile = File(...), db: Session = Depends(get_db
         "detail": f"Импорт завершён: {imported} активов",
         "errors": errors
     }
+
+@app.post("/admin/clear-db")
+def clear_database(request: Request, db: Session = Depends(get_db)):
+    auth = request.headers.get("Authorization")
+    if not auth or not auth.startswith("Bearer "):
+        raise HTTPException(status_code=403, detail="Требуется авторизация")
+
+    token = auth.split(" ")[1]
+    username = token.replace("token_", "", 1)
+    if username not in fake_users_db or not fake_users_db[username]["is_admin"]:
+        raise HTTPException(status_code=403, detail="Нет прав на очистку базы")
+
+    deleted = db.query(models.Asset).delete()
+    db.commit()
+
+    return {"message": f"✅ База очищена: удалено {deleted} активов"}
