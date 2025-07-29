@@ -22,6 +22,7 @@ function App() {
   const [isEditing, setIsEditing] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false); // Управление модальным окном
   const [filter, setFilter] = useState('Все');
+  const [activeTab, setActiveTab] = useState('assets');
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const itemsPerPage = 10;
@@ -40,6 +41,22 @@ function App() {
       console.error("Ошибка загрузки активов:", err);
     }
   };
+  const [expiringWarranty, setExpiringWarranty] = useState([]);
+  useEffect(() => {
+    if (assets.length > 0) {
+      const today = new Date();
+      const threshold = new Date();
+      threshold.setDate(today.getDate() + 30);
+
+      const expiring = assets.filter(asset => {
+        if (!asset.warranty_until) return false;
+        const warrantyDate = new Date(asset.warranty_until);
+        return warrantyDate >= today && warrantyDate <= threshold;
+      });
+
+      setExpiringWarranty(expiring);
+    }
+  }, [assets]);
 
   // Загружаем всегда
   useEffect(() => {
@@ -407,28 +424,35 @@ const handleClearDatabase = async () => {
   return (
     <div className="container mt-4">
       {/* Форма входа */}
-      {!token && (
-        <div className="login-form mb-4 p-3 bg-light border rounded">
-          <h3>Авторизация</h3>
-          <input
-            type="text"
-            placeholder="Логин"
-            className="form-control mb-2"
-            value={loginData.username}
-            onChange={(e) => setLoginData({ ...loginData, username: e.target.value })}
-          />
-          <input
-            type="password"
-            placeholder="Пароль"
-            className="form-control mb-2"
-            value={loginData.password}
-            onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
-          />
-          <button className="btn btn-primary mt-2" onClick={handleLogin}>
-            Войти
-          </button>
-        </div>
-      )}
+	{!token && (
+	  <form
+	    className="login-form mb-4 p-3 bg-light border rounded"
+            onSubmit={(e) => {
+              e.preventDefault(); // ⚠️ Обязательно!
+              handleLogin();
+            }}
+          >
+            <h3>Авторизация</h3>
+            <input
+              type="text"
+              placeholder="Логин"
+              className="form-control mb-2"
+              value={loginData.username}
+              onChange={(e) => setLoginData({ ...loginData, username: e.target.value })}
+              autoFocus
+            />
+            <input
+              type="password"
+              placeholder="Пароль"
+              className="form-control mb-2"
+              value={loginData.password}
+              onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+            />
+            <button type="submit" className="btn btn-primary mt-2">
+              Войти
+            </button>
+          </form>
+        )}
       
       {/* Информация о пользователе */}
       {token && (
@@ -542,6 +566,12 @@ const handleClearDatabase = async () => {
   >
     Прочее
   </button>
+    <button
+    className={`btn ${activeTab === 'reports' ? 'btn-primary' : 'btn-outline-primary'}`}
+    onClick={() => setActiveTab('reports')}
+  >
+    Отчёты
+  </button>
 </div>
 
       {/* Поле поиска */}
@@ -618,8 +648,8 @@ const handleClearDatabase = async () => {
                       <button
                         className="btn btn-sm btn-outline-secondary"
                         title={showHistory === asset.id ? "Скрыть историю" : "Показать историю"}
-      			onClick={() => setShowHistory(showHistory === asset.id ? null : asset.id)}
-    		      >
+			onClick={() => setShowHistory(showHistory === asset.id ? null : asset.id)}
+		      >
                        <i className={`fas ${showHistory === asset.id ? 'fa-eye-slash' : 'fa-history'}`}></i>
                       </button>
                     </td>
@@ -696,6 +726,35 @@ const handleClearDatabase = async () => {
   </button>
 </div>
 
+    {activeTab === 'reports' && (
+      <div className="reports-section">
+        <h4>Отчёт: Гарантия заканчивается</h4>
+        <p>Активы, у которых гарантия заканчивается в ближайшие 30 дней</p>
+
+        <table className="custom-table">
+          <thead>
+            <tr>
+              <th>Инвентарный номер</th>
+              <th>Модель</th>
+              <th>ФИО пользователя</th>
+              <th>Гарантия до</th>
+              <th>Статус</th>
+            </tr>
+          </thead>
+          <tbody>
+            {expiringWarranty.map((asset) => (
+              <tr key={asset.id} className="expiring-soon" >
+                <td data-label="Инвентарный номер">{asset.inventory_number}</td>
+                <td data-label="Модель">{asset.model}</td>
+                <td data-label="ФИО">{asset.user_name || '-'}</td>
+                <td data-label="Гарантия до">{asset.warranty_until}</td>
+                <td data-label="Статус">{asset.status}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+     )}
 
       {/* Модальное окно */}
       {isModalOpen && (
@@ -817,7 +876,7 @@ const handleClearDatabase = async () => {
                       onChange={handleChange}
                     />
                   </div>
-                  <div className="col-12">
+                  <div className="col-md-6">
                     <label className="form-label">Комментарий</label>
                     <input
                       type="text"

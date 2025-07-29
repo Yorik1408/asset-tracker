@@ -36,6 +36,12 @@
   font-size: 0.9em;
 }
 
+/* В TableStyles.css */
+.expiring-soon {
+  background-color: #fff3cd;
+  border-left: 4px solid #ffc107;
+}
+
 /* Строки таблицы */
 .custom-table tbody tr {
   border-bottom: 1px solid #dee2e6;
