@@ -430,23 +430,26 @@ const handleClearDatabase = async () => {
         </div>
       )}
       
-      <div className="text-center my-4">
-        <img
-          src="/home/server/asset-tracker/frontend/public/asset-logo.png"
-          style={{
-            height: '10px',
-            opacity: 0.9
-          }}
-        />
-      </div>
-
       {/* Информация о пользователе */}
       {token && (
-        <div className="d-flex justify-content-between align-items-center mb-3">
-          <span>Вы вошли как {user?.username || 'админ'}</span>
-          <button className="btn btn-outline-danger" onClick={handleLogout}>Выйти</button>
-        </div>
-      )}
+  <div className="d-flex justify-content-between align-items-center mb-3">
+    <span>Вы вошли как {user?.username || 'админ'}</span>
+    <div className="d-flex align-items-center gap-2">
+      {/* Логотип */}
+      <img
+        src="/asset-logo.png"
+        alt="Логотип"
+        style={{
+          height: '80px',
+          opacity: 0.9,
+          filter: 'grayscale(100%)'
+        }}
+      />
+      {/* Кнопка выхода */}
+      <button className="btn btn-outline-danger" onClick={handleLogout}>Выйти</button>
+    </div>
+  </div>
+)}
 
       {/* Кнопка "Добавить актив" (только для админа) */}
       {user?.is_admin && (
@@ -565,7 +568,8 @@ const handleClearDatabase = async () => {
 
       {/* Таблица */}
       <div className="table-container">
-        <table className="custom-table">
+        <div className="table-responsive">
+	  <table className="custom-table">
           <thead>
             <tr>
               <th>ID</th>
@@ -647,6 +651,7 @@ const handleClearDatabase = async () => {
           </tbody>
         </table>
       </div>
+    </div>
 
       {/* Пагинация */}
       {/* Пагинация с быстрым переходом */}
