@@ -185,3 +185,35 @@
     white-space: nowrap;
   }
 }
+
+/* Обёртка модального окна */
+.modal.fade {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s;
+}
+
+.modal.fade.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Анимация содержимого модального окна */
+.modal-dialog {
+  transform: translateY(-10px);
+  transition: transform 0.3s ease;
+}
+
+.modal.show .modal-dialog {
+  transform: translateY(0);
+}
+
+/* Плавное затемнение фона */
+.modal-backdrop {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.modal-backdrop.show {
+  opacity: 0.5;
+}

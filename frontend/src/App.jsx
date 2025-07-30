@@ -62,7 +62,28 @@ function App() {
   // Загружаем всегда
   useEffect(() => {
     fetchAssets();
-  }, [token]);
+    const handleKeyDown = (e) => {
+      // Закрываем модальные окна только если они открыты
+      if (e.key === 'Escape') {
+        // Закрываем "О системе"
+        if (showAboutModal) {
+          setShowAboutModal(false);
+        }
+        // Закрываем форму активов (редактирование/добавление)
+        if (isModalOpen || isEditing) {
+          closeModal();
+        }
+      }
+    };
+
+    // Добавляем слушатель
+    window.addEventListener('keydown', handleKeyDown);
+
+    // Убираем при размонтировании
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showAboutModal, isModalOpen, isEditing]);
 
   // Проверка токена
   useEffect(() => {
