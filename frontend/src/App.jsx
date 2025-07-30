@@ -568,9 +568,9 @@ const handleClearDatabase = async () => {
   </button>
     <button
     className={`btn ${activeTab === 'reports' ? 'btn-primary' : 'btn-outline-primary'}`}
-    onClick={() => setActiveTab('reports')}
+    onClick={() => setActiveTab(activeTab === 'reports' ? 'assets' : 'reports')}
   >
-    Отчёты
+    Отчёт о гарантиях
   </button>
 </div>
 
