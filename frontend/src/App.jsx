@@ -29,6 +29,7 @@ function App() {
   const [token, setToken] = useState(localStorage.getItem('token') || '');
   const [user, setUser] = useState(null);
   const [loginData, setLoginData] = useState({ username: '', password: '' });
+  const [showAboutModal, setShowAboutModal] = useState(false);
 
   // Загрузка активов
   // Универсальная загрузка активов
@@ -469,11 +470,21 @@ const handleClearDatabase = async () => {
           filter: 'grayscale(100%)'
         }}
       />
+
       {/* Кнопка выхода */}
       <button className="btn btn-outline-danger" onClick={handleLogout}>Выйти</button>
     </div>
   </div>
 )}
+      
+      {/* Кнопка "О системе" */}
+      <button
+        className="btn btn-outline-info btn-sm"
+        onClick={() => setShowAboutModal(true)}
+        title="О системе"
+      >
+        <i className="fas fa-info-circle"></i> О системе
+      </button>
 
       {/* Кнопка "Добавить актив" (только для админа) */}
       {user?.is_admin && (
@@ -990,6 +1001,50 @@ const handleClearDatabase = async () => {
           onClick={closeModal}
         ></div>
       )}
+
+{/* Модальное окно "О системе" */}
+{showAboutModal && (
+  <div className="modal fade show" style={{ display: 'block' }} onClick={() => setShowAboutModal(false)}>
+    <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-content">
+        <div className="modal-header">
+          <h5 className="modal-title">О системе учёта активов</h5>
+          <button type="button" className="btn-close" onClick={() => setShowAboutModal(false)}></button>
+        </div>
+        <div className="modal-body">
+          <p><strong>Версия:</strong> 1.2</p>
+          <p>Система учёта активов Asset Tracker — это веб-приложение для управления компьютерами, ноутбуками, мониторами и другим оборудованием.</p>
+          <p>Позволяет:</p>
+          <ul>
+            <li>Вести учёт активов с инвентарными номерами</li>
+            <li>Отслеживать историю изменений</li>
+            <li>Экспортировать и импортировать данные через Excel</li>
+            <li>Контролировать гарантийные сроки</li>
+          </ul>
+          <p>Разработано для повышения прозрачности и эффективности учёта оборудования.</p>
+          <p>
+            <a
+              href="https://github.com/yorik1408/asset-tracker"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-outline-primary btn-sm"
+            >
+              <i className="fab fa-github"></i> Открыть репозиторий
+            </a>
+          </p>
+        </div>
+        <div className="modal-footer">
+          <button type="button" className="btn btn-secondary" onClick={() => setShowAboutModal(false)}>
+            Закрыть
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
+{/* Фон затемнения */}
+{showAboutModal && <div className="modal-backdrop fade show"></div>}
     </div>
   );
 }
