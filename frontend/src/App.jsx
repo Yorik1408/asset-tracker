@@ -623,7 +623,7 @@ const handleClearDatabase = async () => {
                     <td data-label="Статус">{asset.status}</td>
                     <td data-label="Расположение">{asset.location}</td>
                     <td data-label="ФИО пользователя">{asset.user_name || '-'}</td>
-                    <td data-label="Комментарий">{asset.comment || ''}</td>
+                    <td data-label="Комментарий"><div className="comment-cell">{asset.comment || ''}</div></td>
 		    {user?.is_admin && (
                       <td className="text-center">
                         {/* Редактировать — карандаш */}

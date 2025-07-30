@@ -72,10 +72,12 @@
 }
 
 /* Обрезаем длинные комментарии и добавляем перенос */
-.table-container td:nth-last-child(2) { /* Предпоследняя колонка — комментарий */
-  max-width: 200px;
-  white-space: normal;
-  word-wrap: break-word;
+.comment-cell { /* Предпоследняя колонка — комментарий */
+  word-break: break-word;
+  overflow-wrap: break-word;
+  max-width: 200px; /* Максимальная ширина */
+  white-space: pre-wrap; /* Сохраняет переносы строк из базы данных */
+
 }
 
 /* Для адаптива — на малых экранах */
