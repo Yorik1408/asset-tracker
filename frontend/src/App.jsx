@@ -551,6 +551,11 @@ const handleClearDatabase = async () => {
   </div>
 )}
       
+      {/* Компактная панель управления */}
+{user && (
+  <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 p-2 bg-white border rounded">
+    {/* Левая группа: сервисные кнопки (доступны всем авторизованным) */}
+    <div className="d-flex flex-wrap gap-1">
       {/* Кнопка "О системе" */}
       <button
         className="btn btn-outline-info btn-sm"
@@ -560,49 +565,56 @@ const handleClearDatabase = async () => {
         <i className="fas fa-info-circle"></i> О системе
       </button>
 
-      {/* Кнопка "Добавить актив" (только для админа) */}
-      {user?.is_admin && (
-        <div className="d-flex justify-content-end mt-2 sticky-top bg-white p-2">
-          <button
-            className="btn btn-success"
-            onClick={() => openModal()}
-          >
-            Добавить актив
-          </button>
-        </div>
-      )}
-     
-      {/* Кнопки экспорта/импорта */}
-{user?.is_admin && (
-  <div className="d-flex gap-2 mb-4">
-    {/* Экспорт */}
-    <button
-      className="btn btn-outline-success btn-sm"
-      onClick={handleExport}
-    >
-      <i className="fas fa-file-export"></i> Экспорт в Excel
-    </button>
+      {/* Экспорт в Excel */}
+      <button
+        className="btn btn-outline-success btn-sm"
+        onClick={handleExport}
+        title="Экспорт в Excel"
+      >
+        <i className="fas fa-file-export"></i> Экспорт
+      </button>
 
-    {/* Импорт */}
-    <label className="btn btn-outline-primary btn-sm mb-0">
-      <i className="fas fa-file-import"></i> Импорт из Excel
-      <input
-        type="file"
-        accept=".xlsx"
-        style={{ display: 'none' }}
-        onChange={handleImport}
-      />
-    </label>
-    {/* Кнопка очистки базы — только для админа */}
-    <button
-      className="btn btn-danger ms-auto"
-      onClick={handleClearDatabase}
-    >
-      <i className="fas fa-trash-alt"></i> Очистить всю базу
-    </button>
+      {/* Импорт из Excel — только для админа */}
+      {user.is_admin && (
+        <label
+          className="btn btn-outline-primary btn-sm mb-0"
+          title="Импорт из Excel"
+        >
+          <i className="fas fa-file-import"></i> Импорт
+          <input
+            type="file"
+            accept=".xlsx"
+            style={{ display: 'none' }}
+            onChange={handleImport}
+          />
+        </label>
+      )}
+    </div>
+
+    {/* Правая группа: действия админа */}
+    {user.is_admin && (
+      <div className="d-flex flex-wrap gap-1">
+        {/* Кнопка "Добавить актив" */}
+        <button
+          className="btn btn-success btn-sm"
+          onClick={() => openModal()}
+          title="Добавить актив"
+        >
+          <i className="fas fa-plus"></i> Добавить
+        </button>
+
+        {/* Кнопка "Очистить базу" */}
+        <button
+          className="btn btn-danger btn-sm"
+          onClick={handleClearDatabase}
+          title="Очистить всю базу"
+        >
+          <i className="fas fa-trash-alt"></i> Очистить
+        </button>
+      </div>
+    )}
   </div>
 )}
-
 
       {/* Кнопки фильтрации */}
       <div className="btn-group mb-4" role="group">
