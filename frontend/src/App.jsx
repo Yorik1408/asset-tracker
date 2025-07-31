@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import '/home/server/asset-tracker/frontend/src/TableStyles.css';
+import packageInfo from '../package.json';
 
 function App() {
   const [assets, setAssets] = useState([]);
@@ -30,18 +31,48 @@ function App() {
   const [user, setUser] = useState(null);
   const [loginData, setLoginData] = useState({ username: '', password: '' });
   const [showAboutModal, setShowAboutModal] = useState(false);
+  const [stats, setStats] = useState({
+    total: 0,
+    laptops: 0,
+    expiringWarranty: 0,
+    inRepair: 0
+  });
 
   // Загрузка активов
+  // Универсальная загрузка активов
   // Универсальная загрузка активов
   const fetchAssets = async () => {
     try {
       const res = await fetch('http://10.0.1.225:8000/assets/');
       const data = await res.json();
       setAssets(data);
+
+      const total = data.length;
+      const laptops = data.filter(a => a.type === 'Ноутбук').length;
+      const inRepair = data.filter(a => a.status === 'на ремонте').length;
+
+      // Гарантия заканчивается в ближайшие 30 дней
+      const today = new Date();
+      const threshold = new Date();
+      threshold.setDate(today.getDate() + 30);
+
+      const expiringWarranty = data.filter(asset => {
+        if (!asset.warranty_until) return false;
+        const warrantyDate = new Date(asset.warranty_until);
+        return warrantyDate >= today && warrantyDate <= threshold;
+      }).length;
+
+      setStats({
+        total,
+        laptops,
+        expiringWarranty,
+        inRepair
+      });
     } catch (err) {
       console.error("Ошибка загрузки активов:", err);
     }
   };
+
   const [expiringWarranty, setExpiringWarranty] = useState([]);
   useEffect(() => {
     if (assets.length > 0) {
@@ -476,6 +507,28 @@ const handleClearDatabase = async () => {
           </form>
         )}
       
+      {/* Статистика */}
+  <div className="mb-4 p-3 rounded shadow-sm">
+    <div className="row text-center">
+      <div className="col-md-3 col-6">
+        <div className="fw-bold text-primary">{stats.total}</div>
+        <div className="text-muted small">Всего активов</div>
+      </div>
+      <div className="col-md-3 col-6">
+        <div className="fw-bold text-success">{stats.laptops}</div>
+        <div className="text-muted small">Ноутбуков</div>
+      </div>
+      <div className="col-md-3 col-6">
+        <div className="fw-bold text-warning">{stats.expiringWarranty}</div>
+        <div className="text-muted small">Гарантия заканчивается</div>
+      </div>
+      <div className="col-md-3 col-6">
+        <div className="fw-bold text-danger">{stats.inRepair}</div>
+        <div className="text-muted small">В ремонте</div>
+      </div>
+    </div>
+  </div>
+
       {/* Информация о пользователе */}
       {token && (
   <div className="d-flex justify-content-between align-items-center mb-3">
@@ -488,7 +541,7 @@ const handleClearDatabase = async () => {
         style={{
           height: '80px',
           opacity: 0.9,
-          filter: 'grayscale(100%)'
+	  filter: 'grayscale(100%)'
         }}
       />
 
@@ -518,7 +571,7 @@ const handleClearDatabase = async () => {
           </button>
         </div>
       )}
-
+     
       {/* Кнопки экспорта/импорта */}
 {user?.is_admin && (
   <div className="d-flex gap-2 mb-4">
@@ -1033,7 +1086,7 @@ const handleClearDatabase = async () => {
           <button type="button" className="btn-close" onClick={() => setShowAboutModal(false)}></button>
         </div>
         <div className="modal-body">
-          <p><strong>Версия:</strong> 1.2</p>
+          <p><strong>Версия:</strong> v{packageInfo.version.split('.').slice(0, 2).join('.')}</p>
           <p>Система учёта активов Asset Tracker — это веб-приложение для управления компьютерами, ноутбуками, мониторами и другим оборудованием.</p>
           <p>Позволяет:</p>
           <ul>
