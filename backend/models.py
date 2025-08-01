@@ -8,13 +8,11 @@ class AssetStatus(str, enum.Enum):
     repair = "на ремонте"
     retired = "списано"
 
-
 class AssetType(str, enum.Enum):
     monitor = "Монитор"
     computer = "Компьютер"
     laptop = "Ноутбук"
     other = "Прочее"
-
 
 class AssetHistory(Base):
     __tablename__ = "asset_history"
@@ -25,8 +23,11 @@ class AssetHistory(Base):
     old_value = Column(String)
     new_value = Column(String)
     changed_at = Column(Date, nullable=False)
-    asset = relationship("Asset", back_populates="history")
+    # --- Новое поле ---
+    changed_by = Column(String, nullable=True) # Имя пользователя, внесшего изменение
+    # ------------------
 
+    asset = relationship("Asset", back_populates="history")
 
 class Asset(Base):
     __tablename__ = "assets"
@@ -46,13 +47,14 @@ class Asset(Base):
     comment = Column(String)
     type = Column(String)
     issue_date = Column(Date)
-
     # Дополнительные поля
     windows_key = Column(String, nullable=True)
     os_type = Column(String, nullable=True)
 
     # Связи
     history = relationship("AssetHistory", back_populates="asset", cascade="all, delete")
+
+# Связь уже определена выше, но оставим для совместимости
 Asset.history = relationship("AssetHistory", back_populates="asset")
 
 class User(Base):

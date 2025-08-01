@@ -21,7 +21,6 @@ class UserResponse(BaseModel):
     class Config:
         from_attributes = True
 
-
 class AssetStatus(str, Enum):
     in_use = "в эксплуатации"
     repair = "на ремонте"
@@ -39,6 +38,9 @@ class AssetHistoryBase(BaseModel):
     old_value: Optional[str] = None
     new_value: Optional[str] = None
     changed_at: date
+    # --- Новое поле ---
+    changed_by: Optional[str] = None
+    # ------------------
 
 class AssetHistoryCreate(AssetHistoryBase):
     pass
@@ -48,7 +50,6 @@ class AssetHistoryResponse(AssetHistoryBase):
 
     class Config:
         from_attributes = True
-
 
 class AssetBase(BaseModel):
     inventory_number: str
@@ -71,10 +72,8 @@ class AssetBase(BaseModel):
 class AssetCreate(AssetBase):
     pass
 
-
 class AssetUpdate(AssetBase):
     pass
-
 
 class AssetResponse(AssetBase):
     id: int
@@ -82,3 +81,4 @@ class AssetResponse(AssetBase):
 
     class Config:
         from_attributes = True
+

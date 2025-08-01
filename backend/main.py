@@ -11,7 +11,8 @@ from typing import List, Optional
 import models
 from database import engine, SessionLocal
 from schemas import AssetResponse, AssetCreate, AssetUpdate, UserLogin, UserCreate, UserResponse
-from crud import get_asset, get_assets, create_asset, update_asset, delete_asset
+from crud import get_asset, get_assets, create_asset, update_asset, delete_asset, get_user_by_username, create_user
+from passlib.context import CryptContext
 
 # Создаем таблицы в БД
 models.Base.metadata.create_all(bind=engine)
@@ -31,6 +32,9 @@ app.add_middleware(
 # Схема OAuth2 для токена
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/token")
 
+# Контекст для хэширования паролей
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 # Dependency для получения БД
 def get_db():
     db = SessionLocal()
@@ -44,15 +48,17 @@ def clean_value(val):
         return None
     return str(val).strip()
 
-# Простая проверка пользователя (в реальном приложении используйте хэширование)
-fake_users_db = {
-    "admin": {"username": "admin", "password": "secret", "is_admin": True},
-}
+# Функция для извлечения имени пользователя из токена
+def get_current_username(token: str = Depends(oauth2_scheme)):
+    if not token.startswith("token_"):
+        raise HTTPException(status_code=401, detail="Неверный формат токена")
+    username = token.replace("token_", "", 1)
+    return username
 
 @app.post("/token")
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    user_dict = fake_users_db.get(form_data.username)
-    if not user_dict or user_dict["password"] != form_data.password:
+async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    user = get_user_by_username(db, form_data.username)
+    if not user or not pwd_context.verify(form_data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Неверные учетные данные",
@@ -61,14 +67,28 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     return {"access_token": f"token_{form_data.username}", "token_type": "bearer"}
 
 @app.get("/users/me", response_model=UserResponse)
-async def read_users_me(token: str = Depends(oauth2_scheme)):
-    username = token.replace("token_", "", 1)
-    user_dict = fake_users_db.get(username)
-    if not user_dict:
+async def read_users_me(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    username = get_current_username(token)
+    user = get_user_by_username(db, username)
+    if not user:
         raise HTTPException(status_code=401, detail="Неавторизован")
-    return UserResponse(id=1, username=user_dict["username"], is_admin=user_dict["is_admin"])
-# Роуты для активов
+    return UserResponse(id=user.id, username=user.username, is_admin=user.is_admin)
 
+# Роут для регистрации пользователей (только для админов)
+@app.post("/users/", response_model=UserResponse, status_code=201)
+def create_new_user(user: UserCreate, db: Session = Depends(get_db)):
+    # Проверим, существует ли уже пользователь с таким именем
+    db_user = get_user_by_username(db, username=user.username)
+    if db_user:
+        raise HTTPException(status_code=400, detail="Пользователь с таким именем уже существует")
+    
+    # Создаем пользователя через crud
+    created_user = create_user(db=db, user=user)
+    
+    # Возвращаем созданного пользователя (без пароля!)
+    return created_user
+
+# Роуты для активов
 # 🔍 Все могут читать
 @app.get("/assets/", response_model=List[AssetResponse])
 def read_assets(skip: int = 0, limit: int = 5000, db: Session = Depends(get_db)):
@@ -84,18 +104,24 @@ def read_asset(asset_id: int, db: Session = Depends(get_db)):
 # ✏️ Только админы могут создавать
 @app.post("/assets/", response_model=AssetResponse, status_code=201)
 def create_new_asset(asset: AssetCreate, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
-    username = token.replace("token_", "", 1)
-    if username not in fake_users_db or not fake_users_db[username]["is_admin"]:
-        raise HTTPException(status_code=403, detail="Нет прав на создание актива")
-    return create_asset(db=db, asset=asset)
+    username = get_current_username(token)
+    # Проверка прав (все авторизованные пользователи могут создавать, если нужно только админам - раскомментируйте)
+    # user = get_user_by_username(db, username)
+    # if not user or not user.is_admin:
+    #     raise HTTPException(status_code=403, detail="Нет прав на создание актива")
+    
+    return create_asset(db=db, asset=asset, changed_by_username=username)
 
 # 📝 Только админы могут редактировать
 @app.put("/assets/{asset_id}", response_model=AssetResponse)
 def update_existing_asset(asset_id: int, asset_update: AssetUpdate, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
-    username = token.replace("token_", "", 1)
-    if username not in fake_users_db or not fake_users_db[username]["is_admin"]:
-        raise HTTPException(status_code=403, detail="Нет прав на редактирование")
-    updated = update_asset(db, asset_id, asset_update)
+    username = get_current_username(token)
+    # Проверка прав (все авторизованные пользователи могут редактировать, если нужно только админам - раскомментируйте)
+    # user = get_user_by_username(db, username)
+    # if not user or not user.is_admin:
+    #     raise HTTPException(status_code=403, detail="Нет прав на редактирование")
+    
+    updated = update_asset(db, asset_id, asset_update, changed_by_username=username)
     if not updated:
         raise HTTPException(status_code=404, detail="Актив не найден")
     return updated
@@ -103,10 +129,13 @@ def update_existing_asset(asset_id: int, asset_update: AssetUpdate, db: Session 
 # ❌ Только админы могут удалять
 @app.delete("/assets/{asset_id}")
 def delete_existing_asset(asset_id: int, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
-    username = token.replace("token_", "", 1)
-    if username not in fake_users_db or not fake_users_db[username]["is_admin"]:
-        raise HTTPException(status_code=403, detail="Нет прав на удаление")
-    deleted = delete_asset(db, asset_id)
+    username = get_current_username(token)
+    # Проверка прав (все авторизованные пользователи могут удалять, если нужно только админам - раскомментируйте)
+    # user = get_user_by_username(db, username)
+    # if not user or not user.is_admin:
+    #     raise HTTPException(status_code=403, detail="Нет прав на удаление")
+    
+    deleted = delete_asset(db, asset_id, changed_by_username=username)
     if not deleted:
         raise HTTPException(status_code=404, detail="Актив не найден")
     return {"detail": "Актив удален"}
@@ -134,14 +163,11 @@ def export_to_excel(
                 models.Asset.comment.ilike(search),
             )
         )
-
     assets = query.all()
-
     # Основные данные активов
     asset_data = []
     # Данные об истории изменений
     history_data = []
-
     for asset in assets:
         asset_data.append({
             "ID": asset.id,
@@ -159,10 +185,9 @@ def export_to_excel(
             "Процессор": asset.processor,
             "ОЗУ": asset.ram,
             "Комментарий": asset.comment,
-  	    "Ключ Windows": asset.windows_key,
+            "Ключ Windows": asset.windows_key,
             "Тип ОС": asset.os_type
         })
-
         # Добавляем историю изменений
         for h in asset.history:
             history_data.append({
@@ -171,9 +196,11 @@ def export_to_excel(
                 "Поле": h.field,
                 "Старое значение": h.old_value,
                 "Новое значение": h.new_value,
-                "Дата изменения": h.changed_at
+                "Дата изменения": h.changed_at,
+                # --- Новое поле ---
+                "Изменено пользователем": h.changed_by or "Неизвестно"
+                # ------------------
             })
-
     # Создаём Excel с двумя листами
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
@@ -181,15 +208,12 @@ def export_to_excel(
         if history_data:
             pd.DataFrame(history_data).to_excel(writer, index=False, sheet_name="История изменений")
         else:
-            pd.DataFrame(columns=["Asset ID", "Инвентарный номер", "Поле", "Старое значение", "Новое значение", "Дата изменения"]).to_excel(
+            pd.DataFrame(columns=["Asset ID", "Инвентарный номер", "Поле", "Старое значение", "Новое значение", "Дата изменения", "Изменено пользователем"]).to_excel(
                 writer, index=False, sheet_name="История изменений"
             )
-
     buffer.seek(0)
-
     filename = "активы_с_историей.xlsx"
     encoded_filename = quote(filename)
-
     return StreamingResponse(
         buffer,
         media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -198,10 +222,15 @@ def export_to_excel(
 
 #Импорт из экселя
 @app.post("/import/excel")
-def import_from_excel(file: UploadFile = File(...), db: Session = Depends(get_db)):
+def import_from_excel(file: UploadFile = File(...), db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+    username = get_current_username(token)
+    # Проверка прав (все авторизованные пользователи могут импортировать, если нужно только админам - раскомментируйте)
+    # user = get_user_by_username(db, username)
+    # if not user or not user.is_admin:
+    #     raise HTTPException(status_code=403, detail="Нет прав на импорт")
+    
     if not file.filename.endswith('.xlsx'):
         raise HTTPException(status_code=400, detail="Файл должен быть в формате .xlsx")
-
     try:
         contents = file.file.read()
         df_assets = pd.read_excel(BytesIO(contents), sheet_name="Активы")
@@ -214,41 +243,36 @@ def import_from_excel(file: UploadFile = File(...), db: Session = Depends(get_db
             df_history = pd.DataFrame()
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Ошибка чтения файла: {str(e)}")
-
     imported = 0
     errors = []
-
     # Сначала импортируем активы
     for index, row in df_assets.iterrows():
         try:
             inv_num = str(row["Инвентарный номер"]).strip()
             location = str(row["Расположение"]).strip()
             asset_type = str(row["Тип"]).strip()
-
             if not inv_num or not location or not asset_type:
                 errors.append(f"Строка {index+2}: пустое обязательное поле")
                 continue
-
             data = {
                 "inventory_number": clean_value(row.get("Инвентарный номер")),
-    		"serial_number": clean_value(row.get("Серийный номер")),
-    		"model": clean_value(row.get("Модель")),
-    		"type": clean_value(row.get("Тип")) or "Компьютер",
-    		"status": clean_value(row.get("Статус")) or "в эксплуатации",
-    		"location": clean_value(row.get("Расположение")),
-    		"user_name": clean_value(row.get("ФИО пользователя")),
-    		"issue_date": pd.to_datetime(row.get("Дата выдачи")).date() if pd.notna(row.get("Дата выдачи")) else None,
-    		"purchase_date": pd.to_datetime(row.get("Дата покупки")).date() if pd.notna(row.get("Дата покупки")) else None,
-    		"warranty_until": pd.to_datetime(row.get("Гарантия до")).date() if pd.notna(row.get("Гарантия до")) else None,
-    		"motherboard": clean_value(row.get("Мат. плата")),
-    		"processor": clean_value(row.get("Процессор")),
-    		"ram": clean_value(row.get("ОЗУ")),
-    		"comment": clean_value(row.get("Комментарий")),
-    		"windows_key": clean_value(row.get("Ключ Windows")),
-    		"os_type": clean_value(row.get("Тип ОС"))
+                "serial_number": clean_value(row.get("Серийный номер")),
+                "model": clean_value(row.get("Модель")),
+                "type": clean_value(row.get("Тип")) or "Компьютер",
+                "status": clean_value(row.get("Статус")) or "в эксплуатации",
+                "location": clean_value(row.get("Расположение")),
+                "user_name": clean_value(row.get("ФИО пользователя")),
+                "issue_date": pd.to_datetime(row.get("Дата выдачи")).date() if pd.notna(row.get("Дата выдачи")) else None,
+                "purchase_date": pd.to_datetime(row.get("Дата покупки")).date() if pd.notna(row.get("Дата покупки")) else None,
+                "warranty_until": pd.to_datetime(row.get("Гарантия до")).date() if pd.notna(row.get("Гарантия до")) else None,
+                "motherboard": clean_value(row.get("Мат. плата")),
+                "processor": clean_value(row.get("Процессор")),
+                "ram": clean_value(row.get("ОЗУ")),
+                "comment": clean_value(row.get("Комментарий")),
+                "windows_key": clean_value(row.get("Ключ Windows")),
+                "os_type": clean_value(row.get("Тип ОС"))
             }
             existing = db.query(models.Asset).filter(models.Asset.inventory_number == inv_num).first()
-
             if existing:
                 # Обновляем
                 for k, v in data.items():
@@ -258,16 +282,12 @@ def import_from_excel(file: UploadFile = File(...), db: Session = Depends(get_db
                 # Создаём новый
                 db_asset = models.Asset(**data)
                 db.add(db_asset)
-
             db.flush()  # Чтобы получить ID
-
             imported += 1
         except Exception as e:
             errors.append(f"Строка {index+2} (актив): {str(e)}")
-
     # Сохраняем, чтобы получить ID
     db.commit()
-
     # Теперь импортируем историю изменений
     if has_history and not df_history.empty:
         for index, row in df_history.iterrows():
@@ -277,15 +297,16 @@ def import_from_excel(file: UploadFile = File(...), db: Session = Depends(get_db
                 if not asset:
                     errors.append(f"Строка {index+2} (история): актив с инв. номером {inv_num} не найден")
                     continue
-
                 history_data = {
                     "asset_id": asset.id,
                     "field": str(row["Поле"]).strip(),
-                    "old_value": str(row["Старое значение"]).strip() or None,
-                    "new_value": str(row["Новое значение"]).strip() or None,
-                    "changed_at": pd.to_datetime(row["Дата изменения"]).date()
+                    "old_value": str(row["Старое значение"]).strip() if pd.notna(row["Старое значение"]) else None,
+                    "new_value": str(row["Новое значение"]).strip() if pd.notna(row["Новое значение"]) else None,
+                    "changed_at": pd.to_datetime(row["Дата изменения"]).date(),
+                    # --- Новое поле ---
+                    "changed_by": str(row["Изменено пользователем"]).strip() if pd.notna(row["Изменено пользователем"]) else None
+                    # ------------------
                 }
-
                 # Проверяем, нет ли уже такой записи
                 existing_history = db.query(models.AssetHistory).filter(
                     models.AssetHistory.asset_id == asset.id,
@@ -294,32 +315,26 @@ def import_from_excel(file: UploadFile = File(...), db: Session = Depends(get_db
                     models.AssetHistory.new_value == history_data["new_value"],
                     models.AssetHistory.changed_at == history_data["changed_at"]
                 ).first()
-
                 if not existing_history:
                     history = models.AssetHistory(**history_data)
                     db.add(history)
             except Exception as e:
                 errors.append(f"Строка {index+2} (история): {str(e)}")
-
     db.commit()
-
     return {
         "detail": f"Импорт завершён: {imported} активов",
         "errors": errors
     }
 
 @app.post("/admin/clear-db")
-def clear_database(request: Request, db: Session = Depends(get_db)):
-    auth = request.headers.get("Authorization")
-    if not auth or not auth.startswith("Bearer "):
-        raise HTTPException(status_code=403, detail="Требуется авторизация")
-
-    token = auth.split(" ")[1]
-    username = token.replace("token_", "", 1)
-    if username not in fake_users_db or not fake_users_db[username]["is_admin"]:
+def clear_database(request: Request, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+    username = get_current_username(token)
+    user = get_user_by_username(db, username)
+    
+    if not user or not user.is_admin:
         raise HTTPException(status_code=403, detail="Нет прав на очистку базы")
-
+    
     deleted = db.query(models.Asset).delete()
     db.commit()
-
     return {"message": f"✅ База очищена: удалено {deleted} активов"}
+
