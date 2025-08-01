@@ -37,31 +37,34 @@ function App() {
     expiringWarranty: 0,
     inRepair: 0
   });
+  
+  // Новое состояние для управления пользователями
+  const [users, setUsers] = useState([]);
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [userFormData, setUserFormData] = useState({
+    username: '',
+    password: '',
+    is_admin: false
+  });
 
   // Загрузка активов
-  // Универсальная загрузка активов
-  // Универсальная загрузка активов
   const fetchAssets = async () => {
     try {
       const res = await fetch('http://10.0.1.225:8000/assets/');
       const data = await res.json();
       setAssets(data);
-
       const total = data.length;
       const laptops = data.filter(a => a.type === 'Ноутбук').length;
       const inRepair = data.filter(a => a.status === 'на ремонте').length;
-
       // Гарантия заканчивается в ближайшие 30 дней
       const today = new Date();
       const threshold = new Date();
       threshold.setDate(today.getDate() + 30);
-
       const expiringWarranty = data.filter(asset => {
         if (!asset.warranty_until) return false;
         const warrantyDate = new Date(asset.warranty_until);
         return warrantyDate >= today && warrantyDate <= threshold;
       }).length;
-
       setStats({
         total,
         laptops,
@@ -74,21 +77,36 @@ function App() {
   };
 
   const [expiringWarranty, setExpiringWarranty] = useState([]);
+
   useEffect(() => {
     if (assets.length > 0) {
       const today = new Date();
       const threshold = new Date();
       threshold.setDate(today.getDate() + 30);
-
       const expiring = assets.filter(asset => {
         if (!asset.warranty_until) return false;
         const warrantyDate = new Date(asset.warranty_until);
         return warrantyDate >= today && warrantyDate <= threshold;
       });
-
       setExpiringWarranty(expiring);
     }
   }, [assets]);
+
+  // Загрузка пользователей (только для админов)
+  const fetchUsers = async () => {
+    if (!user || !user.is_admin) return;
+    try {
+      const res = await fetch('http://10.0.1.225:8000/users/', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUsers(data);
+      }
+    } catch (err) {
+      console.error("Ошибка загрузки пользователей:", err);
+    }
+  };
 
   // Загружаем всегда
   useEffect(() => {
@@ -104,17 +122,19 @@ function App() {
         if (isModalOpen || isEditing) {
           closeModal();
         }
+        // Закрываем форму пользователей
+        if (showUserModal) {
+          setShowUserModal(false);
+        }
       }
     };
-
     // Добавляем слушатель
     window.addEventListener('keydown', handleKeyDown);
-
     // Убираем при размонтировании
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [showAboutModal, isModalOpen, isEditing]);
+  }, [showAboutModal, isModalOpen, isEditing, showUserModal]);
 
   // Проверка токена
   useEffect(() => {
@@ -160,146 +180,126 @@ function App() {
 
   // Экспорт в Excel
   const handleExport = async () => {
-  // Формируем текст уведомления
-  let filterText = "всех активов";
-  if (filter !== 'Все') {
-    filterText = `активов типа "${filter}"`;
-  }
-  if (searchQuery) {
-    filterText += ` с поиском по "${searchQuery}"`;
-  }
-
-  const confirmExport = window.confirm(
-    `Экспорт будет выполнен согласено выбранному фильтру ${filterText}.\n\nПродолжить?`
-  );
-
-  if (!confirmExport) {
-    return; // Пользователь отменил
-  }
-
-  try {
-    const params = new URLSearchParams();
+    // Формируем текст уведомления
+    let filterText = "всех активов";
     if (filter !== 'Все') {
-      params.append('type', filter);
+      filterText = `активов типа "${filter}"`;
     }
     if (searchQuery) {
-      params.append('q', searchQuery);
+      filterText += ` с поиском по "${searchQuery}"`;
     }
-
-    const url = `http://10.0.1.225:8000/export/excel?${params.toString()}`;
-
-    const res = await fetch(url, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-
-    if (!res.ok) {
-      const error = await res.json().catch(() => ({ detail: 'Ошибка экспорта' }));
-      alert(error.detail);
-      return;
+    const confirmExport = window.confirm(
+      `Экспорт будет выполнен согласено выбранному фильтру ${filterText}.\nПродолжить?`
+    );
+    if (!confirmExport) {
+      return; // Пользователь отменил
     }
-
-    const blob = await res.blob();
-    const filenameMatch = res.headers.get('Content-Disposition')?.match(/filename[^;=\n]*=([^;\n]*)/);
-    const filename = decodeURIComponent(filenameMatch?.[1]?.replace(/['"]/g, '') || 'активы.xlsx');
-
-    const urlBlob = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = urlBlob;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(urlBlob);
-    document.body.removeChild(a);
-  } catch (err) {
-    alert('Ошибка сети при экспорте');
-    console.error(err);
-  }
-};
-
-// Импорт из Excel
-const handleImport = async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  const formData = new FormData();
-  formData.append('file', file);
-
-  try {
-    const res = await fetch('http://10.0.1.225:8000/import/excel', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}` },
-      body: formData
-    });
-
-    const result = await res.json();
-
-    // Показываем результат
-    if (result.errors && result.errors.length > 0) {
-      alert(`Импорт частично завершён:\n${result.errors.join('\n')}`);
-    } else {
-      alert(result.detail); // "Импорт завершён: 5 активов"
-    }
-
-    // ВСЕГДА обновляем список, даже если были ошибки
-    await fetchAssets();
-
-  } catch (err) {
-    alert('Критическая ошибка импорта: ' + err.message);
-    console.error(err);
-  }
-
-  e.target.value = null;
-};
-
-const handleClearDatabase = async () => {
-  // 1. Спросим: хочешь ли скачать резервную копию?
-  const wantBackup = window.confirm(
-    "Перед очисткой базы рекомендуется сделать резервную копию.\n\nСкачать Excel-файл со всеми данными перед удалением?"
-  );
-
-  // 2. Если да — скачиваем
-  if (wantBackup) {
-    const link = document.createElement('a');
-    link.href = `http://10.0.1.225:8000/export/excel`;
-    link.setAttribute('download', '');
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    // Ждём 1 секунду, чтобы файл начал скачиваться
-    await new Promise(resolve => setTimeout(resolve, 1000));
-  }
-
-  // 3. Подтверждение очистки
-  const confirmed = window.confirm(
-    "ВНИМАНИЕ: Все активы и история изменений будут безвозвратно удалены.\n\nВы уверены, что хотите очистить всю базу?"
-  );
-
-  if (!confirmed) return;
-
-  // 4. Отправляем запрос на очистку
-  try {
-    const res = await fetch('http://10.0.1.225:8000/admin/clear-db', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`
+    try {
+      const params = new URLSearchParams();
+      if (filter !== 'Все') {
+        params.append('type', filter);
       }
-    });
-
-    const result = await res.json();
-
-    if (res.ok) {
-      alert(result.message);
-      setAssets([]); // Очищаем локально
-    } else {
-      alert(`Ошибка: ${result.detail}`);
+      if (searchQuery) {
+        params.append('q', searchQuery);
+      }
+      const url = `http://10.0.1.225:8000/export/excel?${params.toString()}`;
+      const res = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ detail: 'Ошибка экспорта' }));
+        alert(error.detail);
+        return;
+      }
+      const blob = await res.blob();
+      const filenameMatch = res.headers.get('Content-Disposition')?.match(/filename[^;=\\r\\n]*=([^;\\r\\n]*)/);
+      const filename = decodeURIComponent(filenameMatch?.[1]?.replace(/['"]/g, '') || 'активы.xlsx');
+      const urlBlob = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = urlBlob;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(urlBlob);
+      document.body.removeChild(a);
+    } catch (err) {
+      alert('Ошибка сети при экспорте');
+      console.error(err);
     }
-  } catch (err) {
-    alert('Ошибка сети');
-    console.error(err);
-  }
-};
+  };
+
+  // Импорт из Excel
+  const handleImport = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const res = await fetch('http://10.0.1.225:8000/import/excel', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+      const result = await res.json();
+      // Показываем результат
+      if (result.errors && result.errors.length > 0) {
+        // Используем \n для перевода строки вместо фактического перевода
+        alert(`Импорт частично завершён:\n${result.errors.join('\n')}`);
+      } else {
+        alert(result.detail); // "Импорт завершён: 5 активов"
+      }
+      // ВСЕГДА обновляем список, даже если были ошибки
+      await fetchAssets();
+    } catch (err) {
+      alert('Критическая ошибка импорта: ' + err.message);
+      console.error(err);
+    }
+    e.target.value = null;
+  };
+
+
+  const handleClearDatabase = async () => {
+    // 1. Спросим: хочешь ли скачать резервную копию?
+    const wantBackup = window.confirm(
+      "Перед очисткой базы рекомендуется сделать резервную копию. Скачать Excel-файл со всеми данными перед удалением?"
+    );
+    // 2. Если да — скачиваем
+    if (wantBackup) {
+      const link = document.createElement('a');
+      link.href = `http://10.0.1.225:8000/export/excel`;
+      link.setAttribute('download', '');
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      // Ждём 1 секунду, чтобы файл начал скачиваться
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    // 3. Подтверждение очистки
+    const confirmed = window.confirm(
+      "ВНИМАНИЕ: Все активы и история изменений будут безвозвратно удалены. Вы уверены, что хотите очистить всю базу?"
+    );
+    if (!confirmed) return;
+    // 4. Отправляем запрос на очистку
+    try {
+      const res = await fetch('http://10.0.1.225:8000/admin/clear-db', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const result = await res.json();
+      if (res.ok) {
+        alert(result.message);
+        setAssets([]); // Очищаем локально
+      } else {
+        alert(`Ошибка: ${result.detail}`);
+      }
+    } catch (err) {
+      alert('Ошибка сети');
+      console.error(err);
+    }
+  };
 
   // Обработка формы
   const handleChange = (e) => {
@@ -341,77 +341,71 @@ const handleClearDatabase = async () => {
 
   // Отправка формы
   const handleSubmit = async (e) => {
-  e.preventDefault();
-
-  // Валидация
-  if (!formData.inventory_number || !formData.inventory_number.trim()) {
-    alert("Поле 'Инвентарный номер' обязательно для заполнения");
-    return;
-  }
-  if (!formData.location || !formData.location.trim()) {
-    alert("Поле 'Расположение' обязательно для заполнения");
-    return;
-  }
-  if (!formData.type) {
-    alert("Пожалуйста, выберите тип оборудования из списка");
-    return;
-  }
-
-  // Формируем payload
-  const payload = {};
-  for (const key in formData) {
-    const value = formData[key];
-
-  // Если это поле даты и значение пустое — отправляем null
-    if (['purchase_date', 'warranty_until'].includes(key)) {
-      payload[key] = value ? value : null;
-    } else if (value !== null && value !== undefined) {
-      payload[key] = value;
+    e.preventDefault();
+    // Валидация
+    if (!formData.inventory_number || !formData.inventory_number.trim()) {
+      alert("Поле 'Инвентарный номер' обязательно для заполнения");
+      return;
     }
-  }
-
-  const url = isEditing
-    ? `http://10.0.1.225:8000/assets/${formData.id}`
-    : 'http://10.0.1.225:8000/assets/';
-  const method = isEditing ? 'PUT' : 'POST';
-
-  try {
-    const res = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (res.ok) {
-      const updated = await res.json();
-      if (isEditing) {
-        setAssets(assets.map(a => a.id === updated.id ? updated : a));
-      } else {
-        setAssets([...assets, updated]);
+    if (!formData.location || !formData.location.trim()) {
+      alert("Поле 'Расположение' обязательно для заполнения");
+      return;
+    }
+    if (!formData.type) {
+      alert("Пожалуйста, выберите тип оборудования из списка");
+      return;
+    }
+    // Формируем payload
+    const payload = {};
+    for (const key in formData) {
+      const value = formData[key];
+      // Если это поле даты и значение пустое — отправляем null
+      if (['purchase_date', 'warranty_until'].includes(key)) {
+        payload[key] = value ? value : null;
+      } else if (value !== null && value !== undefined) {
+        payload[key] = value;
       }
-      closeModal();
-    } else {
-      const errorData = await res.json().catch(() => null);
-      if (errorData?.detail) {
-        // Попробуем разобрать ошибку Pydantic
-        if (Array.isArray(errorData.detail)) {
-          const messages = errorData.detail.map(err => `${err.loc?.[1]}: ${err.msg}`).join('; ');
-          alert(`Ошибка валидации: ${messages}`);
+    }
+    const url = isEditing
+      ? `http://10.0.1.225:8000/assets/${formData.id}`
+      : 'http://10.0.1.225:8000/assets/';
+    const method = isEditing ? 'PUT' : 'POST';
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        if (isEditing) {
+          setAssets(assets.map(a => a.id === updated.id ? updated : a));
         } else {
-          alert(errorData.detail);
+          setAssets([...assets, updated]);
         }
+        closeModal();
       } else {
-        alert('Ошибка сохранения актива');
+        const errorData = await res.json().catch(() => null);
+        if (errorData?.detail) {
+          // Попробуем разобрать ошибку Pydantic
+          if (Array.isArray(errorData.detail)) {
+            const messages = errorData.detail.map(err => `${err.loc?.[1]}: ${err.msg}`).join('; ');
+            alert(`Ошибка валидации: ${messages}`);
+          } else {
+            alert(errorData.detail);
+          }
+        } else {
+          alert('Ошибка сохранения актива');
+        }
       }
+    } catch (err) {
+      alert('Ошибка сети');
+      console.error(err);
     }
-  } catch (err) {
-    alert('Ошибка сети');
-    console.error(err);
-  }
-};
+  };
 
   // Хуманизация полей
   const getHumanFieldName = (field) => {
@@ -428,6 +422,12 @@ const handleClearDatabase = async () => {
       ram: 'ОЗУ',
       os_type: 'Тип ОС',
       windows_key: 'Ключ Windows',
+      purchase_date: 'Дата покупки',
+      warranty_until: 'Гарантия до',
+      issue_date: 'Дата выдачи',
+      comment: 'Комментарий',
+      created: 'Создание', // Если используется в логике crud.py
+      deleted: 'Удаление'
     };
     return labels[field] || field;
   };
@@ -458,15 +458,15 @@ const handleClearDatabase = async () => {
 
   // Фильтрация + поиск
   const filteredAssets = assets.filter((asset) => {
-  const matchesFilter = filter === 'Все' || asset.type === filter;
-  const matchesSearch = !searchQuery || Object.values(asset).some(val => {
-    if (val == null || typeof val === 'number' || val instanceof Date) {
-      return false;
-    }
-    return String(val).toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesFilter = filter === 'Все' || asset.type === filter;
+    const matchesSearch = !searchQuery || Object.values(asset).some(val => {
+      if (val == null || typeof val === 'number' || val instanceof Date) {
+        return false;
+      }
+      return String(val).toLowerCase().includes(searchQuery.toLowerCase());
+    });
+    return matchesFilter && matchesSearch;
   });
-  return matchesFilter && matchesSearch;
-});
 
   const totalPages = Math.ceil(filteredAssets.length / itemsPerPage);
   const paginatedAssets = filteredAssets.slice(
@@ -474,386 +474,436 @@ const handleClearDatabase = async () => {
     page * itemsPerPage
   );
 
+  // Функции для управления пользователями
+  const openUserModal = () => {
+    setUserFormData({
+      username: '',
+      password: '',
+      is_admin: false
+    });
+    setShowUserModal(true);
+  };
+
+  const handleUserChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setUserFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
+
+  const handleUserSubmit = async (e) => {
+    e.preventDefault();
+    if (!userFormData.username || !userFormData.password) {
+      alert("Пожалуйста, заполните все поля");
+      return;
+    }
+    
+    try {
+      const res = await fetch('http://10.0.1.225:8000/users/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(userFormData)
+      });
+      
+      if (res.ok) {
+        const newUser = await res.json();
+        setUsers([...users, newUser]);
+        setShowUserModal(false);
+        alert("Пользователь создан");
+      } else {
+        const errorData = await res.json();
+        alert(errorData.detail || "Ошибка создания пользователя");
+      }
+    } catch (err) {
+      alert("Ошибка сети");
+      console.error(err);
+    }
+  };
+
   return (
     <div className="container mt-4">
       {/* Форма входа */}
-	{!token && (
-	  <form
-	    className="login-form mb-4 p-3 bg-light border rounded"
-            onSubmit={(e) => {
-              e.preventDefault(); // ⚠️ Обязательно!
-              handleLogin();
-            }}
-          >
-            <h3>Авторизация</h3>
-            <input
-              type="text"
-              placeholder="Логин"
-              className="form-control mb-2"
-              value={loginData.username}
-              onChange={(e) => setLoginData({ ...loginData, username: e.target.value })}
-              autoFocus
-            />
-            <input
-              type="password"
-              placeholder="Пароль"
-              className="form-control mb-2"
-              value={loginData.password}
-              onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
-            />
-            <button type="submit" className="btn btn-primary mt-2">
-              Войти
-            </button>
-          </form>
-        )}
+      {!token && (
+        <form
+          className="login-form mb-4 p-3 bg-light border rounded"
+          onSubmit={(e) => {
+            e.preventDefault(); // ⚠️ Обязательно!
+            handleLogin();
+          }}
+        >
+          <h3>Авторизация</h3>
+          <input
+            type="text"
+            placeholder="Логин"
+            className="form-control mb-2"
+            value={loginData.username}
+            onChange={(e) => setLoginData({ ...loginData, username: e.target.value })}
+            autoFocus
+          />
+          <input
+            type="password"
+            placeholder="Пароль"
+            className="form-control mb-2"
+            value={loginData.password}
+            onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+          />
+          <button type="submit" className="btn btn-primary mt-2">
+            Войти
+          </button>
+        </form>
+      )}
       
       {/* Статистика */}
-  <div className="mb-4 p-3 rounded shadow-sm">
-    <div className="row text-center">
-      <div className="col-md-3 col-6">
-        <div className="fw-bold text-primary">{stats.total}</div>
-        <div className="text-muted small">Всего активов</div>
+      <div className="mb-4 p-3 rounded shadow-sm">
+        <div className="row text-center">
+          <div className="col-md-3 col-6">
+            <div className="fw-bold text-primary">{stats.total}</div>
+            <div className="text-muted small">Всего активов</div>
+          </div>
+          <div className="col-md-3 col-6">
+            <div className="fw-bold text-success">{stats.laptops}</div>
+            <div className="text-muted small">Ноутбуков</div>
+          </div>
+          <div className="col-md-3 col-6">
+            <div className="fw-bold text-warning">{stats.expiringWarranty}</div>
+            <div className="text-muted small">Гарантия заканчивается</div>
+          </div>
+          <div className="col-md-3 col-6">
+            <div className="fw-bold text-danger">{stats.inRepair}</div>
+            <div className="text-muted small">В ремонте</div>
+          </div>
+        </div>
       </div>
-      <div className="col-md-3 col-6">
-        <div className="fw-bold text-success">{stats.laptops}</div>
-        <div className="text-muted small">Ноутбуков</div>
-      </div>
-      <div className="col-md-3 col-6">
-        <div className="fw-bold text-warning">{stats.expiringWarranty}</div>
-        <div className="text-muted small">Гарантия заканчивается</div>
-      </div>
-      <div className="col-md-3 col-6">
-        <div className="fw-bold text-danger">{stats.inRepair}</div>
-        <div className="text-muted small">В ремонте</div>
-      </div>
-    </div>
-  </div>
-
+      
       {/* Информация о пользователе */}
       {token && (
-  <div className="d-flex justify-content-between align-items-center mb-3">
-    <span>Вы вошли как {user?.username || 'админ'}</span>
-    <div className="d-flex align-items-center gap-2">
-      {/* Логотип */}
-      <img
-        src="/asset-logo.png"
-        alt="Логотип"
-        style={{
-          height: '80px',
-          opacity: 0.9,
-	  filter: 'grayscale(100%)'
-        }}
-      />
-
-      {/* Кнопка выхода */}
-      <button className="btn btn-outline-danger" onClick={handleLogout}>Выйти</button>
-    </div>
-  </div>
-)}
+        <div className="d-flex justify-content-between align-items-center mb-3">
+          <span>Вы вошли как {user?.username || 'пользователь'}</span>
+          <div className="d-flex align-items-center gap-2">
+            {/* Логотип */}
+            <img
+              src="/asset-logo.png"
+              alt="Логотип"
+              style={{
+                height: '80px',
+                opacity: 0.9,
+                filter: 'grayscale(100%)'
+              }}
+            />
+            {/* Кнопка выхода */}
+            <button className="btn btn-outline-danger" onClick={handleLogout}>Выйти</button>
+          </div>
+        </div>
+      )}
       
       {/* Компактная панель управления */}
-{user && (
-  <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 p-2 bg-white border rounded">
-    {/* Левая группа: сервисные кнопки (доступны всем авторизованным) */}
-    <div className="d-flex flex-wrap gap-1">
-      {/* Кнопка "О системе" */}
-      <button
-        className="btn btn-outline-info btn-sm"
-        onClick={() => setShowAboutModal(true)}
-        title="О системе"
-      >
-        <i className="fas fa-info-circle"></i> О системе
-      </button>
-
-      {/* Экспорт в Excel */}
-      <button
-        className="btn btn-outline-success btn-sm"
-        onClick={handleExport}
-        title="Экспорт в Excel"
-      >
-        <i className="fas fa-file-export"></i> Экспорт
-      </button>
-
-      {/* Импорт из Excel — только для админа */}
-      {user.is_admin && (
-        <label
-          className="btn btn-outline-primary btn-sm mb-0"
-          title="Импорт из Excel"
-        >
-          <i className="fas fa-file-import"></i> Импорт
-          <input
-            type="file"
-            accept=".xlsx"
-            style={{ display: 'none' }}
-            onChange={handleImport}
-          />
-        </label>
+      {user && (
+        <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 p-2 bg-white border rounded">
+          {/* Левая группа: сервисные кнопки (доступны всем авторизованным) */}
+          <div className="d-flex flex-wrap gap-1">
+            {/* Кнопка "О системе" */}
+            <button
+              className="btn btn-outline-info btn-sm"
+              onClick={() => setShowAboutModal(true)}
+              title="О системе"
+            >
+              <i className="fas fa-info-circle"></i> О системе
+            </button>
+            {/* Экспорт в Excel */}
+            <button
+              className="btn btn-outline-success btn-sm"
+              onClick={handleExport}
+              title="Экспорт в Excel"
+            >
+              <i className="fas fa-file-export"></i> Экспорт
+            </button>
+            {/* Импорт из Excel — только для админа */}
+            {user.is_admin && (
+              <label
+                className="btn btn-outline-primary btn-sm mb-0"
+                title="Импорт из Excel"
+              >
+                <i className="fas fa-file-import"></i> Импорт
+                <input
+                  type="file"
+                  accept=".xlsx"
+                  style={{ display: 'none' }}
+                  onChange={handleImport}
+                />
+              </label>
+            )}
+          </div>
+          {/* Правая группа: действия админа */}
+          {user.is_admin && (
+            <div className="d-flex flex-wrap gap-1">
+              {/* Кнопка "Добавить актив" */}
+              <button
+                className="btn btn-success btn-sm"
+                onClick={() => openModal()}
+                title="Добавить актив"
+              >
+                <i className="fas fa-plus"></i> Добавить
+              </button>
+              {/* Кнопка "Управление пользователями" */}
+              <button
+                className="btn btn-warning btn-sm"
+                onClick={openUserModal}
+                title="Управление пользователями"
+              >
+                <i className="fas fa-users"></i> Пользователи
+              </button>
+              {/* Кнопка "Очистить базу" */}
+              <button
+                className="btn btn-danger btn-sm"
+                onClick={handleClearDatabase}
+                title="Очистить всю базу"
+              >
+                <i className="fas fa-trash-alt"></i> Очистить
+              </button>
+            </div>
+          )}
+        </div>
       )}
-    </div>
-
-    {/* Правая группа: действия админа */}
-    {user.is_admin && (
-      <div className="d-flex flex-wrap gap-1">
-        {/* Кнопка "Добавить актив" */}
-        <button
-          className="btn btn-success btn-sm"
-          onClick={() => openModal()}
-          title="Добавить актив"
-        >
-          <i className="fas fa-plus"></i> Добавить
-        </button>
-
-        {/* Кнопка "Очистить базу" */}
-        <button
-          className="btn btn-danger btn-sm"
-          onClick={handleClearDatabase}
-          title="Очистить всю базу"
-        >
-          <i className="fas fa-trash-alt"></i> Очистить
-        </button>
-      </div>
-    )}
-  </div>
-)}
-
+      
       {/* Кнопки фильтрации */}
       <div className="btn-group mb-4" role="group">
-  <button
-    className={`btn btn-outline-primary ${filter === 'Все' ? 'active' : ''}`}
-    onClick={() => {
-      setFilter('Все');
-      setPage(1);
-    }}
-  >
-    Все
-  </button>
-  <button
-    className={`btn btn-outline-primary ${filter === 'Монитор' ? 'active' : ''}`}
-    onClick={() => {
-      setFilter('Монитор');
-      setPage(1);
-    }}
-  >
-    Мониторы
-  </button>
-  <button
-    className={`btn btn-outline-primary ${filter === 'Компьютер' ? 'active' : ''}`}
-    onClick={() => {
-      setFilter('Компьютер');
-      setPage(1);
-    }}
-  >
-    Компьютеры
-  </button>
-  <button
-    className={`btn btn-outline-primary ${filter === 'Ноутбук' ? 'active' : ''}`}
-    onClick={() => {
-      setFilter('Ноутбук');
-      setPage(1);
-    }}
-  >
-    Ноутбуки
-  </button>
-  <button
-    className={`btn btn-outline-primary ${filter === 'Прочее' ? 'active' : ''}`}
-    onClick={() => {
-      setFilter('Прочее');
-      setPage(1);
-    }}
-  >
-    Прочее
-  </button>
-    <button
-    className={`btn ${activeTab === 'reports' ? 'btn-primary' : 'btn-outline-primary'}`}
-    onClick={() => setActiveTab(activeTab === 'reports' ? 'assets' : 'reports')}
-  >
-    Отчёт о гарантиях
-  </button>
-</div>
-
+        <button
+          className={`btn btn-outline-primary ${filter === 'Все' ? 'active' : ''}`}
+          onClick={() => {
+            setFilter('Все');
+            setPage(1);
+          }}
+        >
+          Все
+        </button>
+        <button
+          className={`btn btn-outline-primary ${filter === 'Монитор' ? 'active' : ''}`}
+          onClick={() => {
+            setFilter('Монитор');
+            setPage(1);
+          }}
+        >
+          Мониторы
+        </button>
+        <button
+          className={`btn btn-outline-primary ${filter === 'Компьютер' ? 'active' : ''}`}
+          onClick={() => {
+            setFilter('Компьютер');
+            setPage(1);
+          }}
+        >
+          Компьютеры
+        </button>
+        <button
+          className={`btn btn-outline-primary ${filter === 'Ноутбук' ? 'active' : ''}`}
+          onClick={() => {
+            setFilter('Ноутбук');
+            setPage(1);
+          }}
+        >
+          Ноутбуки
+        </button>
+        <button
+          className={`btn btn-outline-primary ${filter === 'Прочее' ? 'active' : ''}`}
+          onClick={() => {
+            setFilter('Прочее');
+            setPage(1);
+          }}
+        >
+          Прочее
+        </button>
+        <button
+          className={`btn ${activeTab === 'reports' ? 'btn-primary' : 'btn-outline-primary'}`}
+          onClick={() => setActiveTab(activeTab === 'reports' ? 'assets' : 'reports')}
+        >
+          Отчёт о гарантиях
+        </button>
+      </div>
+      
       {/* Поле поиска */}
       <div className="input-group">
         <input
-	  type="text"
-	  className="form-control"
-	  placeholder="Введите данные актива для поиска..."
-	  value={searchQuery}
-	  onChange={(e) => setSearchQuery(e.target.value)}
-	/>
-	{searchQuery && (
-	  <button
-	    className="btn btn-outline-secondary"
+          type="text"
+          className="form-control"
+          placeholder="Введите данные актива для поиска..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+        {searchQuery && (
+          <button
+            className="btn btn-outline-secondary"
             type="button"
             onClick={() => setSearchQuery('')}
             style={{ display: 'flex', alignItems: 'center', padding: '0 10px' }}
             title="Очистить поиск"
           >
             <i className="fas fa-times"></i>
-	  </button>
-	)}
+          </button>
+        )}
       </div>
-
+      
       {/* Таблица */}
       <div className="table-container">
         <div className="table-responsive">
-	  <table className="custom-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Инвентарный номер</th>
-              <th>Серийный номер</th>
-              <th>Статус</th>
-              <th>Расположение</th>
-              <th>ФИО пользователя</th>
-              <th>Комментарий</th>
-              {user?.is_admin && <th>Действия</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedAssets.length > 0 ? (
-              paginatedAssets.map((asset) => (
-                <React.Fragment key={asset.id}>
-                  <tr>
-                    <td data-label="ID">{asset.id}</td>
-                    <td data-label="Инвентарный номер">{asset.inventory_number || '-'}</td>
-                    <td data-label="Серийный номер">{asset.serial_number || '-'}</td>
-                    <td data-label="Статус">{asset.status}</td>
-                    <td data-label="Расположение">{asset.location}</td>
-                    <td data-label="ФИО пользователя">{asset.user_name || '-'}</td>
-                    <td data-label="Комментарий"><div className="comment-cell">{asset.comment || ''}</div></td>
-		    {user?.is_admin && (
-                      <td className="text-center">
-                        {/* Редактировать — карандаш */}
-                        <button
-                          className="btn btn-sm btn-outline-primary me-1"
-                          title="Редактировать"
-                          onClick={() => handleEdit(asset)}
-                        >
-                          <i className="fas fa-edit"></i>
-                        </button>
-
-                       {/* Удалить — корзина */}
-                       <button
-                         className="btn btn-sm btn-outline-danger me-1"
-                         title="Удалить"
-                         onClick={() => handleDelete(asset.id)}
-                       >
-                         <i className="fas fa-trash"></i>
-                      </button>
-
-                      {/* Показать/скрыть историю — часы/история */}
-                      <button
-                        className="btn btn-sm btn-outline-secondary"
-                        title={showHistory === asset.id ? "Скрыть историю" : "Показать историю"}
-			onClick={() => setShowHistory(showHistory === asset.id ? null : asset.id)}
-		      >
-                       <i className={`fas ${showHistory === asset.id ? 'fa-eye-slash' : 'fa-history'}`}></i>
-                      </button>
-                    </td>
-                   )}
-                  </tr>
-
-                  {/* История изменений */}
-                  {showHistory === asset.id && asset.history && asset.history.length > 0 && (
-                    <tr>
-                      <td colSpan={user?.is_admin ? "8" : "7"} className="bg-light small p-2">
-                        <strong>История изменений:</strong>
-                        <ul className="mb-0 ps-3">
-                          {asset.history.map((h, idx) => (
-                            <li key={idx}>
-                              {getHumanFieldName(h.field)}: "{h.old_value}" → "{h.new_value}" ({h.changed_at})
-                            </li>
-                          ))}
-                        </ul>
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
-              ))
-            ) : (
+          <table className="custom-table">
+            <thead>
               <tr>
-                <td colSpan={user?.is_admin ? "8" : "7"} className="text-center">Нет данных</td>
+                <th>ID</th>
+                <th>Инвентарный номер</th>
+                <th>Серийный номер</th>
+                <th>Статус</th>
+                <th>Расположение</th>
+                <th>ФИО пользователя</th>
+                <th>Комментарий</th>
+                {user?.is_admin && <th>Действия</th>}
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {paginatedAssets.length > 0 ? (
+                paginatedAssets.map((asset) => (
+                  <React.Fragment key={asset.id}>
+                    <tr>
+                      <td data-label="ID">{asset.id}</td>
+                      <td data-label="Инвентарный номер">{asset.inventory_number || '-'}</td>
+                      <td data-label="Серийный номер">{asset.serial_number || '-'}</td>
+                      <td data-label="Статус">{asset.status}</td>
+                      <td data-label="Расположение">{asset.location}</td>
+                      <td data-label="ФИО пользователя">{asset.user_name || '-'}</td>
+                      <td data-label="Комментарий"><div className="comment-cell">{asset.comment || ''}</div></td>
+                      {user?.is_admin && (
+                        <td className="text-center">
+                          {/* Редактировать — карандаш */}
+                          <button
+                            className="btn btn-sm btn-outline-primary me-1"
+                            title="Редактировать"
+                            onClick={() => handleEdit(asset)}
+                          >
+                            <i className="fas fa-edit"></i>
+                          </button>
+                          {/* Удалить — корзина */}
+                          <button
+                            className="btn btn-sm btn-outline-danger me-1"
+                            title="Удалить"
+                            onClick={() => handleDelete(asset.id)}
+                          >
+                            <i className="fas fa-trash"></i>
+                          </button>
+                          {/* Показать/скрыть историю — часы/история */}
+                          <button
+                            className="btn btn-sm btn-outline-secondary"
+                            title={showHistory === asset.id ? "Скрыть историю" : "Показать историю"}
+                            onClick={() => setShowHistory(showHistory === asset.id ? null : asset.id)}
+                          >
+                            <i className={`fas ${showHistory === asset.id ? 'fa-eye-slash' : 'fa-history'}`}></i>
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                    {/* История изменений */}
+                    {showHistory === asset.id && asset.history && asset.history.length > 0 && (
+                      <tr>
+                        <td colSpan={user?.is_admin ? "8" : "7"} className="bg-light small p-2">
+                          <strong>История изменений:</strong>
+                          <ul className="mb-0 ps-3">
+                            {asset.history.map((h, idx) => (
+                              <li key={idx}>
+                                {/* Отображаем имя пользователя и дату изменения */}
+                                {h.changed_by ? `[${h.changed_by}] ` : ''}
+                                {getHumanFieldName(h.field)}: "{h.old_value}" → "{h.new_value}" ({h.changed_at})
+                              </li>
+                            ))}
+                          </ul>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={user?.is_admin ? "8" : "7"} className="text-center">Нет данных</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
-
+      
       {/* Пагинация */}
       {/* Пагинация с быстрым переходом */}
-<div className="d-flex justify-content-between align-items-center mt-3">
-  <button
-    className="btn btn-outline-primary"
-    onClick={() => setPage(p => Math.max(1, p - 1))}
-    disabled={page === 1}
-  >
-    Назад
-  </button>
-
-  <div className="d-flex align-items-center gap-2">
-    <span>Страница</span>
-    <input
-      type="number"
-      min="1"
-      max={Math.ceil(filteredAssets.length / itemsPerPage)}
-      value={page}
-      onChange={(e) => {
-        const value = e.target.value;
-        if (value === '') {
-          setPage(1); // или оставить пустым, если хочешь
-          return;
-        }
-        const num = parseInt(value, 10);
-        if (num >= 1 && num <= Math.ceil(filteredAssets.length / itemsPerPage)) {
-          setPage(num);
-        }
-      }}
-      className="form-control text-center"
-      style={{ width: '70px' }}
-    />
-    <span>из {Math.ceil(filteredAssets.length / itemsPerPage)}</span>
-  </div>
-  <button
-    className="btn btn-outline-primary"
-    onClick={() => setPage(p => Math.min(Math.ceil(filteredAssets.length / itemsPerPage), p + 1))}
-    disabled={page === Math.ceil(filteredAssets.length / itemsPerPage) || filteredAssets.length === 0}
-  >
-    Вперёд
-  </button>
-</div>
-
-    {activeTab === 'reports' && (
-      <div className="reports-section">
-        <h4>Отчёт: Гарантия заканчивается</h4>
-        <p>Активы, у которых гарантия заканчивается в ближайшие 30 дней</p>
-
-        <table className="custom-table">
-          <thead>
-            <tr>
-              <th>Инвентарный номер</th>
-              <th>Модель</th>
-              <th>ФИО пользователя</th>
-              <th>Гарантия до</th>
-              <th>Статус</th>
-            </tr>
-          </thead>
-          <tbody>
-            {expiringWarranty.map((asset) => (
-              <tr key={asset.id} className="expiring-soon" >
-                <td data-label="Инвентарный номер">{asset.inventory_number}</td>
-                <td data-label="Модель">{asset.model}</td>
-                <td data-label="ФИО">{asset.user_name || '-'}</td>
-                <td data-label="Гарантия до">{asset.warranty_until}</td>
-                <td data-label="Статус">{asset.status}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="d-flex justify-content-between align-items-center mt-3">
+        <button
+          className="btn btn-outline-primary"
+          onClick={() => setPage(p => Math.max(1, p - 1))}
+          disabled={page === 1}
+        >
+          Назад
+        </button>
+        <div className="d-flex align-items-center gap-2">
+          <span>Страница</span>
+          <input
+            type="number"
+            min="1"
+            max={Math.ceil(filteredAssets.length / itemsPerPage)}
+            value={page}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value === '') {
+                setPage(1); // или оставить пустым, если хочешь
+                return;
+              }
+              const num = parseInt(value, 10);
+              if (num >= 1 && num <= Math.ceil(filteredAssets.length / itemsPerPage)) {
+                setPage(num);
+              }
+            }}
+            className="form-control text-center"
+            style={{ width: '70px' }}
+          />
+          <span>из {Math.ceil(filteredAssets.length / itemsPerPage)}</span>
+        </div>
+        <button
+          className="btn btn-outline-primary"
+          onClick={() => setPage(p => Math.min(Math.ceil(filteredAssets.length / itemsPerPage), p + 1))}
+          disabled={page === Math.ceil(filteredAssets.length / itemsPerPage) || filteredAssets.length === 0}
+        >
+          Вперёд
+        </button>
       </div>
-     )}
-
-      {/* Модальное окно */}
+      
+      {activeTab === 'reports' && (
+        <div className="reports-section">
+          <h4>Отчёт: Гарантия заканчивается</h4>
+          <p>Активы, у которых гарантия заканчивается в ближайшие 30 дней</p>
+          <table className="custom-table">
+            <thead>
+              <tr>
+                <th>Инвентарный номер</th>
+                <th>Модель</th>
+                <th>ФИО пользователя</th>
+                <th>Гарантия до</th>
+                <th>Статус</th>
+              </tr>
+            </thead>
+            <tbody>
+              {expiringWarranty.map((asset) => (
+                <tr key={asset.id} className="expiring-soon" >
+                  <td data-label="Инвентарный номер">{asset.inventory_number}</td>
+                  <td data-label="Модель">{asset.model}</td>
+                  <td data-label="ФИО">{asset.user_name || '-'}</td>
+                  <td data-label="Гарантия до">{asset.warranty_until}</td>
+                  <td data-label="Статус">{asset.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      
+      {/* Модальное окно для актива */}
       {isModalOpen && (
         <div className="modal fade show" style={{ display: 'block' }} tabIndex="-1" role="dialog">
           <div className="modal-dialog modal-lg" role="document">
@@ -897,7 +947,6 @@ const handleClearDatabase = async () => {
                       <option value="Прочее">Прочее</option>
                     </select>
                   </div>
-
                   <div className="col-md-6">
                     <label className="form-label">Серийный номер</label>
                     <input
@@ -939,7 +988,6 @@ const handleClearDatabase = async () => {
                       onChange={handleChange}
                     />
                   </div>
-
                   <div className="col-md-6">
                     <label className="form-label">Статус</label>
                     <select
@@ -983,7 +1031,6 @@ const handleClearDatabase = async () => {
                       onChange={handleChange}
                     />
                   </div>
-
                   {/* Поля только для компьютеров */}
                   {formData.type === 'Компьютер' && (
                     <>
@@ -1019,7 +1066,6 @@ const handleClearDatabase = async () => {
                       </div>
                     </>
                   )}
-
                   {/* Поля только для ноутбуков и компьютеров */}
                   {(formData.type === 'Компьютер' || formData.type === 'Ноутбук') && (
                     <>
@@ -1044,18 +1090,18 @@ const handleClearDatabase = async () => {
                         />
                       </div>
                     </>
-                   )}
-                     {formData.type === 'Ноутбук' && (
-                       <div className="col-md-6">
-                         <label className="form-label">Дата выдачи</label>
-                         <input
-                           type="date"
-                           className="form-control"
-                           name="issue_date"
-                           value={formData.issue_date || ''}
-                           onChange={handleChange}
-                         />
-                      </div>
+                  )}
+                  {formData.type === 'Ноутбук' && (
+                    <div className="col-md-6">
+                      <label className="form-label">Дата выдачи</label>
+                      <input
+                        type="date"
+                        className="form-control"
+                        name="issue_date"
+                        value={formData.issue_date || ''}
+                        onChange={handleChange}
+                      />
+                    </div>
                   )}
                 </form>
               </div>
@@ -1079,60 +1125,134 @@ const handleClearDatabase = async () => {
           </div>
         </div>
       )}
-
+      
+      {/* Модальное окно для управления пользователями */}
+      {showUserModal && (
+        <div className="modal fade show" style={{ display: 'block' }} tabIndex="-1" role="dialog">
+          <div className="modal-dialog" role="document">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Создать пользователя</h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowUserModal(false)}
+                ></button>
+              </div>
+              <div className="modal-body">
+                <form onSubmit={handleUserSubmit}>
+                  <div className="mb-3">
+                    <label className="form-label">Имя пользователя</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      name="username"
+                      value={userFormData.username}
+                      onChange={handleUserChange}
+                      required
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label">Пароль</label>
+                    <input
+                      type="password"
+                      className="form-control"
+                      name="password"
+                      value={userFormData.password}
+                      onChange={handleUserChange}
+                      required
+                    />
+                  </div>
+                  <div className="mb-3 form-check">
+                    <input
+                      type="checkbox"
+                      className="form-check-input"
+                      name="is_admin"
+                      checked={userFormData.is_admin}
+                      onChange={handleUserChange}
+                    />
+                    <label className="form-check-label">Администратор</label>
+                  </div>
+                </form>
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowUserModal(false)}
+                >
+                  Отмена
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-success"
+                  onClick={handleUserSubmit}
+                >
+                  Создать
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Фон затемнения */}
-      {isModalOpen && (
+      {(isModalOpen || showUserModal) && (
         <div
           className="modal-backdrop fade show"
-          onClick={closeModal}
+          onClick={() => {
+            if (isModalOpen) closeModal();
+            if (showUserModal) setShowUserModal(false);
+          }}
         ></div>
       )}
-
-{/* Модальное окно "О системе" */}
-{showAboutModal && (
-  <div className="modal fade show" style={{ display: 'block' }} onClick={() => setShowAboutModal(false)}>
-    <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
-      <div className="modal-content">
-        <div className="modal-header">
-          <h5 className="modal-title">О системе учёта активов</h5>
-          <button type="button" className="btn-close" onClick={() => setShowAboutModal(false)}></button>
+      
+      {/* Модальное окно "О системе" */}
+      {showAboutModal && (
+        <div className="modal fade show" style={{ display: 'block' }} onClick={() => setShowAboutModal(false)}>
+          <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">О системе учёта активов</h5>
+                <button type="button" className="btn-close" onClick={() => setShowAboutModal(false)}></button>
+              </div>
+              <div className="modal-body">
+                <p><strong>Версия:</strong> v{packageInfo.version.split('.').slice(0, 2).join('.')}</p>
+                <p>Система учёта активов Asset Tracker — это веб-приложение для управления компьютерами, ноутбуками, мониторами и другим оборудованием.</p>
+                <p>Позволяет:</p>
+                <ul>
+                  <li>Вести учёт активов с инвентарными номерами</li>
+                  <li>Отслеживать историю изменений с указанием пользователя</li>
+                  <li>Экспортировать и импортировать данные через Excel</li>
+                  <li>Контролировать гарантийные сроки</li>
+                </ul>
+                <p>Разработано для повышения прозрачности и эффективности учёта оборудования.</p>
+                <p>
+                  <a
+                    href="https://github.com/yorik1408/asset-tracker"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-outline-primary btn-sm"
+                  >
+                    <i className="fab fa-github"></i> Открыть репозиторий
+                  </a>
+                </p>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowAboutModal(false)}>
+                  Закрыть
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="modal-body">
-          <p><strong>Версия:</strong> v{packageInfo.version.split('.').slice(0, 2).join('.')}</p>
-          <p>Система учёта активов Asset Tracker — это веб-приложение для управления компьютерами, ноутбуками, мониторами и другим оборудованием.</p>
-          <p>Позволяет:</p>
-          <ul>
-            <li>Вести учёт активов с инвентарными номерами</li>
-            <li>Отслеживать историю изменений</li>
-            <li>Экспортировать и импортировать данные через Excel</li>
-            <li>Контролировать гарантийные сроки</li>
-          </ul>
-          <p>Разработано для повышения прозрачности и эффективности учёта оборудования.</p>
-          <p>
-            <a
-              href="https://github.com/yorik1408/asset-tracker"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn-outline-primary btn-sm"
-            >
-              <i className="fab fa-github"></i> Открыть репозиторий
-            </a>
-          </p>
-        </div>
-        <div className="modal-footer">
-          <button type="button" className="btn btn-secondary" onClick={() => setShowAboutModal(false)}>
-            Закрыть
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-)}
-
-{/* Фон затемнения */}
-{showAboutModal && <div className="modal-backdrop fade show"></div>}
+      )}
+      
+      {/* Фон затемнения */}
+      {showAboutModal && <div className="modal-backdrop fade show"></div>}
     </div>
   );
 }
 
 export default App;
+
