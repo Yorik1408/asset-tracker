@@ -1,67 +1,66 @@
-from sqlalchemy import Column, Integer, String, Boolean, Date, Enum as SQLAlchemyEnum, ForeignKey
+# models.py
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Date, Text
 from sqlalchemy.orm import relationship
 from database import Base
-import enum
+from passlib.context import CryptContext
 
-class AssetStatus(str, enum.Enum):
-    in_use = "в эксплуатации"
-    repair = "на ремонте"
-    retired = "списано"
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-class AssetType(str, enum.Enum):
-    monitor = "Монитор"
-    computer = "Компьютер"
-    laptop = "Ноутбук"
-    other = "Прочее"
+class User(Base):
+    __tablename__ = "users"
 
-class AssetHistory(Base):
-    __tablename__ = "asset_history"
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True)
+    password_hash = Column(String)
+    is_admin = Column(Boolean, default=False)
 
-    id = Column(Integer, primary_key=True)
-    asset_id = Column(Integer, ForeignKey("assets.id"), nullable=False)
-    field = Column(String, nullable=False)  # например: serial_number, location, user_name
-    old_value = Column(String)
-    new_value = Column(String)
-    changed_at = Column(Date, nullable=False)
-    # --- Новое поле ---
-    changed_by = Column(String, nullable=True) # Имя пользователя, внесшего изменение
-    # ------------------
+    # Связь с историей активов (если нужно отслеживать, кто что менял)
+    # asset_histories = relationship("AssetHistory", back_populates="changed_by_user")
 
-    asset = relationship("Asset", back_populates="history")
+    def set_password(self, password: str):
+        self.password_hash = pwd_context.hash(password)
+
+    def check_password(self, password: str) -> bool:
+        return pwd_context.verify(password, self.password_hash)
 
 class Asset(Base):
     __tablename__ = "assets"
 
-    id = Column(Integer, primary_key=True)
-    inventory_number = Column(String, nullable=False)
-    serial_number = Column(String, nullable=True)
-    model = Column(String)
-    purchase_date = Column(Date)
-    warranty_until = Column(Date)
-    status = Column(String)
-    location = Column(String, nullable=False)
-    user_name = Column(String)
-    motherboard = Column(String)
-    processor = Column(String)
-    ram = Column(String)
-    comment = Column(String)
-    type = Column(String)
-    issue_date = Column(Date)
-    # Дополнительные поля
-    windows_key = Column(String, nullable=True)
-    os_type = Column(String, nullable=True)
+    id = Column(Integer, primary_key=True, index=True)
+    inventory_number = Column(String, unique=True, index=True)
+    serial_number = Column(String, index=True, nullable=True)
+    model = Column(String, nullable=True)
+    type = Column(String) # Монитор, Компьютер, Ноутбук, Прочее
+    status = Column(String, default="в эксплуатации") # в эксплуатации, на ремонте, списано
+    location = Column(String)
+    user_name = Column(String, nullable=True)
+    issue_date = Column(Date, nullable=True) # Дата выдачи (для ноутбуков)
+    purchase_date = Column(Date, nullable=True)
+    warranty_until = Column(Date, nullable=True)
+    motherboard = Column(String, nullable=True) # Материнская плата
+    processor = Column(String, nullable=True) # Процессор
+    ram = Column(String, nullable=True) # ОЗУ
+    comment = Column(Text, nullable=True)
+    windows_key = Column(String, nullable=True) # Ключ Windows
+    os_type = Column(String, nullable=True) # Тип ОС
 
-    # Связи
-    history = relationship("AssetHistory", back_populates="asset", cascade="all, delete")
+    # Связь с историей изменений
+    history = relationship("AssetHistory", back_populates="asset", cascade="all, delete-orphan")
 
-# Связь уже определена выше, но оставим для совместимости
-Asset.history = relationship("AssetHistory", back_populates="asset")
-
-class User(Base):
-    __tablename__ = 'users'
+class AssetHistory(Base):
+    __tablename__ = "asset_history"
 
     id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, unique=True, nullable=False)
-    password_hash = Column(String, nullable=False)
-    is_admin = Column(Boolean, default=False)
+    asset_id = Column(Integer, ForeignKey("assets.id"))
+    field = Column(String)
+    old_value = Column(String, nullable=True)
+    new_value = Column(String, nullable=True)
+    changed_at = Column(Date)
+    changed_by = Column(String, nullable=True) # Имя пользователя, внесшего изменения
+
+    # Связь с активом
+    asset = relationship("Asset", back_populates="history")
+    # Связь с пользователем (если нужно)
+    # changed_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    # changed_by_user = relationship("User", back_populates="asset_histories")
 

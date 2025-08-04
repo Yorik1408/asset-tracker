@@ -16,6 +16,12 @@
   background-color: white;
 }
 
+/* Заголовок приложения*/
+.app-title {
+  font-size: 24px; /* Размер шрифта */
+  color: #333;     /* Цвет текста */
+}
+
 /* Заголовок таблицы */
 .custom-table thead th {
   background-color: #343a40;

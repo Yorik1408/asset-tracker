@@ -1,26 +1,45 @@
+# schemas.py
 from pydantic import BaseModel
 from datetime import date
 from typing import Optional, List
 from enum import Enum
 
-# Для входа
-class UserLogin(BaseModel):
+# --- Схемы для пользователей ---
+class UserBase(BaseModel):
+    username: str
+    is_admin: bool = False
+
+class UserLogin(BaseModel): # <<< ЭТОГО НЕТ В ВАШЕМ ТЕКУЩЕМ schemas.py
     username: str
     password: str
 
-# Для регистрации
-class UserCreate(UserLogin):
-    is_admin: bool = False
+class UserCreate(UserBase):
+    password: str # Пароль обязателен при создании
 
-# Ответ сервера
-class UserResponse(BaseModel):
+class UserUpdate(BaseModel):
+    username: Optional[str] = None
+    password: Optional[str] = None # Пароль опционален при обновлении
+    is_admin: Optional[bool] = None
+
+    class Config:
+        # Позволяет игнорировать поля, которые не установлены (None)
+        extra = "forbid"
+
+class UserInDB(UserBase):
     id: int
-    username: str
-    is_admin: bool
+    password_hash: str
 
     class Config:
         from_attributes = True
 
+class UserResponse(UserBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+# --------------------------------
+
+# --- Схемы для активов ---
 class AssetStatus(str, Enum):
     in_use = "в эксплуатации"
     repair = "на ремонте"
@@ -81,4 +100,5 @@ class AssetResponse(AssetBase):
 
     class Config:
         from_attributes = True
+# --------------------------
 

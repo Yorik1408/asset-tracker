@@ -1,3 +1,4 @@
+// app.jsx
 import React, { useState, useEffect } from 'react';
 import '/home/server/asset-tracker/frontend/src/TableStyles.css';
 import packageInfo from '../package.json';
@@ -21,7 +22,7 @@ function App() {
     type: ''
   });
   const [isEditing, setIsEditing] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false); // Управление модальным окном
+  const [isModalOpen, setIsModalOpen] = useState(false); // Управление модальным окном актива
   const [filter, setFilter] = useState('Все');
   const [activeTab, setActiveTab] = useState('assets');
   const [searchQuery, setSearchQuery] = useState('');
@@ -37,15 +38,18 @@ function App() {
     expiringWarranty: 0,
     inRepair: 0
   });
-  
-  // Новое состояние для управления пользователями
-  const [users, setUsers] = useState([]);
-  const [showUserModal, setShowUserModal] = useState(false);
+
+  // --- Состояния для управления пользователями ---
+  const [users, setUsers] = useState([]); // Список всех пользователей
+  const [showUserModal, setShowUserModal] = useState(false); // Открытие модального окна пользователей
+  const [isEditingUser, setIsEditingUser] = useState(false); // Флаг редактирования пользователя
+  const [editingUser, setEditingUser] = useState(null); // Данные редактируемого пользователя
   const [userFormData, setUserFormData] = useState({
     username: '',
     password: '',
     is_admin: false
   });
+  // ---------------------------------------------
 
   // Загрузка активов
   const fetchAssets = async () => {
@@ -77,7 +81,6 @@ function App() {
   };
 
   const [expiringWarranty, setExpiringWarranty] = useState([]);
-
   useEffect(() => {
     if (assets.length > 0) {
       const today = new Date();
@@ -94,7 +97,7 @@ function App() {
 
   // Загрузка пользователей (только для админов)
   const fetchUsers = async () => {
-    if (!user || !user.is_admin) return;
+    if (!user || !user.is_admin || !token) return;
     try {
       const res = await fetch('http://10.0.1.225:8000/users/', {
         headers: { Authorization: `Bearer ${token}` }
@@ -102,9 +105,11 @@ function App() {
       if (res.ok) {
         const data = await res.json();
         setUsers(data);
+      } else {
+         console.error("Ошибка загрузки пользователей:", await res.text());
       }
     } catch (err) {
-      console.error("Ошибка загрузки пользователей:", err);
+      console.error("Ошибка сети при загрузке пользователей:", err);
     }
   };
 
@@ -125,6 +130,9 @@ function App() {
         // Закрываем форму пользователей
         if (showUserModal) {
           setShowUserModal(false);
+          // Сбросить состояние редактирования при закрытии
+          setIsEditingUser(false);
+          setEditingUser(null);
         }
       }
     };
@@ -134,9 +142,9 @@ function App() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [showAboutModal, isModalOpen, isEditing, showUserModal]);
+  }, [showAboutModal, isModalOpen, isEditing, showUserModal]); // Добавили showUserModal
 
-  // Проверка токена
+  // Проверка токена и загрузка данных пользователя
   useEffect(() => {
     if (!token) return;
     fetch('http://10.0.1.225:8000/users/me', {
@@ -146,7 +154,13 @@ function App() {
         if (!res.ok) throw new Error();
         return res.json();
       })
-      .then(userData => setUser(userData))
+      .then(userData => {
+        setUser(userData);
+        // После авторизации загружаем пользователей, если админ
+        if (userData.is_admin) {
+             fetchUsers();
+        }
+      })
       .catch(() => {
         alert("Ошибка токена");
         handleLogout();
@@ -175,6 +189,7 @@ function App() {
     localStorage.removeItem('token');
     setToken('');
     setUser(null);
+    setUsers([]); // Очистить список пользователей при выходе
     window.location.reload();
   };
 
@@ -189,7 +204,8 @@ function App() {
       filterText += ` с поиском по "${searchQuery}"`;
     }
     const confirmExport = window.confirm(
-      `Экспорт будет выполнен согласено выбранному фильтру ${filterText}.\nПродолжить?`
+      `Экспорт будет выполнен согласено выбранному фильтру ${filterText}.
+Продолжить?`
     );
     if (!confirmExport) {
       return; // Пользователь отменил
@@ -212,7 +228,7 @@ function App() {
         return;
       }
       const blob = await res.blob();
-      const filenameMatch = res.headers.get('Content-Disposition')?.match(/filename[^;=\\r\\n]*=([^;\\r\\n]*)/);
+      const filenameMatch = res.headers.get('Content-Disposition')?.match(/filename[^;=\r\n]*=([^;\r\n]*)/);
       const filename = decodeURIComponent(filenameMatch?.[1]?.replace(/['"]/g, '') || 'активы.xlsx');
       const urlBlob = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -257,7 +273,6 @@ function App() {
     e.target.value = null;
   };
 
-
   const handleClearDatabase = async () => {
     // 1. Спросим: хочешь ли скачать резервную копию?
     const wantBackup = window.confirm(
@@ -301,13 +316,13 @@ function App() {
     }
   };
 
-  // Обработка формы
+  // Обработка формы актива
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  // Открытие модального окна
+  // Открытие модального окна актива
   const openModal = (asset = null) => {
     if (asset) {
       setFormData(asset);
@@ -333,13 +348,13 @@ function App() {
     setIsModalOpen(true);
   };
 
-  // Закрытие модального окна
+  // Закрытие модального окна актива
   const closeModal = () => {
     setIsModalOpen(false);
     setIsEditing(false);
   };
 
-  // Отправка формы
+  // Отправка формы актива
   const handleSubmit = async (e) => {
     e.preventDefault();
     // Валидация
@@ -467,21 +482,36 @@ function App() {
     });
     return matchesFilter && matchesSearch;
   });
-
   const totalPages = Math.ceil(filteredAssets.length / itemsPerPage);
   const paginatedAssets = filteredAssets.slice(
     (page - 1) * itemsPerPage,
     page * itemsPerPage
   );
 
-  // Функции для управления пользователями
-  const openUserModal = () => {
-    setUserFormData({
-      username: '',
-      password: '',
-      is_admin: false
-    });
+  // --- Функции для управления пользователями ---
+  // Открытие модального окна пользователей (для создания или просмотра/редактирования)
+  const openUserModal = (userToEdit = null) => {
+    if (userToEdit) {
+        // Режим редактирования
+        setIsEditingUser(true);
+        setEditingUser(userToEdit);
+        setUserFormData({
+            username: userToEdit.username,
+            password: '', // Не заполняем пароль для безопасности
+            is_admin: userToEdit.is_admin
+        });
+    } else {
+        // Режим создания
+        setIsEditingUser(false);
+        setEditingUser(null);
+        setUserFormData({
+            username: '',
+            password: '',
+            is_admin: false
+        });
+    }
     setShowUserModal(true);
+    fetchUsers(); // Обновляем список при открытии
   };
 
   const handleUserChange = (e) => {
@@ -492,37 +522,93 @@ function App() {
     }));
   };
 
+  // Создание или обновление пользователя
   const handleUserSubmit = async (e) => {
     e.preventDefault();
-    if (!userFormData.username || !userFormData.password) {
-      alert("Пожалуйста, заполните все поля");
-      return;
+
+    // Валидация
+    if (!userFormData.username || !userFormData.username.trim()) {
+        alert("Пожалуйста, заполните имя пользователя");
+        return;
     }
-    
+    if (!isEditingUser && (!userFormData.password || !userFormData.password.trim())) {
+        // Пароль обязателен только при создании
+        alert("Пожалуйста, заполните пароль");
+        return;
+    }
+    // Если редактируем и пароль пуст, убираем его из запроса
+    const payload = { ...userFormData };
+    if (isEditingUser && (!payload.password || !payload.password.trim())) {
+        delete payload.password;
+    }
+
+    const url = isEditingUser
+        ? `http://10.0.1.225:8000/users/${editingUser.id}`
+        : 'http://10.0.1.225:8000/users/';
+    const method = isEditingUser ? 'PUT' : 'POST';
+
     try {
-      const res = await fetch('http://10.0.1.225:8000/users/', {
-        method: 'POST',
+      const res = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(userFormData)
+        body: JSON.stringify(payload)
       });
-      
+
       if (res.ok) {
-        const newUser = await res.json();
-        setUsers([...users, newUser]);
+        const updatedOrNewUser = await res.json();
+        if (isEditingUser) {
+            // Обновляем пользователя в локальном состоянии
+            setUsers(users.map(u => u.id === updatedOrNewUser.id ? updatedOrNewUser : u));
+            alert("Пользователь обновлен");
+        } else {
+            // Добавляем нового пользователя в локальное состояние
+            setUsers([...users, updatedOrNewUser]);
+            alert("Пользователь создан");
+        }
         setShowUserModal(false);
-        alert("Пользователь создан");
+        setIsEditingUser(false);
+        setEditingUser(null);
+        setUserFormData({ username: '', password: '', is_admin: false }); // Сброс формы
       } else {
         const errorData = await res.json();
-        alert(errorData.detail || "Ошибка создания пользователя");
+        alert(errorData.detail || `Ошибка ${isEditingUser ? 'обновления' : 'создания'} пользователя`);
       }
     } catch (err) {
       alert("Ошибка сети");
       console.error(err);
     }
   };
+
+  // Удаление пользователя
+  const handleDeleteUser = async (userId) => {
+    if (!window.confirm('Вы уверены, что хотите удалить этого пользователя?')) return;
+    if (userId === user.id) {
+         alert("Нельзя удалить самого себя!");
+         return;
+    }
+    try {
+      const res = await fetch(`http://10.0.1.225:8000/users/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        setUsers(users.filter(u => u.id !== userId));
+        alert("Пользователь удален");
+      } else {
+        const errorData = await res.json();
+        alert(errorData.detail || "Ошибка удаления пользователя");
+      }
+    } catch (err) {
+      alert("Ошибка сети");
+      console.error(err);
+    }
+  };
+  // ---------------------------------------------
 
   return (
     <div className="container mt-4">
@@ -556,7 +642,6 @@ function App() {
           </button>
         </form>
       )}
-      
       {/* Статистика */}
       <div className="mb-4 p-3 rounded shadow-sm">
         <div className="row text-center">
@@ -578,7 +663,6 @@ function App() {
           </div>
         </div>
       </div>
-      
       {/* Информация о пользователе */}
       {token && (
         <div className="d-flex justify-content-between align-items-center mb-3">
@@ -599,7 +683,6 @@ function App() {
           </div>
         </div>
       )}
-      
       {/* Компактная панель управления */}
       {user && (
         <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 p-2 bg-white border rounded">
@@ -651,7 +734,7 @@ function App() {
               {/* Кнопка "Управление пользователями" */}
               <button
                 className="btn btn-warning btn-sm"
-                onClick={openUserModal}
+                onClick={() => openUserModal()} // Открываем модальное окно без данных для создания
                 title="Управление пользователями"
               >
                 <i className="fas fa-users"></i> Пользователи
@@ -668,7 +751,6 @@ function App() {
           )}
         </div>
       )}
-      
       {/* Кнопки фильтрации */}
       <div className="btn-group mb-4" role="group">
         <button
@@ -723,7 +805,6 @@ function App() {
           Отчёт о гарантиях
         </button>
       </div>
-      
       {/* Поле поиска */}
       <div className="input-group">
         <input
@@ -745,7 +826,6 @@ function App() {
           </button>
         )}
       </div>
-      
       {/* Таблица */}
       <div className="table-container">
         <div className="table-responsive">
@@ -831,7 +911,6 @@ function App() {
           </table>
         </div>
       </div>
-      
       {/* Пагинация */}
       {/* Пагинация с быстрым переходом */}
       <div className="d-flex justify-content-between align-items-center mt-3">
@@ -873,7 +952,6 @@ function App() {
           Вперёд
         </button>
       </div>
-      
       {activeTab === 'reports' && (
         <div className="reports-section">
           <h4>Отчёт: Гарантия заканчивается</h4>
@@ -902,7 +980,6 @@ function App() {
           </table>
         </div>
       )}
-      
       {/* Модальное окно для актива */}
       {isModalOpen && (
         <div className="modal fade show" style={{ display: 'block' }} tabIndex="-1" role="dialog">
@@ -1125,22 +1202,29 @@ function App() {
           </div>
         </div>
       )}
-      
       {/* Модальное окно для управления пользователями */}
       {showUserModal && (
         <div className="modal fade show" style={{ display: 'block' }} tabIndex="-1" role="dialog">
-          <div className="modal-dialog" role="document">
+          <div className="modal-dialog modal-lg" role="document"> {/* Увеличил размер модального окна */}
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title">Создать пользователя</h5>
+                <h5 className="modal-title">
+                    {isEditingUser ? 'Редактировать пользователя' : 'Создать пользователя'}
+                </h5>
                 <button
                   type="button"
                   className="btn-close"
-                  onClick={() => setShowUserModal(false)}
+                  onClick={() => {
+                      setShowUserModal(false);
+                      setIsEditingUser(false);
+                      setEditingUser(null);
+                      setUserFormData({ username: '', password: '', is_admin: false });
+                  }}
                 ></button>
               </div>
               <div className="modal-body">
-                <form onSubmit={handleUserSubmit}>
+                {/* Форма пользователя */}
+                <form onSubmit={handleUserSubmit} className="mb-4">
                   <div className="mb-3">
                     <label className="form-label">Имя пользователя</label>
                     <input
@@ -1153,14 +1237,17 @@ function App() {
                     />
                   </div>
                   <div className="mb-3">
-                    <label className="form-label">Пароль</label>
+                    <label className="form-label">
+                        {isEditingUser ? 'Новый пароль (оставьте пустым, чтобы не менять)' : 'Пароль'}
+                    </label>
                     <input
                       type="password"
                       className="form-control"
                       name="password"
                       value={userFormData.password}
                       onChange={handleUserChange}
-                      required
+                      // Пароль обязателен только при создании
+                      required={!isEditingUser}
                     />
                   </div>
                   <div className="mb-3 form-check">
@@ -1173,40 +1260,98 @@ function App() {
                     />
                     <label className="form-check-label">Администратор</label>
                   </div>
+                  <button
+                    type="submit"
+                    className="btn btn-success"
+                  >
+                    {isEditingUser ? 'Сохранить изменения' : 'Создать'}
+                  </button>
                 </form>
+
+                {/* Список пользователей (только для админов и при редактировании/создании) */}
+                {user?.is_admin && (
+                  <div>
+                    <h5>Список пользователей</h5>
+                    <div className="table-responsive">
+                      <table className="table table-striped table-hover">
+                        <thead>
+                          <tr>
+                            <th>ID</th>
+                            <th>Имя пользователя</th>
+                            <th>Администратор</th>
+                            <th>Действия</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {users.length > 0 ? (
+                            users.map(u => (
+                              <tr key={u.id}>
+                                <td>{u.id}</td>
+                                <td>{u.username}</td>
+                                <td>{u.is_admin ? 'Да' : 'Нет'}</td>
+                                <td>
+                                  <button
+                                    className="btn btn-sm btn-outline-primary me-1"
+                                    onClick={() => openUserModal(u)} // Передаем пользователя для редактирования
+                                    title="Редактировать"
+                                  >
+                                    <i className="fas fa-edit"></i>
+                                  </button>
+                                  <button
+                                    className="btn btn-sm btn-outline-danger"
+                                    onClick={() => handleDeleteUser(u.id)}
+                                    title="Удалить"
+                                    disabled={u.id === user.id} // Запретить удаление себя
+                                  >
+                                    <i className="fas fa-trash"></i>
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan="4" className="text-center">Нет пользователей</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="modal-footer">
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={() => setShowUserModal(false)}
+                  onClick={() => {
+                      setShowUserModal(false);
+                      setIsEditingUser(false);
+                      setEditingUser(null);
+                      setUserFormData({ username: '', password: '', is_admin: false });
+                  }}
                 >
-                  Отмена
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-success"
-                  onClick={handleUserSubmit}
-                >
-                  Создать
+                  Закрыть
                 </button>
               </div>
             </div>
           </div>
         </div>
       )}
-      
       {/* Фон затемнения */}
       {(isModalOpen || showUserModal) && (
         <div
           className="modal-backdrop fade show"
           onClick={() => {
             if (isModalOpen) closeModal();
-            if (showUserModal) setShowUserModal(false);
+            if (showUserModal) {
+                setShowUserModal(false);
+                setIsEditingUser(false);
+                setEditingUser(null);
+                setUserFormData({ username: '', password: '', is_admin: false });
+            }
           }}
         ></div>
       )}
-      
       {/* Модальное окно "О системе" */}
       {showAboutModal && (
         <div className="modal fade show" style={{ display: 'block' }} onClick={() => setShowAboutModal(false)}>
@@ -1247,7 +1392,6 @@ function App() {
           </div>
         </div>
       )}
-      
       {/* Фон затемнения */}
       {showAboutModal && <div className="modal-backdrop fade show"></div>}
     </div>

@@ -1,3 +1,4 @@
+# main.py
 from fastapi import FastAPI, Depends, HTTPException, status, Response, UploadFile, File, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import StreamingResponse
@@ -10,8 +11,11 @@ from sqlalchemy import or_
 from typing import List, Optional
 import models
 from database import engine, SessionLocal
-from schemas import AssetResponse, AssetCreate, AssetUpdate, UserLogin, UserCreate, UserResponse
-from crud import get_asset, get_assets, create_asset, update_asset, delete_asset, get_user_by_username, create_user
+from schemas import AssetResponse, AssetCreate, AssetUpdate, UserLogin, UserCreate, UserResponse, UserUpdate
+from crud import (
+    get_asset, get_assets, create_asset, update_asset, delete_asset,
+    get_user_by_username, create_user, get_user, get_users, update_user, delete_user # Импортируем новые функции
+)
 from passlib.context import CryptContext
 
 # Создаем таблицы в БД
@@ -49,11 +53,24 @@ def clean_value(val):
     return str(val).strip()
 
 # Функция для извлечения имени пользователя из токена
-def get_current_username(token: str = Depends(oauth2_scheme)):
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     if not token.startswith("token_"):
         raise HTTPException(status_code=401, detail="Неверный формат токена")
     username = token.replace("token_", "", 1)
-    return username
+    user = get_user_by_username(db, username)
+    if not user:
+        raise HTTPException(status_code=401, detail="Неавторизован")
+    return user
+
+# --- Новые зависимости для проверки прав администратора ---
+def get_current_active_user(current_user: models.User = Depends(get_current_user)):
+    return current_user
+
+def get_current_active_admin(current_user: models.User = Depends(get_current_active_user)):
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Требуются права администратора")
+    return current_user
+# ----------------------------------------------------------
 
 @app.post("/token")
 async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
@@ -67,26 +84,67 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
     return {"access_token": f"token_{form_data.username}", "token_type": "bearer"}
 
 @app.get("/users/me", response_model=UserResponse)
-async def read_users_me(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    username = get_current_username(token)
-    user = get_user_by_username(db, username)
-    if not user:
-        raise HTTPException(status_code=401, detail="Неавторизован")
-    return UserResponse(id=user.id, username=user.username, is_admin=user.is_admin)
+async def read_users_me(current_user: models.User = Depends(get_current_active_user)):
+    return UserResponse(id=current_user.id, username=current_user.username, is_admin=current_user.is_admin)
 
-# Роут для регистрации пользователей (только для админов)
+# --- Новые эндпоинты для управления пользователями ---
+@app.get("/users/", response_model=List[UserResponse])
+def read_users(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_admin) # Только для админов
+):
+    users = get_users(db, skip=skip, limit=limit)
+    return users
+
 @app.post("/users/", response_model=UserResponse, status_code=201)
-def create_new_user(user: UserCreate, db: Session = Depends(get_db)):
-    # Проверим, существует ли уже пользователь с таким именем
+def create_new_user(
+    user: UserCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_admin) # Только для админов
+):
     db_user = get_user_by_username(db, username=user.username)
     if db_user:
         raise HTTPException(status_code=400, detail="Пользователь с таким именем уже существует")
-    
-    # Создаем пользователя через crud
     created_user = create_user(db=db, user=user)
-    
-    # Возвращаем созданного пользователя (без пароля!)
     return created_user
+
+@app.put("/users/{user_id}", response_model=UserResponse)
+def update_existing_user(
+    user_id: int,
+    user_update: UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_admin) # Только для админов
+):
+    db_user = get_user(db, user_id)
+    if not db_user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+
+    # Проверка уникальности нового имени пользователя
+    if user_update.username and user_update.username != db_user.username:
+        existing_user = get_user_by_username(db, username=user_update.username)
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Пользователь с таким именем уже существует")
+
+    updated_user = update_user(db, user_id, user_update)
+    return updated_user
+
+@app.delete("/users/{user_id}")
+def delete_existing_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_admin) # Только для админов
+):
+    db_user = get_user(db, user_id)
+    if not db_user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+    # Запретить удаление самого себя
+    if db_user.id == current_user.id:
+         raise HTTPException(status_code=400, detail="Нельзя удалить самого себя")
+    delete_user(db, user_id)
+    return {"detail": "Пользователь удален"}
+# ----------------------------------------------------------
 
 # Роуты для активов
 # 🔍 Все могут читать
@@ -103,39 +161,39 @@ def read_asset(asset_id: int, db: Session = Depends(get_db)):
 
 # ✏️ Только админы могут создавать
 @app.post("/assets/", response_model=AssetResponse, status_code=201)
-def create_new_asset(asset: AssetCreate, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
-    username = get_current_username(token)
-    # Проверка прав (все авторизованные пользователи могут создавать, если нужно только админам - раскомментируйте)
-    # user = get_user_by_username(db, username)
-    # if not user or not user.is_admin:
-    #     raise HTTPException(status_code=403, detail="Нет прав на создание актива")
+def create_new_asset(asset: AssetCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_active_admin)):
+    # ... проверка прав ...
     
-    return create_asset(db=db, asset=asset, changed_by_username=username)
+    # Передаем имя пользователя из зависимости current_user
+    created_asset = create_asset(db=db, asset=asset, changed_by_username=current_user.username) 
+    
+    if created_asset is None:
+        # Это означает, что был IntegrityError, скорее всего, дубликат inventory_number
+        raise HTTPException(status_code=400, detail="Актив с таким инвентарным номером уже существует")
+        
+    return created_asset
 
 # 📝 Только админы могут редактировать
 @app.put("/assets/{asset_id}", response_model=AssetResponse)
-def update_existing_asset(asset_id: int, asset_update: AssetUpdate, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
-    username = get_current_username(token)
-    # Проверка прав (все авторизованные пользователи могут редактировать, если нужно только админам - раскомментируйте)
-    # user = get_user_by_username(db, username)
-    # if not user or not user.is_admin:
-    #     raise HTTPException(status_code=403, detail="Нет прав на редактирование")
-    
-    updated = update_asset(db, asset_id, asset_update, changed_by_username=username)
+def update_existing_asset(
+    asset_id: int,
+    asset_update: AssetUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_admin) # Используем новую зависимость
+):
+    updated = update_asset(db, asset_id, asset_update, changed_by_username=current_user.username)
     if not updated:
         raise HTTPException(status_code=404, detail="Актив не найден")
     return updated
 
 # ❌ Только админы могут удалять
 @app.delete("/assets/{asset_id}")
-def delete_existing_asset(asset_id: int, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
-    username = get_current_username(token)
-    # Проверка прав (все авторизованные пользователи могут удалять, если нужно только админам - раскомментируйте)
-    # user = get_user_by_username(db, username)
-    # if not user or not user.is_admin:
-    #     raise HTTPException(status_code=403, detail="Нет прав на удаление")
-    
-    deleted = delete_asset(db, asset_id, changed_by_username=username)
+def delete_existing_asset(
+    asset_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_admin) # Используем новую зависимость
+):
+    deleted = delete_asset(db, asset_id, changed_by_username=current_user.username)
     if not deleted:
         raise HTTPException(status_code=404, detail="Актив не найден")
     return {"detail": "Актив удален"}
@@ -222,13 +280,12 @@ def export_to_excel(
 
 #Импорт из экселя
 @app.post("/import/excel")
-def import_from_excel(file: UploadFile = File(...), db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
-    username = get_current_username(token)
-    # Проверка прав (все авторизованные пользователи могут импортировать, если нужно только админам - раскомментируйте)
-    # user = get_user_by_username(db, username)
-    # if not user or not user.is_admin:
-    #     raise HTTPException(status_code=403, detail="Нет прав на импорт")
-    
+def import_from_excel(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_admin) # Используем новую зависимость
+):
+    # Проверка прав уже включена в зависимость current_user
     if not file.filename.endswith('.xlsx'):
         raise HTTPException(status_code=400, detail="Файл должен быть в формате .xlsx")
     try:
@@ -327,13 +384,12 @@ def import_from_excel(file: UploadFile = File(...), db: Session = Depends(get_db
     }
 
 @app.post("/admin/clear-db")
-def clear_database(request: Request, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
-    username = get_current_username(token)
-    user = get_user_by_username(db, username)
-    
-    if not user or not user.is_admin:
-        raise HTTPException(status_code=403, detail="Нет прав на очистку базы")
-    
+def clear_database(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_admin) # Используем новую зависимость
+):
+    # Проверка прав уже включена в зависимость current_user
     deleted = db.query(models.Asset).delete()
     db.commit()
     return {"message": f"✅ База очищена: удалено {deleted} активов"}
