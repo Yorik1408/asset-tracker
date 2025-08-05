@@ -8,6 +8,11 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
+/*Отступ снизу */
+.pagination-container {
+    padding-bottom: 20px; /* Добавляем отступ вниз */
+}
+
 .custom-table {
   width: 100%;
   border-collapse: collapse;

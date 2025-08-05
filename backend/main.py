@@ -99,15 +99,14 @@ def read_users(
     return users
 
 @app.post("/users/", response_model=UserResponse, status_code=201)
-def create_new_user(
-    user: UserCreate,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_admin) # Только для админов
-):
+def create_new_user(user: UserCreate, db: Session = Depends(get_db)): # <-- Нет Depends для токена!
+    # Проверим, существует ли уже пользователь с таким именем
     db_user = get_user_by_username(db, username=user.username)
     if db_user:
         raise HTTPException(status_code=400, detail="Пользователь с таким именем уже существует")
+    # Создаем пользователя через crud
     created_user = create_user(db=db, user=user)
+    # Возвращаем созданного пользователя (без пароля!)
     return created_user
 
 @app.put("/users/{user_id}", response_model=UserResponse)
@@ -149,7 +148,7 @@ def delete_existing_user(
 # Роуты для активов
 # 🔍 Все могут читать
 @app.get("/assets/", response_model=List[AssetResponse])
-def read_assets(skip: int = 0, limit: int = 5000, db: Session = Depends(get_db)):
+def read_assets(skip: int = 0, limit: int = 5000, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)): # <-- Добавлен Depends для токена
     return get_assets(db, skip=skip, limit=limit)
 
 @app.get("/assets/{asset_id}", response_model=AssetResponse)

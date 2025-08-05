@@ -35,6 +35,10 @@ function App() {
   const [stats, setStats] = useState({
     total: 0,
     laptops: 0,
+    monitors: 0, // Новое
+    computers: 0, // Новое
+    retired: 0, // Новое (списано)
+    underWarranty: 0, // Новое (на гарантии)
     expiringWarranty: 0,
     inRepair: 0
   });
@@ -51,17 +55,49 @@ function App() {
   });
   // ---------------------------------------------
 
-  // Загрузка активов
+  // --- Загрузка активов (только если есть токен) ---
   const fetchAssets = async () => {
+    // Добавлена проверка на наличие токена
+    if (!token) {
+        // Если токена нет, очищаем список активов и выходим
+        setAssets([]);
+        // Сбрасываем статистику
+        setStats({
+            total: 0,
+            laptops: 0,
+            monitors: 0,
+            computers: 0,
+            retired: 0,
+            underWarranty: 0,
+            expiringWarranty: 0,
+            inRepair: 0
+        });
+        return;
+    }
+
     try {
-      const res = await fetch('http://10.0.1.225:8000/assets/');
+      const res = await fetch('http://10.0.1.225:8000/assets/', {
+        headers: { Authorization: `Bearer ${token}` } // Передаем токен
+      });
+      if (!res.ok) {
+        // Если сервер вернул ошибку (например, 401), выходим
+        if (res.status === 401) {
+            handleLogout(); // Выход, если токен недействителен
+        }
+        throw new Error(`Ошибка ${res.status}`);
+      }
       const data = await res.json();
       setAssets(data);
+
+      // --- Обновленная логика подсчета статистики ---
+      const today = new Date();
       const total = data.length;
       const laptops = data.filter(a => a.type === 'Ноутбук').length;
+      const monitors = data.filter(a => a.type === 'Монитор').length; // Новое
+      const computers = data.filter(a => a.type === 'Компьютер').length; // Новое
+      const retired = data.filter(a => a.status === 'списано').length; // Новое
       const inRepair = data.filter(a => a.status === 'на ремонте').length;
       // Гарантия заканчивается в ближайшие 30 дней
-      const today = new Date();
       const threshold = new Date();
       threshold.setDate(today.getDate() + 30);
       const expiringWarranty = data.filter(asset => {
@@ -69,14 +105,28 @@ function App() {
         const warrantyDate = new Date(asset.warranty_until);
         return warrantyDate >= today && warrantyDate <= threshold;
       }).length;
+      // На гарантии (дата окончания позже сегодня)
+      const underWarranty = data.filter(asset => {
+        if (!asset.warranty_until) return false;
+        const warrantyDate = new Date(asset.warranty_until);
+        return warrantyDate > today; // Используем >, чтобы исключить истекшие
+      }).length;
+      // --------------------------------------------
+
       setStats({
         total,
         laptops,
+        monitors, // Новое
+        computers, // Новое
+        retired, // Новое
+        underWarranty, // Новое
         expiringWarranty,
         inRepair
       });
     } catch (err) {
       console.error("Ошибка загрузки активов:", err);
+      // При ошибке загрузки также очищаем список
+      setAssets([]);
     }
   };
 
@@ -92,6 +142,8 @@ function App() {
         return warrantyDate >= today && warrantyDate <= threshold;
       });
       setExpiringWarranty(expiring);
+    } else {
+        setExpiringWarranty([]); // Очищаем, если активов нет
     }
   }, [assets]);
 
@@ -115,6 +167,7 @@ function App() {
 
   // Загружаем всегда
   useEffect(() => {
+    // fetchAssets будет вызвана внутри, если есть токен
     fetchAssets();
     const handleKeyDown = (e) => {
       // Закрываем модальные окна только если они открыты
@@ -142,11 +195,16 @@ function App() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [showAboutModal, isModalOpen, isEditing, showUserModal]); // Добавили showUserModal
+  }, [showAboutModal, isModalOpen, isEditing, showUserModal, token]); // Добавили token в зависимости
 
   // Проверка токена и загрузка данных пользователя
   useEffect(() => {
-    if (!token) return;
+    if (!token) {
+        // Если токена нет, сбрасываем данные пользователя
+        setUser(null);
+        setUsers([]); // Очистить список пользователей
+        return;
+    }
     fetch('http://10.0.1.225:8000/users/me', {
       headers: { Authorization: `Bearer ${token}` }
     })
@@ -162,8 +220,8 @@ function App() {
         }
       })
       .catch(() => {
-        alert("Ошибка токена");
-        handleLogout();
+        // alert("Ошибка токена");
+        handleLogout(); // Лучше выйти, чем показывать alert
       });
   }, [token]);
 
@@ -178,6 +236,7 @@ function App() {
       const data = await res.json();
       localStorage.setItem('token', data.access_token);
       setToken(data.access_token);
+      // fetchAssets будет вызвана через useEffect при изменении token
       alert("Вы вошли");
     } else {
       alert("Неверный логин или пароль");
@@ -190,7 +249,20 @@ function App() {
     setToken('');
     setUser(null);
     setUsers([]); // Очистить список пользователей при выходе
-    window.location.reload();
+    setAssets([]); // Очистить список активов при выходе
+    // Сброс статистики
+    setStats({
+        total: 0,
+        laptops: 0,
+        monitors: 0,
+        computers: 0,
+        retired: 0,
+        underWarranty: 0,
+        expiringWarranty: 0,
+        inRepair: 0
+    });
+    setExpiringWarranty([]); // Очистить список гарантий
+    // window.location.reload(); // Не обязательно перезагружать всю страницу
   };
 
   // Экспорт в Excel
@@ -228,7 +300,7 @@ function App() {
         return;
       }
       const blob = await res.blob();
-      const filenameMatch = res.headers.get('Content-Disposition')?.match(/filename[^;=\r\n]*=([^;\r\n]*)/);
+      const filenameMatch = res.headers.get('Content-Disposition')?.match(/filename[^;=\n\r]*=([^;\n\r]*)/);
       const filename = decodeURIComponent(filenameMatch?.[1]?.replace(/['"]/g, '') || 'активы.xlsx');
       const urlBlob = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -307,6 +379,18 @@ function App() {
       if (res.ok) {
         alert(result.message);
         setAssets([]); // Очищаем локально
+        // Сбрасываем статистику
+        setStats({
+            total: 0,
+            laptops: 0,
+            monitors: 0,
+            computers: 0,
+            retired: 0,
+            underWarranty: 0,
+            expiringWarranty: 0,
+            inRepair: 0
+        });
+        setExpiringWarranty([]);
       } else {
         alert(`Ошибка: ${result.detail}`);
       }
@@ -402,6 +486,8 @@ function App() {
           setAssets([...assets, updated]);
         }
         closeModal();
+        // Обновляем статистику после добавления/редактирования
+        fetchAssets();
       } else {
         const errorData = await res.json().catch(() => null);
         if (errorData?.detail) {
@@ -466,6 +552,8 @@ function App() {
     if (res.ok) {
       setAssets(assets.filter(a => a.id !== id));
       alert("Актив удален");
+      // Обновляем статистику после удаления
+      fetchAssets();
     } else {
       alert("Ошибка удаления");
     }
@@ -642,27 +730,49 @@ function App() {
           </button>
         </form>
       )}
-      {/* Статистика */}
-      <div className="mb-4 p-3 rounded shadow-sm">
-        <div className="row text-center">
-          <div className="col-md-3 col-6">
-            <div className="fw-bold text-primary">{stats.total}</div>
-            <div className="text-muted small">Всего активов</div>
-          </div>
-          <div className="col-md-3 col-6">
-            <div className="fw-bold text-success">{stats.laptops}</div>
-            <div className="text-muted small">Ноутбуков</div>
-          </div>
-          <div className="col-md-3 col-6">
-            <div className="fw-bold text-warning">{stats.expiringWarranty}</div>
-            <div className="text-muted small">Гарантия заканчивается</div>
-          </div>
-          <div className="col-md-3 col-6">
-            <div className="fw-bold text-danger">{stats.inRepair}</div>
-            <div className="text-muted small">В ремонте</div>
+      {/* Статистика (показываем только если есть токен) */}
+      {token && (
+        <div className="mb-4 p-3 rounded shadow-sm">
+          <div className="row text-center">
+            {/* Существующие метрики */}
+            <div className="col-md-3 col-6">
+              <div className="fw-bold text-primary">{stats.total}</div>
+              <div className="text-muted small">Всего активов</div>
+            </div>
+            <div className="col-md-3 col-6">
+              <div className="fw-bold text-success">{stats.laptops}</div>
+              <div className="text-muted small">Ноутбуков</div>
+            </div>
+            <div className="col-md-3 col-6">
+              <div className="fw-bold text-warning">{stats.expiringWarranty}</div>
+              <div className="text-muted small">Гарантия заканчивается</div>
+            </div>
+            <div className="col-md-3 col-6">
+              <div className="fw-bold text-danger">{stats.inRepair}</div>
+              <div className="text-muted small">В ремонте</div>
+            </div>
+
+            {/* НОВЫЕ МЕТРИКИ */}
+            <div className="col-md-3 col-6 mt-2"> {/* Добавил mt-2 для отступа на мобильных */}
+              <div className="fw-bold text-info">{stats.monitors}</div>
+              <div className="text-muted small">Мониторов</div>
+            </div>
+            <div className="col-md-3 col-6 mt-2">
+              <div className="fw-bold text-secondary">{stats.computers}</div>
+              <div className="text-muted small">Компьютеров</div>
+            </div>
+            <div className="col-md-3 col-6 mt-2">
+              <div className="fw-bold text-dark">{stats.retired}</div>
+              <div className="text-muted small">Списано</div>
+            </div>
+            <div className="col-md-3 col-6 mt-2">
+              <div className="fw-bold text-primary">{stats.underWarranty}</div>
+              <div className="text-muted small">На гарантии</div>
+            </div>
+            {/* --- */}
           </div>
         </div>
-      </div>
+      )}
       {/* Информация о пользователе */}
       {token && (
         <div className="d-flex justify-content-between align-items-center mb-3">
@@ -683,8 +793,8 @@ function App() {
           </div>
         </div>
       )}
-      {/* Компактная панель управления */}
-      {user && (
+      {/* Компактная панель управления (показываем только если есть токен и пользователь загружен) */}
+      {token && user && (
         <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 p-2 bg-white border rounded">
           {/* Левая группа: сервисные кнопки (доступны всем авторизованным) */}
           <div className="d-flex flex-wrap gap-1">
@@ -751,209 +861,217 @@ function App() {
           )}
         </div>
       )}
-      {/* Кнопки фильтрации */}
-      <div className="btn-group mb-4" role="group">
-        <button
-          className={`btn btn-outline-primary ${filter === 'Все' ? 'active' : ''}`}
-          onClick={() => {
-            setFilter('Все');
-            setPage(1);
-          }}
-        >
-          Все
-        </button>
-        <button
-          className={`btn btn-outline-primary ${filter === 'Монитор' ? 'active' : ''}`}
-          onClick={() => {
-            setFilter('Монитор');
-            setPage(1);
-          }}
-        >
-          Мониторы
-        </button>
-        <button
-          className={`btn btn-outline-primary ${filter === 'Компьютер' ? 'active' : ''}`}
-          onClick={() => {
-            setFilter('Компьютер');
-            setPage(1);
-          }}
-        >
-          Компьютеры
-        </button>
-        <button
-          className={`btn btn-outline-primary ${filter === 'Ноутбук' ? 'active' : ''}`}
-          onClick={() => {
-            setFilter('Ноутбук');
-            setPage(1);
-          }}
-        >
-          Ноутбуки
-        </button>
-        <button
-          className={`btn btn-outline-primary ${filter === 'Прочее' ? 'active' : ''}`}
-          onClick={() => {
-            setFilter('Прочее');
-            setPage(1);
-          }}
-        >
-          Прочее
-        </button>
-        <button
-          className={`btn ${activeTab === 'reports' ? 'btn-primary' : 'btn-outline-primary'}`}
-          onClick={() => setActiveTab(activeTab === 'reports' ? 'assets' : 'reports')}
-        >
-          Отчёт о гарантиях
-        </button>
-      </div>
-      {/* Поле поиска */}
-      <div className="input-group">
-        <input
-          type="text"
-          className="form-control"
-          placeholder="Введите данные актива для поиска..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-        {searchQuery && (
+      {/* Кнопки фильтрации (показываем только если есть токен) */}
+      {token && (
+        <div className="btn-group mb-4" role="group">
           <button
-            className="btn btn-outline-secondary"
-            type="button"
-            onClick={() => setSearchQuery('')}
-            style={{ display: 'flex', alignItems: 'center', padding: '0 10px' }}
-            title="Очистить поиск"
-          >
-            <i className="fas fa-times"></i>
-          </button>
-        )}
-      </div>
-      {/* Таблица */}
-      <div className="table-container">
-        <div className="table-responsive">
-          <table className="custom-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Инвентарный номер</th>
-                <th>Серийный номер</th>
-                <th>Статус</th>
-                <th>Расположение</th>
-                <th>ФИО пользователя</th>
-                <th>Комментарий</th>
-                {user?.is_admin && <th>Действия</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedAssets.length > 0 ? (
-                paginatedAssets.map((asset) => (
-                  <React.Fragment key={asset.id}>
-                    <tr>
-                      <td data-label="ID">{asset.id}</td>
-                      <td data-label="Инвентарный номер">{asset.inventory_number || '-'}</td>
-                      <td data-label="Серийный номер">{asset.serial_number || '-'}</td>
-                      <td data-label="Статус">{asset.status}</td>
-                      <td data-label="Расположение">{asset.location}</td>
-                      <td data-label="ФИО пользователя">{asset.user_name || '-'}</td>
-                      <td data-label="Комментарий"><div className="comment-cell">{asset.comment || ''}</div></td>
-                      {user?.is_admin && (
-                        <td className="text-center">
-                          {/* Редактировать — карандаш */}
-                          <button
-                            className="btn btn-sm btn-outline-primary me-1"
-                            title="Редактировать"
-                            onClick={() => handleEdit(asset)}
-                          >
-                            <i className="fas fa-edit"></i>
-                          </button>
-                          {/* Удалить — корзина */}
-                          <button
-                            className="btn btn-sm btn-outline-danger me-1"
-                            title="Удалить"
-                            onClick={() => handleDelete(asset.id)}
-                          >
-                            <i className="fas fa-trash"></i>
-                          </button>
-                          {/* Показать/скрыть историю — часы/история */}
-                          <button
-                            className="btn btn-sm btn-outline-secondary"
-                            title={showHistory === asset.id ? "Скрыть историю" : "Показать историю"}
-                            onClick={() => setShowHistory(showHistory === asset.id ? null : asset.id)}
-                          >
-                            <i className={`fas ${showHistory === asset.id ? 'fa-eye-slash' : 'fa-history'}`}></i>
-                          </button>
-                        </td>
-                      )}
-                    </tr>
-                    {/* История изменений */}
-                    {showHistory === asset.id && asset.history && asset.history.length > 0 && (
-                      <tr>
-                        <td colSpan={user?.is_admin ? "8" : "7"} className="bg-light small p-2">
-                          <strong>История изменений:</strong>
-                          <ul className="mb-0 ps-3">
-                            {asset.history.map((h, idx) => (
-                              <li key={idx}>
-                                {/* Отображаем имя пользователя и дату изменения */}
-                                {h.changed_by ? `[${h.changed_by}] ` : ''}
-                                {getHumanFieldName(h.field)}: "{h.old_value}" → "{h.new_value}" ({h.changed_at})
-                              </li>
-                            ))}
-                          </ul>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={user?.is_admin ? "8" : "7"} className="text-center">Нет данных</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      {/* Пагинация */}
-      {/* Пагинация с быстрым переходом */}
-      <div className="d-flex justify-content-between align-items-center mt-3">
-        <button
-          className="btn btn-outline-primary"
-          onClick={() => setPage(p => Math.max(1, p - 1))}
-          disabled={page === 1}
-        >
-          Назад
-        </button>
-        <div className="d-flex align-items-center gap-2">
-          <span>Страница</span>
-          <input
-            type="number"
-            min="1"
-            max={Math.ceil(filteredAssets.length / itemsPerPage)}
-            value={page}
-            onChange={(e) => {
-              const value = e.target.value;
-              if (value === '') {
-                setPage(1); // или оставить пустым, если хочешь
-                return;
-              }
-              const num = parseInt(value, 10);
-              if (num >= 1 && num <= Math.ceil(filteredAssets.length / itemsPerPage)) {
-                setPage(num);
-              }
+            className={`btn btn-outline-primary ${filter === 'Все' ? 'active' : ''}`}
+            onClick={() => {
+              setFilter('Все');
+              setPage(1);
             }}
-            className="form-control text-center"
-            style={{ width: '70px' }}
-          />
-          <span>из {Math.ceil(filteredAssets.length / itemsPerPage)}</span>
+          >
+            Все
+          </button>
+          <button
+            className={`btn btn-outline-primary ${filter === 'Монитор' ? 'active' : ''}`}
+            onClick={() => {
+              setFilter('Монитор');
+              setPage(1);
+            }}
+          >
+            Мониторы
+          </button>
+          <button
+            className={`btn btn-outline-primary ${filter === 'Компьютер' ? 'active' : ''}`}
+            onClick={() => {
+              setFilter('Компьютер');
+              setPage(1);
+            }}
+          >
+            Компьютеры
+          </button>
+          <button
+            className={`btn btn-outline-primary ${filter === 'Ноутбук' ? 'active' : ''}`}
+            onClick={() => {
+              setFilter('Ноутбук');
+              setPage(1);
+            }}
+          >
+            Ноутбуки
+          </button>
+          <button
+            className={`btn btn-outline-primary ${filter === 'Прочее' ? 'active' : ''}`}
+            onClick={() => {
+              setFilter('Прочее');
+              setPage(1);
+            }}
+          >
+            Прочее
+          </button>
+          <button
+            className={`btn ${activeTab === 'reports' ? 'btn-primary' : 'btn-outline-primary'}`}
+            onClick={() => setActiveTab(activeTab === 'reports' ? 'assets' : 'reports')}
+          >
+            Активы с истекающей гарантией
+          </button>
         </div>
-        <button
-          className="btn btn-outline-primary"
-          onClick={() => setPage(p => Math.min(Math.ceil(filteredAssets.length / itemsPerPage), p + 1))}
-          disabled={page === Math.ceil(filteredAssets.length / itemsPerPage) || filteredAssets.length === 0}
-        >
-          Вперёд
-        </button>
-      </div>
-      {activeTab === 'reports' && (
-        <div className="reports-section">
+      )}
+      {/* Поле поиска (показываем только если есть токен) */}
+      {token && (
+        <div className="input-group mb-3">
+          <input
+            type="text"
+            className="form-control"
+            placeholder="Введите данные актива для поиска..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <button
+              className="btn btn-outline-secondary"
+              type="button"
+              onClick={() => setSearchQuery('')}
+              style={{ display: 'flex', alignItems: 'center', padding: '0 10px' }}
+              title="Очистить поиск"
+            >
+              <i className="fas fa-times"></i>
+            </button>
+          )}
+        </div>
+      )}
+      {/* Таблица (показываем только если есть токен) */}
+      {token && (
+        <div className="table-container">
+          <div className="table-responsive">
+            <table className="custom-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Инвентарный номер</th>
+                  <th>Серийный номер</th>
+                  <th>Статус</th>
+                  <th>Расположение</th>
+                  <th>ФИО пользователя</th>
+                  <th>Комментарий</th>
+                  {user?.is_admin && <th>Действия</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedAssets.length > 0 ? (
+                  paginatedAssets.map((asset) => (
+                    <React.Fragment key={asset.id}>
+                      <tr>
+                        <td data-label="ID">{asset.id}</td>
+                        <td data-label="Инвентарный номер">{asset.inventory_number || '-'}</td>
+                        <td data-label="Серийный номер">{asset.serial_number || '-'}</td>
+                        <td data-label="Статус">{asset.status}</td>
+                        <td data-label="Расположение">{asset.location}</td>
+                        <td data-label="ФИО пользователя">{asset.user_name || '-'}</td>
+                        <td data-label="Комментарий"><div className="comment-cell">{asset.comment || ''}</div></td>
+                        {user?.is_admin && (
+                          <td className="text-center">
+                            {/* Редактировать — карандаш */}
+                            <button
+                              className="btn btn-sm btn-outline-primary me-1"
+                              title="Редактировать"
+                              onClick={() => handleEdit(asset)}
+                            >
+                              <i className="fas fa-edit"></i>
+                            </button>
+                            {/* Удалить — корзина */}
+                            <button
+                              className="btn btn-sm btn-outline-danger me-1"
+                              title="Удалить"
+                              onClick={() => handleDelete(asset.id)}
+                            >
+                              <i className="fas fa-trash"></i>
+                            </button>
+                            {/* Показать/скрыть историю — часы/история */}
+                            <button
+                              className="btn btn-sm btn-outline-secondary"
+                              title={showHistory === asset.id ? "Скрыть историю" : "Показать историю"}
+                              onClick={() => setShowHistory(showHistory === asset.id ? null : asset.id)}
+                            >
+                              <i className={`fas ${showHistory === asset.id ? 'fa-eye-slash' : 'fa-history'}`}></i>
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                      {/* История изменений */}
+                      {showHistory === asset.id && asset.history && asset.history.length > 0 && (
+                        <tr>
+                          {/* Выравнивание по левому краю */}
+                          <td colSpan={user?.is_admin ? "8" : "7"} className="bg-light small p-2" style={{ textAlign: 'left' }}>
+                            <strong>История изменений:</strong>
+                            <ul className="mb-0 ps-3">
+                              {asset.history.map((h, idx) => (
+                                <li key={idx}>
+                                  {/* Дата в начале */}
+                                  ({h.changed_at}) {h.changed_by ? `[${h.changed_by}] ` : ''}
+                                  {getHumanFieldName(h.field)}: "{h.old_value}" → "{h.new_value}"
+                                </li>
+                              ))}
+                            </ul>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={user?.is_admin ? "8" : "7"} className="text-center">Нет данных</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      {/* Пагинация (показываем только если есть токен и активы) */}
+      {token && assets.length > 0 && (
+        <div className="pagination-container d-flex justify-content-between align-items-center mt-3 mb-4"> {/* Добавлен mb-4 для отступа снизу */}
+          <button
+            className="btn btn-outline-primary"
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+          >
+            Назад
+          </button>
+          <div className="d-flex align-items-center gap-2">
+            <span>Страница</span>
+            <input
+              type="number"
+              min="1"
+              max={Math.ceil(filteredAssets.length / itemsPerPage)}
+              value={page}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value === '') {
+                  setPage(1); // или оставить пустым, если хочешь
+                  return;
+                }
+                const num = parseInt(value, 10);
+                if (num >= 1 && num <= Math.ceil(filteredAssets.length / itemsPerPage)) {
+                  setPage(num);
+                }
+              }}
+              className="form-control text-center"
+              style={{ width: '70px' }}
+            />
+            <span>из {Math.ceil(filteredAssets.length / itemsPerPage)}</span>
+          </div>
+          <button
+            className="btn btn-outline-primary"
+            onClick={() => setPage(p => Math.min(Math.ceil(filteredAssets.length / itemsPerPage), p + 1))}
+            disabled={page === Math.ceil(filteredAssets.length / itemsPerPage) || filteredAssets.length === 0}
+          >
+            Вперёд
+          </button>
+        </div>
+      )}
+      {activeTab === 'reports' && token && (
+        <div className="reports-section pagination-container">
           <h4>Отчёт: Гарантия заканчивается</h4>
           <p>Активы, у которых гарантия заканчивается в ближайшие 30 дней</p>
           <table className="custom-table">
