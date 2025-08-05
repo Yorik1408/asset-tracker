@@ -23,8 +23,9 @@ function App() {
   });
   const [isEditing, setIsEditing] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false); // Управление модальным окном актива
-  const [filter, setFilter] = useState('Все');
-  const [activeTab, setActiveTab] = useState('assets');
+  const [filter, setFilter] = useState('Все'); // Стандартный фильтр по типу
+  const [activeTab, setActiveTab] = useState('assets'); // Вкладки: 'assets' или 'reports'
+  const [warrantyFilter, setWarrantyFilter] = useState('all'); // Новый фильтр: 'all', 'active', 'expiring'
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const itemsPerPage = 10;
@@ -559,22 +560,59 @@ function App() {
     }
   };
 
-  // Фильтрация + поиск
-  const filteredAssets = assets.filter((asset) => {
-    const matchesFilter = filter === 'Все' || asset.type === filter;
-    const matchesSearch = !searchQuery || Object.values(asset).some(val => {
-      if (val == null || typeof val === 'number' || val instanceof Date) {
-        return false;
-      }
-      return String(val).toLowerCase().includes(searchQuery.toLowerCase());
-    });
-    return matchesFilter && matchesSearch;
-  });
+  // --- Фильтрация + поиск ---
+  // Фильтрация активов
+  const getFilteredAssets = () => {
+    let result = [...assets];
+
+    // 1. Фильтр по типу (как раньше)
+    if (filter !== 'Все') {
+        result = result.filter(asset => asset.type === filter);
+    }
+
+    // 2. Фильтр по гарантии (новый)
+    const today = new Date();
+    if (warrantyFilter === 'active') {
+        // На гарантии: дата окончания позже сегодня
+        result = result.filter(asset => {
+            if (!asset.warranty_until) return false;
+            const warrantyDate = new Date(asset.warranty_until);
+            return warrantyDate > today;
+        });
+    } else if (warrantyFilter === 'expiring') {
+        // Гарантия заканчивается: дата окончания в ближайшие 30 дней
+        const threshold = new Date();
+        threshold.setDate(today.getDate() + 30);
+        result = result.filter(asset => {
+            if (!asset.warranty_until) return false;
+            const warrantyDate = new Date(asset.warranty_until);
+            return warrantyDate >= today && warrantyDate <= threshold;
+        });
+    }
+    // warrantyFilter === 'all' - не применяем фильтр по гарантии
+
+    // 3. Поиск по строке (как раньше)
+    if (searchQuery) {
+        result = result.filter(asset =>
+            Object.values(asset).some(val => {
+                if (val == null || typeof val === 'number' || val instanceof Date) {
+                    return false;
+                }
+                return String(val).toLowerCase().includes(searchQuery.toLowerCase());
+            })
+        );
+    }
+
+    return result;
+  };
+
+  const filteredAssets = getFilteredAssets();
   const totalPages = Math.ceil(filteredAssets.length / itemsPerPage);
   const paginatedAssets = filteredAssets.slice(
     (page - 1) * itemsPerPage,
     page * itemsPerPage
   );
+  // ------------------------
 
   // --- Функции для управления пользователями ---
   // Открытие модального окна пользователей (для создания или просмотра/редактирования)
@@ -863,58 +901,98 @@ function App() {
       )}
       {/* Кнопки фильтрации (показываем только если есть токен) */}
       {token && (
-        <div className="btn-group mb-4" role="group">
-          <button
-            className={`btn btn-outline-primary ${filter === 'Все' ? 'active' : ''}`}
-            onClick={() => {
-              setFilter('Все');
-              setPage(1);
-            }}
-          >
-            Все
-          </button>
-          <button
-            className={`btn btn-outline-primary ${filter === 'Монитор' ? 'active' : ''}`}
-            onClick={() => {
-              setFilter('Монитор');
-              setPage(1);
-            }}
-          >
-            Мониторы
-          </button>
-          <button
-            className={`btn btn-outline-primary ${filter === 'Компьютер' ? 'active' : ''}`}
-            onClick={() => {
-              setFilter('Компьютер');
-              setPage(1);
-            }}
-          >
-            Компьютеры
-          </button>
-          <button
-            className={`btn btn-outline-primary ${filter === 'Ноутбук' ? 'active' : ''}`}
-            onClick={() => {
-              setFilter('Ноутбук');
-              setPage(1);
-            }}
-          >
-            Ноутбуки
-          </button>
-          <button
-            className={`btn btn-outline-primary ${filter === 'Прочее' ? 'active' : ''}`}
-            onClick={() => {
-              setFilter('Прочее');
-              setPage(1);
-            }}
-          >
-            Прочее
-          </button>
-          <button
-            className={`btn ${activeTab === 'reports' ? 'btn-primary' : 'btn-outline-primary'}`}
-            onClick={() => setActiveTab(activeTab === 'reports' ? 'assets' : 'reports')}
-          >
-            Активы с истекающей гарантией
-          </button>
+        <div className="d-flex flex-wrap align-items-center gap-2 mb-4"> {/* Используем d-flex и gap для гибкости */}
+          {/* Фильтры по типу */}
+          <div className="btn-group" role="group">
+            <button
+              className={`btn btn-outline-primary ${filter === 'Все' ? 'active' : ''}`}
+              onClick={() => {
+                setFilter('Все');
+                setPage(1);
+              }}
+            >
+              Все
+            </button>
+            <button
+              className={`btn btn-outline-primary ${filter === 'Монитор' ? 'active' : ''}`}
+              onClick={() => {
+                setFilter('Монитор');
+                setPage(1);
+              }}
+            >
+              Мониторы
+            </button>
+            <button
+              className={`btn btn-outline-primary ${filter === 'Компьютер' ? 'active' : ''}`}
+              onClick={() => {
+                setFilter('Компьютер');
+                setPage(1);
+              }}
+            >
+              Компьютеры
+            </button>
+            <button
+              className={`btn btn-outline-primary ${filter === 'Ноутбук' ? 'active' : ''}`}
+              onClick={() => {
+                setFilter('Ноутбук');
+                setPage(1);
+              }}
+            >
+              Ноутбуки
+            </button>
+            <button
+              className={`btn btn-outline-primary ${filter === 'Прочее' ? 'active' : ''}`}
+              onClick={() => {
+                setFilter('Прочее');
+                setPage(1);
+              }}
+            >
+              Прочее
+            </button>
+          </div>
+          
+          {/* Фильтры по гарантии */}
+          <div className="btn-group" role="group">
+            {/* Кнопка "На гарантии" */}
+            <button
+              className={`btn btn-outline-success ${warrantyFilter === 'active' ? 'active' : ''}`}
+              onClick={() => {
+                setWarrantyFilter('active');
+                setPage(1);
+                // Переключаемся на вкладку таблицы, если смотрим отчет
+                if (activeTab !== 'assets') setActiveTab('assets');
+              }}
+              title="Показать активы на гарантии"
+            >
+              <i className="fas fa-shield-alt"></i> На гарантии
+            </button>
+            {/* Кнопка "Отчёт о гарантиях" (переименована для ясности) */}
+            <button
+              className={`btn ${activeTab === 'reports' ? 'btn-warning' : 'btn-outline-warning'}`}
+              onClick={() => setActiveTab(activeTab === 'reports' ? 'assets' : 'reports')}
+              title="Показать отчет: гарантия заканчивается"
+            >
+              <i className="fas fa-exclamation-triangle"></i> {activeTab === 'reports' ? 'Вернуться к таблице' : 'Гарантия заканчивается'}
+            </button>
+          </div>
+          
+          {/* Индикатор активных фильтров */}
+          <div className="small text-muted">
+            {filter !== 'Все' && `Тип: ${filter}`}
+            {warrantyFilter !== 'all' && ` | Гарантия: ${warrantyFilter === 'active' ? 'активна' : 'заканчивается'}`}
+            {(filter !== 'Все' || warrantyFilter !== 'all') && (
+              <button
+                className="btn btn-sm btn-outline-secondary ms-2"
+                onClick={() => {
+                  setFilter('Все');
+                  setWarrantyFilter('all');
+                  setPage(1);
+                }}
+              >
+                Сбросить фильтры
+              </button>
+            )}
+          </div>
         </div>
       )}
       {/* Поле поиска (показываем только если есть токен) */}
@@ -940,8 +1018,8 @@ function App() {
           )}
         </div>
       )}
-      {/* Таблица (показываем только если есть токен) */}
-      {token && (
+      {/* Таблица (показываем только если есть токен и активна вкладка 'assets') */}
+      {token && activeTab === 'assets' && (
         <div className="table-container">
           <div className="table-responsive">
             <table className="custom-table">
@@ -1028,8 +1106,8 @@ function App() {
           </div>
         </div>
       )}
-      {/* Пагинация (показываем только если есть токен и активы) */}
-      {token && assets.length > 0 && (
+      {/* Пагинация (показываем только если есть токен, активы и активна вкладка 'assets') */}
+      {token && activeTab === 'assets' && assets.length > 0 && (
         <div className="pagination-container d-flex justify-content-between align-items-center mt-3 mb-4"> {/* Добавлен mb-4 для отступа снизу */}
           <button
             className="btn btn-outline-primary"
@@ -1070,8 +1148,9 @@ function App() {
           </button>
         </div>
       )}
+      {/* Отчет: Гарантия заканчивается (показываем только если активна вкладка 'reports') */}
       {activeTab === 'reports' && token && (
-        <div className="reports-section pagination-container">
+        <div className="reports-section">
           <h4>Отчёт: Гарантия заканчивается</h4>
           <p>Активы, у которых гарантия заканчивается в ближайшие 30 дней</p>
           <table className="custom-table">
