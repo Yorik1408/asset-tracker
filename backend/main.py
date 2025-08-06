@@ -4,10 +4,11 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import StreamingResponse
 import numpy as np
 import pandas as pd
+from datetime import date, timedelta
 from urllib.parse import quote
 from io import BytesIO
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, and_
 from typing import List, Optional
 import models
 from database import engine, SessionLocal
@@ -202,12 +203,17 @@ def delete_existing_asset(
 def export_to_excel(
     type: Optional[str] = None,
     q: Optional[str] = None,
+    warranty_status: Optional[str] = None, # Новый параметр для фильтрации по гарантии
     db: Session = Depends(get_db)
 ):
     # Формируем запрос с фильтрацией
     query = db.query(models.Asset)
+    
+    # Фильтр по типу
     if type and type in ["Монитор", "Компьютер", "Ноутбук", "Прочее"]:
         query = query.filter(models.Asset.type == type)
+    
+    # Поиск по тексту
     if q:
         search = f"%{q}%"
         query = query.filter(
@@ -220,7 +226,33 @@ def export_to_excel(
                 models.Asset.comment.ilike(search),
             )
         )
+    
+    # --- Новая логика фильтрации по гарантии ---
+    # Убедитесь, что date и timedelta импортированы: from datetime import date, timedelta
+    if warranty_status:
+        today = date.today()
+        if warranty_status == "active":
+            # На гарантии: дата окончания позже сегодня и поле не NULL
+            query = query.filter(
+                and_(
+                    models.Asset.warranty_until.isnot(None),
+                    models.Asset.warranty_until > today
+                )
+            )
+        elif warranty_status == "expiring":
+            # Гарантия заканчивается: дата окончания в ближайшие 30 дней (включая сегодня) и поле не NULL
+            threshold = today + timedelta(days=30)
+            query = query.filter(
+                and_(
+                    models.Asset.warranty_until.isnot(None),
+                    models.Asset.warranty_until >= today,
+                    models.Asset.warranty_until <= threshold
+                )
+            )
+    # ------------------------------------------
+
     assets = query.all()
+    
     # Основные данные активов
     asset_data = []
     # Данные об истории изменений
