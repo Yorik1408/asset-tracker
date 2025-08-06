@@ -92,13 +92,6 @@
 
 }
 
-/* Для адаптива — на малых экранах */
-@media (max-width: 768px) {
-  .table-container table td:nth-last-child(2) {
-    max-width: 120px;
-    font-size: 0.85rem;
-  }
-}
 
 .btn:hover i {
   transform: scale(1.1);
@@ -159,44 +152,6 @@
   background-color: #5c636a;
 }
 
-/* Адаптивность */
-@media (max-width: 768px) {
-  .custom-table,
-  .custom-table thead,
-  .custom-table tbody,
-  .custom-table th,
-  .custom-table td,
-  .custom-table tr {
-    display: block;
-  }
-
-  .custom-table thead th {
-    position: absolute;
-    top: -9999px;
-    left: -9999px;
-  }
-
-  .custom-table tr {
-    margin-bottom: 15px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-  }
-
-  .custom-table td {
-    padding: 0.5rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .custom-table td::before {
-    content: attr(data-label) ": ";
-    position: absolute;
-    left: 10px;
-    width: 45%;
-    font-weight: bold;
-    white-space: nowrap;
-  }
-}
 
 /* Обёртка модального окна */
 .modal.fade {
@@ -228,4 +183,39 @@
 
 .modal-backdrop.show {
   opacity: 0.5;
+}
+
+/* Стили для мобильных устройств */
+@media (max-width: 768px) {
+  /* Скрыть таблицу на мобильных устройствах */
+  .custom-table {
+    display: none;
+  }
+
+  /* Создаем новый стиль для мобильного представления */
+  .mobile-view {
+    list-style-type: none; /* Убираем маркеры списка */
+    padding: 0; /* Убираем отступы */
+  }
+
+  .mobile-view li {
+    margin-bottom: 10px; /* Добавляем вертикальные отступы */
+  }
+
+  .mobile-view label {
+    font-weight: bold; /* Жирный шрифт для названий столбцов */
+  }
+
+  .mobile-view span {
+    word-wrap: break-word; /* Разрешаем перенос строк */
+    max-width: 100%; /* Гарантируем, что текст не выходит за пределы ячейки */
+    overflow: hidden; /* Обрезаем лишний текст */
+    text-overflow: ellipsis; /* Добавляем многоточие при обрезке */
+  }
+
+   .mobile-view button {
+    font-size: 0.8rem; /* Уменьшаем размер кнопок */
+    padding: 5px 10px; /* Уменьшаем отступы */ 
+  }
+
 }
