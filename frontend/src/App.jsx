@@ -1118,7 +1118,7 @@ function App() {
       </React.Fragment>
       {/* Конец контейнера для таблицы и мобильного представления */}
 
-      {token && activeTab === 'assets' && assets.length > 0 && !isMobile && (
+      {token && activeTab === 'assets' && assets.length > 0 && (
         <div className="pagination-container d-flex justify-content-between align-items-center mt-3 mb-4">
           <button
             className="btn btn-outline-primary"
