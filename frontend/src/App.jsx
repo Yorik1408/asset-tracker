@@ -433,6 +433,7 @@ function App() {
     setIsModalOpen(true);
   };
 
+
   // Закрытие модального окна актива
   const closeModal = () => {
     setIsModalOpen(false);
