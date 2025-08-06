@@ -17,6 +17,7 @@
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
+  word-wrap: break-word;
   font-size: 14px;
   background-color: white;
 }
