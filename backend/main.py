@@ -15,7 +15,7 @@ from database import engine, SessionLocal
 from schemas import AssetResponse, AssetCreate, AssetUpdate, UserLogin, UserCreate, UserResponse, UserUpdate
 from crud import (
     get_asset, get_assets, create_asset, update_asset, delete_asset,
-    get_user_by_username, create_user, get_user, get_users, update_user, delete_user # Импортируем новые функции
+    get_user_by_username, create_user, get_user, get_users, update_user, delete_user
 )
 from passlib.context import CryptContext
 
@@ -63,7 +63,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise HTTPException(status_code=401, detail="Неавторизован")
     return user
 
-# --- Новые зависимости для проверки прав администратора ---
+# Зависимости для проверки прав администратора
 def get_current_active_user(current_user: models.User = Depends(get_current_user)):
     return current_user
 
@@ -71,7 +71,6 @@ def get_current_active_admin(current_user: models.User = Depends(get_current_act
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Требуются права администратора")
     return current_user
-# ----------------------------------------------------------
 
 @app.post("/token")
 async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
@@ -88,7 +87,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
 async def read_users_me(current_user: models.User = Depends(get_current_active_user)):
     return UserResponse(id=current_user.id, username=current_user.username, is_admin=current_user.is_admin)
 
-# --- Новые эндпоинты для управления пользователями ---
+# Эндпоинты для управления пользователями
 @app.get("/users/", response_model=List[UserResponse])
 def read_users(
     skip: int = 0,
@@ -100,7 +99,7 @@ def read_users(
     return users
 
 @app.post("/users/", response_model=UserResponse, status_code=201)
-def create_new_user(user: UserCreate, db: Session = Depends(get_db)): # <-- Нет Depends для токена!
+def create_new_user(user: UserCreate, db: Session = Depends(get_db)):
     # Проверим, существует ли уже пользователь с таким именем
     db_user = get_user_by_username(db, username=user.username)
     if db_user:
@@ -144,10 +143,8 @@ def delete_existing_user(
          raise HTTPException(status_code=400, detail="Нельзя удалить самого себя")
     delete_user(db, user_id)
     return {"detail": "Пользователь удален"}
-# ----------------------------------------------------------
 
 # Роуты для активов
-# 🔍 Все могут читать
 @app.get("/assets/", response_model=List[AssetResponse])
 def read_assets(skip: int = 0, limit: int = 5000, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)): # <-- Добавлен Depends для токена
     return get_assets(db, skip=skip, limit=limit)
@@ -159,39 +156,38 @@ def read_asset(asset_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Актив не найден")
     return db_asset
 
-# ✏️ Только админы могут создавать
+# олько админы могут создавать
 @app.post("/assets/", response_model=AssetResponse, status_code=201)
 def create_new_asset(asset: AssetCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_active_admin)):
     # ... проверка прав ...
-    
+
     # Передаем имя пользователя из зависимости current_user
     created_asset = create_asset(db=db, asset=asset, changed_by_username=current_user.username) 
-    
+
     if created_asset is None:
-        # Это означает, что был IntegrityError, скорее всего, дубликат inventory_number
         raise HTTPException(status_code=400, detail="Актив с таким инвентарным номером уже существует")
-        
+
     return created_asset
 
-# 📝 Только админы могут редактировать
+# Только админы могут редактировать
 @app.put("/assets/{asset_id}", response_model=AssetResponse)
 def update_existing_asset(
     asset_id: int,
     asset_update: AssetUpdate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_admin) # Используем новую зависимость
+    current_user: models.User = Depends(get_current_active_admin)
 ):
     updated = update_asset(db, asset_id, asset_update, changed_by_username=current_user.username)
     if not updated:
         raise HTTPException(status_code=404, detail="Актив не найден")
     return updated
 
-# ❌ Только админы могут удалять
+# Только админы могут удалять
 @app.delete("/assets/{asset_id}")
 def delete_existing_asset(
     asset_id: int,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_admin) # Используем новую зависимость
+    current_user: models.User = Depends(get_current_active_admin)
 ):
     deleted = delete_asset(db, asset_id, changed_by_username=current_user.username)
     if not deleted:
@@ -203,16 +199,16 @@ def delete_existing_asset(
 def export_to_excel(
     type: Optional[str] = None,
     q: Optional[str] = None,
-    warranty_status: Optional[str] = None, # Новый параметр для фильтрации по гарантии
+    warranty_status: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     # Формируем запрос с фильтрацией
     query = db.query(models.Asset)
-    
+
     # Фильтр по типу
     if type and type in ["Монитор", "Компьютер", "Ноутбук", "Прочее"]:
         query = query.filter(models.Asset.type == type)
-    
+
     # Поиск по тексту
     if q:
         search = f"%{q}%"
@@ -226,9 +222,8 @@ def export_to_excel(
                 models.Asset.comment.ilike(search),
             )
         )
-    
-    # --- Новая логика фильтрации по гарантии ---
-    # Убедитесь, что date и timedelta импортированы: from datetime import date, timedelta
+
+    # Логика фильтрации по гарантии
     if warranty_status:
         today = date.today()
         if warranty_status == "active":
@@ -249,10 +244,9 @@ def export_to_excel(
                     models.Asset.warranty_until <= threshold
                 )
             )
-    # ------------------------------------------
 
     assets = query.all()
-    
+
     # Основные данные активов
     asset_data = []
     # Данные об истории изменений
@@ -286,9 +280,7 @@ def export_to_excel(
                 "Старое значение": h.old_value,
                 "Новое значение": h.new_value,
                 "Дата изменения": h.changed_at,
-                # --- Новое поле ---
                 "Изменено пользователем": h.changed_by or "Неизвестно"
-                # ------------------
             })
     # Создаём Excel с двумя листами
     buffer = BytesIO()
@@ -314,7 +306,7 @@ def export_to_excel(
 def import_from_excel(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_admin) # Используем новую зависимость
+    current_user: models.User = Depends(get_current_active_admin)
 ):
     # Проверка прав уже включена в зависимость current_user
     if not file.filename.endswith('.xlsx'):
@@ -391,9 +383,7 @@ def import_from_excel(
                     "old_value": str(row["Старое значение"]).strip() if pd.notna(row["Старое значение"]) else None,
                     "new_value": str(row["Новое значение"]).strip() if pd.notna(row["Новое значение"]) else None,
                     "changed_at": pd.to_datetime(row["Дата изменения"]).date(),
-                    # --- Новое поле ---
                     "changed_by": str(row["Изменено пользователем"]).strip() if pd.notna(row["Изменено пользователем"]) else None
-                    # ------------------
                 }
                 # Проверяем, нет ли уже такой записи
                 existing_history = db.query(models.AssetHistory).filter(
@@ -418,7 +408,7 @@ def import_from_excel(
 def clear_database(
     request: Request,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_admin) # Используем новую зависимость
+    current_user: models.User = Depends(get_current_active_admin)
 ):
     # Проверка прав уже включена в зависимость current_user
     deleted = db.query(models.Asset).delete()

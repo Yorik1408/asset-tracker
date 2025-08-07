@@ -9,7 +9,7 @@ class UserBase(BaseModel):
     username: str
     is_admin: bool = False
 
-class UserLogin(BaseModel): # <<< ЭТОГО НЕТ В ВАШЕМ ТЕКУЩЕМ schemas.py
+class UserLogin(BaseModel):
     username: str
     password: str
 
@@ -37,7 +37,6 @@ class UserResponse(UserBase):
 
     class Config:
         from_attributes = True
-# --------------------------------
 
 # --- Схемы для активов ---
 class AssetStatus(str, Enum):
@@ -57,9 +56,7 @@ class AssetHistoryBase(BaseModel):
     old_value: Optional[str] = None
     new_value: Optional[str] = None
     changed_at: date
-    # --- Новое поле ---
     changed_by: Optional[str] = None
-    # ------------------
 
 class AssetHistoryCreate(AssetHistoryBase):
     pass
@@ -100,5 +97,4 @@ class AssetResponse(AssetBase):
 
     class Config:
         from_attributes = True
-# --------------------------
 

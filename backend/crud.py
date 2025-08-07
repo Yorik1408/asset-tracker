@@ -1,5 +1,4 @@
 # crud.py
-# Используем абсолютные импорты, как обсуждали ранее
 import models
 import schemas
 from sqlalchemy.orm import Session
@@ -36,9 +35,9 @@ def update_user(db: Session, user_id: int, user_update: schemas.UserUpdate):
     db_user = db.query(models.User).filter(models.User.id == user_id).first()
     if not db_user:
         return None
-    
+
     update_data = user_update.dict(exclude_unset=True)
-    
+
     # Если передан новый пароль, хэшируем его
     if 'password' in update_data and update_data['password']:
         update_data['password_hash'] = pwd_context.hash(update_data.pop('password'))
@@ -48,7 +47,7 @@ def update_user(db: Session, user_id: int, user_update: schemas.UserUpdate):
 
     for key, value in update_data.items():
         setattr(db_user, key, value)
-        
+
     db.commit()
     db.refresh(db_user)
     return db_user
@@ -59,7 +58,6 @@ def delete_user(db: Session, user_id: int):
         db.delete(db_user)
         db.commit()
     return db_user
-# -----------------------------------------
 
 # --- Функции для работы с активами ---
 def get_asset(db: Session, asset_id: int):
@@ -75,30 +73,25 @@ def create_asset(db: Session, asset: schemas.AssetCreate, changed_by_username: s
     try:
         db.commit()
         db.refresh(db_asset)
-        
-        # --- Создаем запись в истории о создании ---
+
         # Создаем фиктивную "историю" для поля "created"
         history_entry = models.AssetHistory(
             asset_id=db_asset.id,
-            field="created", # Или любое другое служебное имя
+            field="created",
             old_value=None,
-            new_value="Актив создан", # Или сериализованный объект db_asset?
+            new_value="Актив создан",
             changed_at=date.today(),
             changed_by=changed_by_username
         )
         db.add(history_entry)
         db.commit()
-        # --------------------------------------------
-        
+
         return db_asset
     except IntegrityError as e:
         db.rollback()
-        # Проверяем, была ли ошибка из-за уникальности inventory_number
         if "inventory_number" in str(e.orig):
-             # Можно добавить логирование здесь, если нужно
-             return None # Или поднять свою ошибку, например, raise ValueError("Инвентарный номер уже существует")
+             return None
         else:
-             # Если ошибка другая, пробрасываем исключение
              raise e
 
 def _log_changes(db: Session, asset_id: int, old_values: dict, new_values: dict, changed_by_username: str, exclude_fields=None):
@@ -134,7 +127,7 @@ def update_asset(db: Session, asset_id: int, asset_update: schemas.AssetUpdate, 
     db_asset = db.query(models.Asset).filter(models.Asset.id == asset_id).first()
     if not db_asset:
         return None
-    
+
     # Сохраняем старые значения для истории
     old_values = {}
     for column in models.Asset.__table__.columns:
@@ -144,26 +137,22 @@ def update_asset(db: Session, asset_id: int, asset_update: schemas.AssetUpdate, 
     update_data = asset_update.dict(exclude_unset=True)
     for key, value in update_data.items():
         setattr(db_asset, key, value)
-    
+
     try:
         db.commit()
         db.refresh(db_asset)
-        
-        # --- Создаем записи в истории об изменениях ---
+
+        # Создаем записи в истории об изменениях
         new_values = update_data # Только измененные поля
         _log_changes(db, db_asset.id, old_values, new_values, changed_by_username)
         db.commit()
-        # --------------------------------------------
-        
+
         return db_asset
     except IntegrityError as e:
         db.rollback()
-        # Проверяем, была ли ошибка из-за уникальности inventory_number
         if "inventory_number" in str(e.orig):
-             # Можно добавить логирование здесь, если нужно
-             return None # Или поднять свою ошибку
+             return None
         else:
-             # Если ошибка другая, пробрасываем исключение
              raise e
 
 def delete_asset(db: Session, asset_id: int, changed_by_username: str):
@@ -172,21 +161,19 @@ def delete_asset(db: Session, asset_id: int, changed_by_username: str):
         # --- Создаем запись в истории об удалении ---
         history_entry = models.AssetHistory(
             asset_id=db_asset.id,
-            field="deleted", # Или любое другое служебное имя
-            old_value="Актив удален", # Или сериализованный объект db_asset?
+            field="deleted",
+            old_value="Актив удален",
             new_value=None,
             changed_at=date.today(),
             changed_by=changed_by_username
         )
         db.add(history_entry)
-        # --------------------------------------------
-        
+
         db.delete(db_asset)
         db.commit()
-        
+
         # Коммитим историю после удаления актива
-        db.commit() 
+        db.commit()
         return db_asset
     return None
-# -----------------------------------
 

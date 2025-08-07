@@ -14,9 +14,6 @@ class User(Base):
     password_hash = Column(String)
     is_admin = Column(Boolean, default=False)
 
-    # Связь с историей активов (если нужно отслеживать, кто что менял)
-    # asset_histories = relationship("AssetHistory", back_populates="changed_by_user")
-
     def set_password(self, password: str):
         self.password_hash = pwd_context.hash(password)
 
@@ -60,7 +57,4 @@ class AssetHistory(Base):
 
     # Связь с активом
     asset = relationship("Asset", back_populates="history")
-    # Связь с пользователем (если нужно)
-    # changed_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    # changed_by_user = relationship("User", back_populates="asset_histories")
 

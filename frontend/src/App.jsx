@@ -1,6 +1,5 @@
 // app.jsx
 import React, { useState, useEffect } from 'react';
-// Убедитесь, что путь к стилям правильный
 import '/home/server/asset-tracker/frontend/src/TableStyles.css';
 import packageInfo from '../package.json';
 
@@ -21,7 +20,6 @@ function App() {
     ram: '',
     comment: '',
     type: '',
-    // Добавьте другие поля, если они есть, например:
     issue_date: '',
     windows_key: '',
     os_type: '',
@@ -281,11 +279,9 @@ function App() {
       if (searchQuery) {
         params.append('q', searchQuery);
       }
-      // --- Передача нового параметра ---
       if (warrantyFilter !== 'all') {
           params.append('warranty_status', warrantyFilter);
       }
-      // ---------------------------------
       const url = `http://10.0.1.225:8000/export/excel?${params.toString()}`;
       const res = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -391,7 +387,7 @@ function App() {
 
   const openModal = (asset = null) => {
     if (asset) {
-      // --- ИСПРАВЛЕНИЕ: Преобразование null в пустые строки ---
+      // Преобразование null в пустые строки
       setFormData({
         id: asset.id,
         inventory_number: asset.inventory_number || '',
@@ -411,7 +407,6 @@ function App() {
         windows_key: asset.windows_key || '',
         os_type: asset.os_type || '',
       });
-      // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
       setIsEditing(true);
     } else {
       setFormData({
@@ -594,7 +589,6 @@ function App() {
     (page - 1) * itemsPerPage,
     page * itemsPerPage
   );
-  // ------------------------
 
   // --- Функции для управления пользователями ---
   const openUserModal = (userToEdit = null) => {

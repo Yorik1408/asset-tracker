@@ -48,7 +48,6 @@
   font-size: 0.9em;
 }
 
-/* В TableStyles.css */
 .expiring-soon {
   background-color: #fff3cd;
   border-left: 4px solid #ffc107;
@@ -217,5 +216,4 @@
     font-size: 0.8rem; /* Уменьшаем размер кнопок */
     padding: 5px 10px; /* Уменьшаем отступы */ 
   }
-
 }
