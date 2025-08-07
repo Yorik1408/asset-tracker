@@ -1,6 +1,6 @@
 // app.jsx
 import React, { useState, useEffect } from 'react';
-import '/home/server/asset-tracker/frontend/src/TableStyles.css';
+import "./TableStyles.css";
 import packageInfo from '../package.json';
 
 function App() {

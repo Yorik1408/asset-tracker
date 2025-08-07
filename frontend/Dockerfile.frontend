@@ -1,0 +1,25 @@
+# frontend/Dockerfile.frontend
+
+# Попробуйте более новую версию
+FROM node:20-alpine
+
+# ... остальная часть Dockerfile без изменений ...
+RUN addgroup -g 1001 -S appgroup && \
+    adduser -S appuser -u 1001 -G appgroup
+
+WORKDIR /app
+
+COPY package*.json ./
+# Используйте npm ci для более предсказуемой установки зависимостей
+RUN npm ci
+
+COPY . .
+
+RUN chown -R 1001:1001 /app
+
+USER 1001:1001
+
+EXPOSE 5173
+
+# Убедитесь, что команда запуска соответствует скрипту в package.json
+CMD ["npm", "run", "dev"]

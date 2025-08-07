@@ -1,22 +1,40 @@
+# docker-compose.yml (обновленная часть frontend)
+
 version: '3.8'
 
 services:
   backend:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: asset-tracker-backend
     ports:
       - "8000:8000"
     volumes:
-      - ./backend:/app
-      - db_data:/app/db
+      - ./backend/test.db:/app/test.db:Z
     environment:
-      - ENVIRONMENT=development
+      - DATABASE_URL=sqlite:///./test.db
+    network_mode: "bridge"
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.frontend
+    container_name: asset-tracker-frontend
     ports:
-      - "80:80"
-    depends_on:
-      - backend
+      - "5173:5173"
+    volumes:
+      # --- Используем именованный том вместо монтирования ./frontend ---
+      - frontend_source_code:/app
+      - frontend_node_modules:/app/node_modules
+    environment:
+      - NODE_ENV=development
+    user: "1001:1001"
+    stdin_open: true
+    tty: true
+    network_mode: "bridge"
+    # security_opt может не потребоваться в этом случае
 
 volumes:
-  db_data:
+  frontend_source_code: 
+  frontend_node_modules:
