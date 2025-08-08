@@ -28,6 +28,27 @@
   color: #333;     /* Цвет текста */
 }
 
+/* Стиль для редактируемых ячеек */
+.editable-cell {
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+  display: inline-block; /* Чтобы фон применялся только к тексту */
+  width: 100%; /* Чтобы занимал всю ширину ячейки */
+  box-sizing: border-box; /* Учитываем padding в ширине */
+}
+
+.editable-cell:hover {
+  background-color: #e9ecef; /* Светло-серый фон при наведении */
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1); /* Тонкая рамка */
+}
+
+/* Убедитесь, что input/textarea/select в ячейке не выходят за границы */
+td .form-control-sm {
+  width: 100%;
+  box-sizing: border-box;
+}
+
 /* Заголовок таблицы */
 .custom-table thead th {
   background-color: #343a40;
