@@ -55,47 +55,31 @@ Asset Tracker — это веб-приложение, предназначенн
 ## 📦 Развертка на сервере AlmaLinux (или любой RedHat дистрибутив)
 ## Обнови систему и установи базовые инструменты
 ```
-sudo dnf update -y
-sudo dnf install -y epel-release
-sudo dnf groupinstall -y "Development Tools"
-sudo dnf install -y git curl wget vim
+sudo dnf upgrade -y
+sudo dnf install -y git
+sudo dnf install -y podman
+sudo dnf install python3-pip
+pip install --user podman-compose
 ```
-## Установи Python 3.9
+## Клонируй репозиторий и перейди в репозиторий
 ```
-sudo dnf install -y python39 python39-pip python39-devel
-```
-## Установи Node.js 18
-```bash
-curl -fsSL https://rpm.nodesource.com/setup_18.x  | sudo bash -
-sudo dnf install -y nodejs
-```
-## Создай папку проекта и склонируй репозиторий
-```
-cd /home
-sudo mkdir server
-sudo chown $USER:$USER server
-cd server
-git clone https://github.com/Yorik1408/asset-tracker.git 
+git clone https://gitlab.aspro.cloud/office/asset_tracker
 cd asset-tracker
 ```
-## Настрой бэкенд
+## Проверь, что podman установлен корректно
 ```
-cd backend
-python3.9 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+podman-compose --version
 ```
-## Настрой фронтенд
+## Запусти контейнер
 ```
-cd ../frontend
-npm install
-npm run build  # Сборка для production
+podman-compose up --build
 ```
-# Приложение будет доступно по адресу http://localhost:5173 (или другому, указанному в консоли)
 
-## Создайте первого пользователя (администратора):
-- Используйте инструмент вроде curl или Swagger UI (http://localhost:8000/docs).
-- Отправьте POST-запрос на /users/ с телом:
+## Приложение будет доступно по адресу http://localhost:5173 
+
+## Создайте первого пользователя (администратора): Используйте инструмент вроде curl или Swagger UI (http://localhost:8000/docs). Отправьте POST-запрос на /users/ с телом:
+
+
 ```
 {
   "username": "admin",
@@ -103,11 +87,6 @@ npm run build  # Сборка для production
   "is_admin": true
 }
 ```
+## Первый пользователь (администратор) создан - логинемся под ним и пользуемся
 
-## 📦 Запуск из двух консолей
-```bash
-# Бэкенд
-cd backend && source venv/bin/activate && uvicorn main:app --reload
 
-# Фронтенд
-cd frontend && npm run dev
