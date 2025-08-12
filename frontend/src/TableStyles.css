@@ -205,6 +205,48 @@ td .form-control-sm {
   opacity: 0.5;
 }
 
+/* Стили для карточек статистики */
+.stat-card {
+  min-width: 120px; /* Минимальная ширина для каждой карточки */
+  text-align: center; /* Центрируем содержимое */
+  padding: 0.5rem; /* Небольшой внутренний отступ */
+  border-radius: 0.375rem; /* Скругленные углы */
+  background-color: #f8f9fa; /* Светлый фон */
+  border: 1px solid #e9ecef; /* Тонкая граница */
+  transition: box-shadow 0.15s ease-in-out; /* Плавный переход для тени */
+}
+
+.stat-card:hover {
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075); /* Легкая тень при наведении */
+}
+
+.stat-value {
+  font-size: 1.5rem; /* Большой размер шрифта для чисел */
+  font-weight: bold; /* Жирный шрифт */
+  margin-bottom: 0.25rem; /* Отступ снизу */
+  /* Цвет текста задается inline в JSX (text-primary, text-success и т.д.) */
+}
+
+.stat-label {
+  font-size: 0.875rem; /* Меньший размер шрифта для подписей */
+  color: #6c757d; /* Серый цвет текста */
+}
+
+/* Адаптивность для мобильных устройств */
+@media (max-width: 767.98px) {
+  .stat-card {
+    min-width: calc(50% - 10px); /* На мобильных две карточки в ряду */
+    margin-bottom: 0.5rem; /* Отступ снизу между рядами */
+  }
+}
+
+/* Для очень маленьких экранов */
+@media (max-width: 400px) {
+  .stat-card {
+    min-width: 100%; /* Одна карточка на всю ширину */
+  }
+}
+
 /* Стили для мобильных устройств */
 @media (max-width: 768px) {
   /* Скрыть таблицу на мобильных устройствах */

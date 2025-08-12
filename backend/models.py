@@ -1,8 +1,9 @@
 # models.py
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Date, Text
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Date, Text, DateTime
 from sqlalchemy.orm import relationship
 from database import Base
 from passlib.context import CryptContext
+from datetime import datetime
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -43,6 +44,7 @@ class Asset(Base):
 
     # Связь с историей изменений
     history = relationship("AssetHistory", back_populates="asset", cascade="all, delete-orphan")
+    repairs = relationship("RepairRecord", back_populates="asset", cascade="all, delete-orphan")
 
 class AssetHistory(Base):
     __tablename__ = "asset_history"
@@ -58,3 +60,21 @@ class AssetHistory(Base):
     # Связь с активом
     asset = relationship("Asset", back_populates="history")
 
+class RepairRecord(Base):
+    __tablename__ = "repair_records"
+
+    id = Column(Integer, primary_key=True, index=True)
+    asset_id = Column(Integer, ForeignKey("assets.id"), nullable=False)
+    # Дата ремонта
+    repair_date = Column(Date, nullable=False)
+    # Описание выполненных работ
+    description = Column(Text, nullable=False)
+    # Стоимость ремонта (опционально)
+    cost = Column(String, nullable=True) # Или Numeric, если нужна точность
+    # Кто выполнил ремонт (опционально)
+    performed_by = Column(String, nullable=True)
+    # Время создания записи (для аудита)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Связь с активом
+    asset = relationship("Asset", back_populates="repairs")

@@ -1,6 +1,6 @@
 # schemas.py
 from pydantic import BaseModel
-from datetime import date
+from datetime import date, datetime
 from typing import Optional, List
 from enum import Enum
 
@@ -85,6 +85,28 @@ class AssetBase(BaseModel):
     windows_key: Optional[str] = None
     os_type: Optional[str] = None
 
+# --- Схемы для записей о ремонте ---
+class RepairRecordBase(BaseModel):
+    repair_date: date
+    description: str
+    cost: Optional[str] = None # Или float, если в модели Numeric
+    performed_by: Optional[str] = None
+
+class RepairRecordCreate(RepairRecordBase):
+    pass
+
+class RepairRecordUpdate(RepairRecordBase):
+    pass
+
+class RepairRecordResponse(RepairRecordBase):
+    id: int
+    asset_id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+# -----------------------------------
+
 class AssetCreate(AssetBase):
     pass
 
@@ -94,6 +116,7 @@ class AssetUpdate(AssetBase):
 class AssetResponse(AssetBase):
     id: int
     history: List[AssetHistoryResponse] = []
+    repairs: List[RepairRecordResponse] = []
 
     class Config:
         from_attributes = True

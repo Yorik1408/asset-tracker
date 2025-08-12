@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from passlib.context import CryptContext
 from datetime import date
-from typing import Optional
+from typing import Optional, List
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -177,3 +177,39 @@ def delete_asset(db: Session, asset_id: int, changed_by_username: str):
         return db_asset
     return None
 
+# --- Функции для работы с записями о ремонте ---
+def get_repair_records(db: Session, asset_id: int) -> List[models.RepairRecord]:
+    return db.query(models.RepairRecord).filter(models.RepairRecord.asset_id == asset_id).all()
+
+def get_repair_record(db: Session, record_id: int) -> Optional[models.RepairRecord]:
+    return db.query(models.RepairRecord).filter(models.RepairRecord.id == record_id).first()
+
+def create_repair_record(db: Session, asset_id: int, record: schemas.RepairRecordCreate) -> models.RepairRecord:
+    db_record = models.RepairRecord(
+        asset_id=asset_id,
+        **record.dict()
+    )
+    db.add(db_record)
+    db.commit()
+    db.refresh(db_record)
+    return db_record
+
+def update_repair_record(db: Session, record_id: int, record_update: schemas.RepairRecordUpdate) -> Optional[models.RepairRecord]:
+    db_record = get_repair_record(db, record_id)
+    if not db_record:
+        return None
+    update_data = record_update.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_record, key, value)
+    db.commit()
+    db.refresh(db_record)
+    return db_record
+
+def delete_repair_record(db: Session, record_id: int) -> bool:
+    db_record = get_repair_record(db, record_id)
+    if db_record:
+        db.delete(db_record)
+        db.commit()
+        return True
+    return False
+# --------------------------------------------

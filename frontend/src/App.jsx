@@ -1,6 +1,6 @@
 // app.jsx
 import React, { useState, useEffect } from 'react';
-import "./TableStyles.css";
+import './TableStyles.css';
 import packageInfo from '../package.json';
 
 function App() {
@@ -28,11 +28,9 @@ function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [filter, setFilter] = useState('Все');
   const [activeTab, setActiveTab] = useState('assets');
-  const [editingCell, setEditingCell] = useState({ assetId: null, field: null });
-  const [editValue, setEditValue] = useState('');
-  const [warrantyFilter, setWarrantyFilter] = useState('all'); // 'all', 'active', 'expiring'
+  const [warrantyFilter, setWarrantyFilter] = useState('all');
+  const [disposedFilter, setDisposedFilter] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [disposedFilter, setDisposedFilter] = useState(false)
   const [page, setPage] = useState(1);
   const itemsPerPage = 10;
   const [token, setToken] = useState(localStorage.getItem('token') || '');
@@ -44,9 +42,11 @@ function App() {
     laptops: 0,
     monitors: 0,
     computers: 0,
+    other: 0,
     retired: 0,
     underWarranty: 0,
     expiringWarranty: 0,
+    inRepair: 0
   });
 
   // --- Состояния для управления пользователями ---
@@ -60,6 +60,24 @@ function App() {
     is_admin: false
   });
   // ---------------------------------------------
+
+  // --- Состояния для inline-редактирования ---
+  const [editingCell, setEditingCell] = useState({ assetId: null, field: null });
+  const [editValue, setEditValue] = useState('');
+  // --------------------------------------------
+
+  // --- Состояния для управления ремонтами ---
+  const [showRepairsModal, setShowRepairsModal] = useState(false);
+  const [repairsForAsset, setRepairsForAsset] = useState([]);
+  const [currentAssetId, setCurrentAssetId] = useState(null);
+  const [repairFormData, setRepairFormData] = useState({
+    repair_date: '',
+    description: '',
+    cost: '',
+    performed_by: '',
+  });
+  const [editingRepairId, setEditingRepairId] = useState(null);
+  // --------------------------------------------
 
   // --- Состояние для определения мобильного устройства ---
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
@@ -82,9 +100,11 @@ function App() {
         laptops: 0,
         monitors: 0,
         computers: 0,
+        other: 0,
         retired: 0,
         underWarranty: 0,
         expiringWarranty: 0,
+        inRepair: 0
       });
       return;
     }
@@ -109,6 +129,7 @@ function App() {
       const computers = data.filter(a => a.type === 'Компьютер').length;
       const other = data.filter(a => a.type === 'Прочее').length;
       const retired = data.filter(a => a.status === 'списано').length;
+      const inRepair = data.filter(a => a.status === 'на ремонте').length;
 
       const threshold = new Date();
       threshold.setDate(today.getDate() + 30);
@@ -133,6 +154,7 @@ function App() {
         retired,
         underWarranty,
         expiringWarranty,
+        inRepair
       });
     } catch (err) {
       console.error("Ошибка загрузки активов:", err);
@@ -185,11 +207,15 @@ function App() {
           setIsEditingUser(false);
           setEditingUser(null);
         }
+        if (showRepairsModal) {
+          setShowRepairsModal(false);
+          setEditingRepairId(null);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showAboutModal, isModalOpen, isEditing, showUserModal, token]);
+  }, [showAboutModal, isModalOpen, isEditing, showUserModal, showRepairsModal, token]);
 
   useEffect(() => {
     if (!token) {
@@ -242,9 +268,11 @@ function App() {
       laptops: 0,
       monitors: 0,
       computers: 0,
+      other: 0,
       retired: 0,
       underWarranty: 0,
       expiringWarranty: 0,
+      inRepair: 0
     });
     setExpiringWarranty([]);
   };
@@ -254,7 +282,10 @@ function App() {
     if (filter !== 'Все') {
       filterText = `активов типа "${filter}"`;
     }
-    if (warrantyFilter !== 'all') {
+    if (disposedFilter) {
+      filterText = "списанных активов";
+    }
+    if (warrantyFilter !== 'all' && !disposedFilter) {
         const warrantyText = warrantyFilter === 'active' ? 'на гарантии' : 'с заканчивающейся гарантией';
         if (filterText === "всех активов") {
             filterText = `активов ${warrantyText}`;
@@ -273,13 +304,16 @@ function App() {
 
     try {
       const params = new URLSearchParams();
-      if (filter !== 'Все') {
+      if (filter !== 'Все' && !disposedFilter) {
         params.append('type', filter);
+      }
+      if (disposedFilter) {
+        params.append('status', 'списано');
       }
       if (searchQuery) {
         params.append('q', searchQuery);
       }
-      if (warrantyFilter !== 'all') {
+      if (warrantyFilter !== 'all' && !disposedFilter) {
           params.append('warranty_status', warrantyFilter);
       }
       const url = `http://10.0.1.225:8000/export/excel?${params.toString()}`;
@@ -365,9 +399,11 @@ function App() {
           laptops: 0,
           monitors: 0,
           computers: 0,
+          other: 0,
           retired: 0,
           underWarranty: 0,
           expiringWarranty: 0,
+          inRepair: 0
         });
         setExpiringWarranty([]);
       } else {
@@ -386,7 +422,6 @@ function App() {
 
   const openModal = (asset = null) => {
     if (asset) {
-      // Преобразование null в пустые строки
       setFormData({
         id: asset.id,
         inventory_number: asset.inventory_number || '',
@@ -532,95 +567,6 @@ function App() {
     openModal(fullAsset);
   };
 
-    // --- Inline-редактирование ---
-  const startEditing = (assetId, field, currentValue) => {
-    // Разрешаем редактирование только админам
-    if (!user?.is_admin) return;
-
-    setEditingCell({ assetId, field });
-    // Преобразуем null/undefined в пустую строку для редактирования
-    setEditValue(currentValue == null ? '' : String(currentValue));
-  };
-
-  const handleEditChange = (e) => {
-    setEditValue(e.target.value);
-  };
-
-  const saveEdit = async () => {
-    const { assetId, field } = editingCell;
-    if (assetId === null || field === null) return;
-
-    const assetToEdit = assets.find(a => a.id === assetId);
-    if (!assetToEdit) return;
-
-    // Если значение не изменилось, просто выходим
-    const currentValue = assetToEdit[field];
-    const newValue = editValue;
-    if (currentValue == newValue || (currentValue === null && newValue === '')) {
-      cancelEdit();
-      return;
-    }
-
-    // Подготовка данных для обновления
-    // Копируем существующий объект актива
-    const updatedAssetData = { ...assetToEdit };
-    // Обновляем только редактируемое поле
-    // Преобразуем пустую строку обратно в null, если это было null изначально (для текстовых полей)
-    // Для дат, если строка пустая, тоже ставим null
-    if (newValue === '' && (typeof currentValue === 'string' || currentValue === null || field.includes('date'))) {
-      updatedAssetData[field] = null;
-    } else {
-      updatedAssetData[field] = newValue;
-    }
-    
-    // Удаляем id из payload, так как он не должен обновляться
-    delete updatedAssetData.id;
-    // Удаляем history, так как он обрабатывается на бэкенде
-    delete updatedAssetData.history;
-
-    try {
-      const res = await fetch(`http://10.0.1.225:8000/assets/${assetId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(updatedAssetData)
-      });
-
-      if (res.ok) {
-        const updatedAssetFromServer = await res.json();
-        // Обновляем состояние assets
-        setAssets(assets.map(a => a.id === updatedAssetFromServer.id ? updatedAssetFromServer : a));
-        // Обновляем статистику
-        fetchAssets();
-        cancelEdit();
-      } else {
-        const errorData = await res.json().catch(() => null);
-        alert(`Ошибка обновления: ${errorData?.detail || 'Неизвестная ошибка'}`);
-        cancelEdit(); // Закрываем редактирование даже при ошибке, чтобы не блокировать UI
-      }
-    } catch (err) {
-      alert('Ошибка сети при обновлении');
-      console.error(err);
-      cancelEdit(); // Закрываем редактирование даже при ошибке, чтобы не блокировать UI
-    }
-  };
-
-  const cancelEdit = () => {
-    setEditingCell({ assetId: null, field: null });
-    setEditValue('');
-  };
-
-  // Обработка Enter и Escape при редактировании
-  const handleEditKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      saveEdit();
-    } else if (e.key === 'Escape') {
-      cancelEdit();
-    }
-  };
-
   const handleDelete = async (id) => {
     if (!window.confirm('Вы уверены?')) return;
     const res = await fetch(`http://10.0.1.225:8000/assets/${id}`, {
@@ -636,57 +582,122 @@ function App() {
     }
   };
 
-    // --- Фильтрация + поиск ---
-  // Фильтрация активов
+  // --- Inline-редактирование ---
+  const startEditing = (assetId, field, currentValue) => {
+    if (!user?.is_admin) return;
+    setEditingCell({ assetId, field });
+    setEditValue(currentValue == null ? '' : String(currentValue));
+  };
+
+  const handleEditChange = (e) => {
+    setEditValue(e.target.value);
+  };
+
+  const saveEdit = async () => {
+    const { assetId, field } = editingCell;
+    if (assetId === null || field === null) return;
+
+    const assetToEdit = assets.find(a => a.id === assetId);
+    if (!assetToEdit) return;
+
+    const currentValue = assetToEdit[field];
+    const newValue = editValue;
+    if (currentValue == newValue || (currentValue === null && newValue === '')) {
+      cancelEdit();
+      return;
+    }
+
+    const updatedAssetData = { ...assetToEdit };
+    if (newValue === '' && (typeof currentValue === 'string' || currentValue === null || field.includes('date'))) {
+      updatedAssetData[field] = null;
+    } else {
+      updatedAssetData[field] = newValue;
+    }
+    
+    delete updatedAssetData.id;
+    delete updatedAssetData.history;
+
+    try {
+      const res = await fetch(`http://10.0.1.225:8000/assets/${assetId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(updatedAssetData)
+      });
+
+      if (res.ok) {
+        const updatedAssetFromServer = await res.json();
+        setAssets(assets.map(a => a.id === updatedAssetFromServer.id ? updatedAssetFromServer : a));
+        fetchAssets();
+        cancelEdit();
+      } else {
+        const errorData = await res.json().catch(() => null);
+        alert(`Ошибка обновления: ${errorData?.detail || 'Неизвестная ошибка'}`);
+        cancelEdit();
+      }
+    } catch (err) {
+      alert('Ошибка сети при обновлении');
+      console.error(err);
+      cancelEdit();
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditingCell({ assetId: null, field: null });
+    setEditValue('');
+  };
+
+  const handleEditKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      saveEdit();
+    } else if (e.key === 'Escape') {
+      cancelEdit();
+    }
+  };
+  // -----------------------------
+
+  // --- Фильтрация + поиск ---
   const getFilteredAssets = () => {
     let result = [...assets];
-
-    // 1. Фильтр по типу (как раньше)
-    if (filter !== 'Все') {
-        result = result.filter(asset => asset.type === filter);
-    }
-
-    // 2. Фильтр по статусу "Списано" (НОВЫЙ)
-    // Этот фильтр имеет приоритет: если он включен, показываем только списанные, независимо от других фильтров типа или гарантии
+    
     if (disposedFilter) {
-        result = result.filter(asset => asset.status === 'списано');
-        // Если disposedFilter активен, мы игнорируем warrantyFilter и filter
-        // Если вы хотите, чтобы они комбинировались, логику нужно немного изменить
+      result = result.filter(asset => asset.status === 'списано');
     } else {
-        // 3. Фильтр по гарантии (новый, применяется только если disposedFilter НЕ активен)
-        const today = new Date();
-        if (warrantyFilter === 'active') {
-            // На гарантии: дата окончания позже сегодня
-            result = result.filter(asset => {
-                if (!asset.warranty_until) return false;
-                const warrantyDate = new Date(asset.warranty_until);
-                return warrantyDate > today;
-            });
-        } else if (warrantyFilter === 'expiring') {
-            // Гарантия заканчивается: дата окончания в ближайшие 30 дней
-            const threshold = new Date();
-            threshold.setDate(today.getDate() + 30);
-            result = result.filter(asset => {
-                if (!asset.warranty_until) return false;
-                const warrantyDate = new Date(asset.warranty_until);
-                return warrantyDate >= today && warrantyDate <= threshold;
-            });
-        }
-        // warrantyFilter === 'all' - не применяем фильтр по гарантии
+      if (filter !== 'Все') {
+        result = result.filter(asset => asset.type === filter);
+      }
+      
+      const today = new Date();
+      if (warrantyFilter === 'active') {
+        result = result.filter(asset => {
+          if (!asset.warranty_until) return false;
+          const warrantyDate = new Date(asset.warranty_until);
+          return warrantyDate > today;
+        });
+      } else if (warrantyFilter === 'expiring') {
+        const threshold = new Date();
+        threshold.setDate(today.getDate() + 30);
+        result = result.filter(asset => {
+          if (!asset.warranty_until) return false;
+          const warrantyDate = new Date(asset.warranty_until);
+          return warrantyDate >= today && warrantyDate <= threshold;
+        });
+      }
     }
-
-    // 4. Поиск по строке (как раньше, применяется всегда в конце)
+    
     if (searchQuery) {
-        result = result.filter(asset =>
-            Object.values(asset).some(val => {
-                if (val == null || typeof val === 'number' || val instanceof Date) {
-                    return false;
-                }
-                return String(val).toLowerCase().includes(searchQuery.toLowerCase());
-            })
-        );
+      result = result.filter(asset =>
+        Object.values(asset).some(val => {
+          if (val == null || typeof val === 'number' || val instanceof Date) {
+            return false;
+          }
+          return String(val).toLowerCase().includes(searchQuery.toLowerCase());
+        })
+      );
     }
-
+    
     return result;
   };
 
@@ -696,6 +707,7 @@ function App() {
     (page - 1) * itemsPerPage,
     page * itemsPerPage
   );
+  // ------------------------
 
   // --- Функции для управления пользователями ---
   const openUserModal = (userToEdit = null) => {
@@ -806,18 +818,157 @@ function App() {
   };
   // ---------------------------------------------
 
+  // --- Функции для управления ремонтами ---
+  const fetchRepairsForAsset = async (assetId) => {
+    if (!token) return;
+    try {
+      const res = await fetch(`http://10.0.1.225:8000/assets/${assetId}/repairs/`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setRepairsForAsset(data);
+      } else {
+        console.error("Ошибка загрузки ремонтов:", await res.text());
+        setRepairsForAsset([]);
+      }
+    } catch (err) {
+      console.error("Ошибка сети при загрузке ремонтов:", err);
+      setRepairsForAsset([]);
+    }
+  };
+
+  const openRepairsModal = async (assetId) => {
+    setCurrentAssetId(assetId);
+    await fetchRepairsForAsset(assetId);
+    setEditingRepairId(null);
+    setRepairFormData({
+      repair_date: '',
+      description: '',
+      cost: '',
+      performed_by: '',
+    });
+    setShowRepairsModal(true);
+  };
+
+  const handleRepairChange = (e) => {
+    const { name, value } = e.target;
+    setRepairFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleCreateRepair = async (e) => {
+    e.preventDefault();
+    if (!currentAssetId || !token) return;
+
+    try {
+      const res = await fetch(`http://10.0.1.225:8000/assets/${currentAssetId}/repairs/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(repairFormData)
+      });
+      if (res.ok) {
+        const newRepair = await res.json();
+        setRepairsForAsset(prev => [...prev, newRepair]);
+        setRepairFormData({
+          repair_date: '',
+          description: '',
+          cost: '',
+          performed_by: '',
+        });
+        alert("Запись о ремонте добавлена");
+      } else {
+        const errorData = await res.json();
+        alert(`Ошибка создания записи: ${errorData.detail || 'Неизвестная ошибка'}`);
+      }
+    } catch (err) {
+      alert("Ошибка сети при создании записи");
+      console.error(err);
+    }
+  };
+
+  const handleEditRepair = (repair) => {
+    setEditingRepairId(repair.id);
+    setRepairFormData({
+      repair_date: repair.repair_date,
+      description: repair.description,
+      cost: repair.cost || '',
+      performed_by: repair.performed_by || '',
+    });
+  };
+
+  const handleUpdateRepair = async (e) => {
+    e.preventDefault();
+    if (!editingRepairId || !token) return;
+
+    try {
+      const res = await fetch(`http://10.0.1.225:8000/repairs/${editingRepairId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(repairFormData)
+      });
+      if (res.ok) {
+        const updatedRepair = await res.json();
+        setRepairsForAsset(prev => prev.map(r => r.id === updatedRepair.id ? updatedRepair : r));
+        setEditingRepairId(null);
+        setRepairFormData({
+          repair_date: '',
+          description: '',
+          cost: '',
+          performed_by: '',
+        });
+        alert("Запись о ремонте обновлена");
+      } else {
+        const errorData = await res.json();
+        alert(`Ошибка обновления записи: ${errorData.detail || 'Неизвестная ошибка'}`);
+      }
+    } catch (err) {
+      alert("Ошибка сети при обновлении записи");
+      console.error(err);
+    }
+  };
+
+  const handleDeleteRepair = async (recordId) => {
+    if (!window.confirm("Вы уверены, что хотите удалить эту запись о ремонте?")) return;
+    if (!token) return;
+
+    try {
+      const res = await fetch(`http://10.0.1.225:8000/repairs/${recordId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        setRepairsForAsset(prev => prev.filter(r => r.id !== recordId));
+        alert("Запись о ремонте удалена");
+      } else {
+        const errorData = await res.json();
+        alert(`Ошибка удаления записи: ${errorData.detail || 'Неизвестная ошибка'}`);
+      }
+    } catch (err) {
+      alert("Ошибка сети при удалении записи");
+      console.error(err);
+    }
+  };
+  // ------------------------------------
+
   // --- Функция для рендеринга мобильного представления актива ---
-  // Вынесена как константа внутри компонента, но не в return()
   const renderMobileAssetDetails = (asset) => (
     <div className="mobile-view" key={asset.id}>
       <div><strong>ID:</strong> {asset.id}</div>
-      <div><strong>Инвентарный номер:</strong> {asset.inventory_number || '-'}</div>
-      <div><strong>Серийный номер:</strong> {asset.serial_number || '-'}</div>
-      <div><strong>Статус:</strong> {asset.status}</div>
-      <div><strong>Расположение:</strong> {asset.location}</div>
-      <div><strong>ФИО пользователя:</strong> {asset.user_name || '-'}</div>
+      <div><strong>Инвентарный номер:</strong> <span className={user?.is_admin ? 'editable-cell' : ''} onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'inventory_number', asset.inventory_number)}>{asset.inventory_number || '-'}</span></div>
+      <div><strong>Серийный номер:</strong> <span className={user?.is_admin ? 'editable-cell' : ''} onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'serial_number', asset.serial_number)}>{asset.serial_number || '-'}</span></div>
+      <div><strong>Статус:</strong> <span className={user?.is_admin ? 'editable-cell' : ''} onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'status', asset.status)}>{asset.status}</span></div>
+      <div><strong>Расположение:</strong> <span className={user?.is_admin ? 'editable-cell' : ''} onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'location', asset.location)}>{asset.location}</span></div>
+      <div><strong>ФИО пользователя:</strong> <span className={user?.is_admin ? 'editable-cell' : ''} onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'user_name', asset.user_name)}>{asset.user_name || '-'}</span></div>
       {warrantyFilter === 'active' && <div><strong>Гарантия до:</strong> {asset.warranty_until || '-'}</div>}
-      <div><strong>Комментарий:</strong> <span className="comment-cell">{asset.comment || ''}</span></div>
+      <div><strong>Комментарий:</strong> <div className={user?.is_admin ? 'editable-cell comment-cell' : 'comment-cell'} onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'comment', asset.comment)}>{asset.comment || ''}</div></div>
       {user?.is_admin && (
         <div className="mt-2">
           <strong>Действия:</strong>
@@ -843,10 +994,16 @@ function App() {
             >
               <i className={`fas ${showHistory === asset.id ? 'fa-eye-slash' : 'fa-history'}`}></i>
             </button>
+            <button
+              className="btn btn-sm btn-outline-info"
+              title="Показать ремонты"
+              onClick={() => openRepairsModal(asset.id)}
+            >
+              <i className="fas fa-wrench"></i>
+            </button>
           </div>
         </div>
       )}
-      {/* История изменений для мобильного вида */}
       {showHistory === asset.id && asset.history && asset.history.length > 0 && (
         <div className="mt-2 p-2 bg-light rounded">
           <strong>История изменений:</strong>
@@ -895,44 +1052,58 @@ function App() {
           </button>
         </form>
       )}
+
+      {/* Статистика (показываем только если есть токен) */}
       {token && (
         <div className="mb-4 p-3 rounded shadow-sm">
-          <div className="row text-center">
-            <div className="col-md-3 col-6">
-              <div className="fw-bold text-primary">{stats.total}</div>
-              <div className="text-muted small">Всего активов</div>
+          {/* Используем d-flex и flex-wrap для создания гибкой сетки */}
+          <div className="d-flex flex-wrap justify-content-start gap-3">
+            {/* Группа 1: Общая сводка */}
+            <div className="stat-card">
+              <div className="stat-value text-primary">{stats.total}</div>
+              <div className="stat-label">Всего активов</div>
             </div>
-            <div className="col-md-3 col-6">
-              <div className="fw-bold text-success">{stats.laptops}</div>
-              <div className="text-muted small">Ноутбуков</div>
+            <div className="stat-card">
+              <div className="stat-value text-success">{stats.laptops}</div>
+              <div className="stat-label">Ноутбуков</div>
             </div>
-            <div className="col-md-3 col-6">
-              <div className="fw-bold text-warning">{stats.expiringWarranty}</div>
-              <div className="text-muted small">Гарантия заканчивается</div>
+            <div className="stat-card">
+              <div className="stat-value text-info">{stats.monitors}</div>
+              <div className="stat-label">Мониторов</div>
             </div>
-            <div className="col-md-3 col-6 mt-2">
-              <div className="fw-bold text-info">{stats.monitors}</div>
-              <div className="text-muted small">Мониторов</div>
+            <div className="stat-card">
+              <div className="stat-value text-secondary">{stats.computers}</div>
+              <div className="stat-label">Компьютеров</div>
             </div>
-            <div className="col-md-3 col-6 mt-2">
-              <div className="fw-bold text-secondary">{stats.computers}</div>
-              <div className="text-muted small">Компьютеров</div>
+            <div className="stat-card">
+              <div className="stat-value text-muted">{stats.other}</div>
+              <div className="stat-label">Прочее</div>
             </div>
-            <div className="col-md-3 col-6 mt-2"> 
-              <div className="fw-bold text-muted">{stats.other}</div> 
-              <div className="text-muted small">Прочее</div>
+
+            {/* Разделитель или новая строка (визуально) */}
+            <div className="vr d-none d-md-block mx-2"></div> {/* Вертикальная линия на md+ */}
+
+            {/* Группа 2: Статусы */}
+            <div className="stat-card">
+              <div className="stat-value text-dark">{stats.retired}</div>
+              <div className="stat-label">Списано</div>
             </div>
-            <div className="col-md-3 col-6 mt-2">
-              <div className="fw-bold text-dark">{stats.retired}</div>
-              <div className="text-muted small">Списано</div>
+            <div className="stat-card">
+              <div className="stat-value text-danger">{stats.inRepair}</div>
+              <div className="stat-label">В ремонте</div>
             </div>
-            <div className="col-md-3 col-6 mt-2">
-              <div className="fw-bold text-primary">{stats.underWarranty}</div>
-              <div className="text-muted small">На гарантии</div>
+            <div className="stat-card">
+              <div className="stat-value text-primary">{stats.underWarranty}</div>
+              <div className="stat-label">На гарантии</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-value text-warning">{stats.expiringWarranty}</div>
+              <div className="stat-label">Гарантия истекает</div>
             </div>
           </div>
         </div>
       )}
+
       {token && (
         <div className="d-flex justify-content-between align-items-center mb-3">
           <span>Вы вошли как {user?.username || 'пользователь'}</span>
@@ -1016,15 +1187,17 @@ function App() {
               className={`btn btn-outline-primary ${filter === 'Все' ? 'active' : ''}`}
               onClick={() => {
                 setFilter('Все');
+                setDisposedFilter(false);
                 setPage(1);
               }}
             >
-              Все
+              Все типы
             </button>
             <button
               className={`btn btn-outline-primary ${filter === 'Монитор' ? 'active' : ''}`}
               onClick={() => {
                 setFilter('Монитор');
+                setDisposedFilter(false);
                 setPage(1);
               }}
             >
@@ -1034,6 +1207,7 @@ function App() {
               className={`btn btn-outline-primary ${filter === 'Компьютер' ? 'active' : ''}`}
               onClick={() => {
                 setFilter('Компьютер');
+                setDisposedFilter(false);
                 setPage(1);
               }}
             >
@@ -1043,6 +1217,7 @@ function App() {
               className={`btn btn-outline-primary ${filter === 'Ноутбук' ? 'active' : ''}`}
               onClick={() => {
                 setFilter('Ноутбук');
+                setDisposedFilter(false);
                 setPage(1);
               }}
             >
@@ -1052,6 +1227,7 @@ function App() {
               className={`btn btn-outline-primary ${filter === 'Прочее' ? 'active' : ''}`}
               onClick={() => {
                 setFilter('Прочее');
+                setDisposedFilter(false);
                 setPage(1);
               }}
             >
@@ -1061,9 +1237,26 @@ function App() {
 
           <div className="btn-group" role="group">
             <button
+              className={`btn btn-outline-dark ${disposedFilter ? 'active' : ''}`}
+              onClick={() => {
+                setDisposedFilter(!disposedFilter);
+                setFilter('Все');
+                setWarrantyFilter('all');
+                setPage(1);
+                if (activeTab !== 'assets') setActiveTab('assets');
+              }}
+              title="Показать только списанные активы"
+            >
+              <i className="fas fa-trash-alt"></i> Списано
+            </button>
+          </div>
+
+          <div className="btn-group" role="group">
+            <button
               className={`btn btn-outline-success ${warrantyFilter === 'active' ? 'active' : ''}`}
               onClick={() => {
                 setWarrantyFilter('active');
+                setDisposedFilter(false);
                 setPage(1);
                 if (activeTab !== 'assets') setActiveTab('assets');
               }}
@@ -1080,31 +1273,17 @@ function App() {
             </button>
           </div>
 
-          <div className="btn-group" role="group">
-            <button
-              className={`btn btn-outline-dark ${disposedFilter ? 'active' : ''}`}
-              onClick={() => {
-                setDisposedFilter(!disposedFilter); // Переключаем состояние
-                setPage(1);
-                // Переключаемся на вкладку таблицы, если смотрим отчет
-                if (activeTab !== 'assets') setActiveTab('assets');
-              }}
-              title="Показать только списанные активы"
-            >
-              <i className="fas fa-trash-alt"></i> Списано
-            </button>
-          </div>
-
           <div className="small text-muted">
             {filter !== 'Все' && `Тип: ${filter}`}
-            {warrantyFilter !== 'all' && ` | Гарантия: ${warrantyFilter === 'active' ? 'активна' : 'заканчивается'}`}
-            {(filter !== 'Все' || warrantyFilter !== 'all') && (
+            {disposedFilter && ` | Списано`}
+            {warrantyFilter !== 'all' && !disposedFilter && ` | Гарантия: ${warrantyFilter === 'active' ? 'активна' : 'заканчивается'}`}
+            {(filter !== 'Все' || disposedFilter || warrantyFilter !== 'all') && (
               <button
                 className="btn btn-sm btn-outline-secondary ms-2"
                 onClick={() => {
                   setFilter('Все');
-                  setWarrantyFilter('all');
                   setDisposedFilter(false);
+                  setWarrantyFilter('all');
                   setPage(1);
                 }}
               >
@@ -1138,201 +1317,201 @@ function App() {
       )}
 
       {/* Основной контейнер для таблицы и мобильного представления */}
-      {/* Обернут в Fragment, чтобы избежать ошибки Adjacent JSX */}
       <React.Fragment>
         {/* Десктопная таблица */}
         {token && activeTab === 'assets' && !isMobile && (
           <div className="table-container">
             <div className="table-responsive">
-  <table className="custom-table">
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Инвентарный номер</th>
-        <th>Серийный номер</th>
-        <th>Статус</th>
-        <th>Расположение</th>
-        <th>ФИО пользователя</th>
-        <th>Комментарий</th>
-        {warrantyFilter === 'active' && <th>Гарантия до</th>}
-        {user?.is_admin && <th>Действия</th>}
-      </tr>
-    </thead>
-    <tbody>
-      {paginatedAssets.length > 0 ? (
-        paginatedAssets.map((asset) => (
-          <React.Fragment key={asset.id}>
-            <tr>
-              <td data-label="ID">{asset.id}</td>
-              {/* Пример для "Инвентарный номер" с onDoubleClick */}
-              <td
-                data-label="Инвентарный номер"
-                onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'inventory_number', asset.inventory_number)}
-              >
-                {editingCell.assetId === asset.id && editingCell.field === 'inventory_number' ? (
-                  <input
-                    type="text"
-                    className="form-control form-control-sm"
-                    value={editValue}
-                    onChange={handleEditChange}
-                    onKeyDown={handleEditKeyDown}
-                    onBlur={saveEdit}
-                    autoFocus
-                  />
-                ) : (
-                  <span className={user?.is_admin ? 'editable-cell' : ''}>{asset.inventory_number || '-'}</span>
-                )}
-              </td>
-              {/* Пример для "Серийный номер" с onDoubleClick */}
-              <td
-                data-label="Серийный номер"
-                onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'serial_number', asset.serial_number)}
-              >
-                {editingCell.assetId === asset.id && editingCell.field === 'serial_number' ? (
-                  <input
-                    type="text"
-                    className="form-control form-control-sm"
-                    value={editValue}
-                    onChange={handleEditChange}
-                    onKeyDown={handleEditKeyDown}
-                    onBlur={saveEdit}
-                    autoFocus
-                  />
-                ) : (
-                  <span className={user?.is_admin ? 'editable-cell' : ''}>{asset.serial_number || '-'}</span>
-                )}
-              </td>
-              {/* Пример для "Статус" с onDoubleClick */}
-              <td
-                data-label="Статус"
-                onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'status', asset.status)}
-              >
-                {editingCell.assetId === asset.id && editingCell.field === 'status' ? (
-                  <select
-                    className="form-select form-select-sm"
-                    value={editValue}
-                    onChange={handleEditChange}
-                    onBlur={saveEdit}
-                    autoFocus
-                  >
-                    <option value="в эксплуатации">в эксплуатации</option>
-                    <option value="на ремонте">на ремонте</option>
-                    <option value="списано">списано</option>
-                  </select>
-                ) : (
-                  <span className={user?.is_admin ? 'editable-cell' : ''}>{asset.status}</span>
-                )}
-              </td>
-              {/* Пример для "Расположение" с onDoubleClick */}
-              <td
-                data-label="Расположение"
-                onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'location', asset.location)}
-              >
-                {editingCell.assetId === asset.id && editingCell.field === 'location' ? (
-                  <input
-                    type="text"
-                    className="form-control form-control-sm"
-                    value={editValue}
-                    onChange={handleEditChange}
-                    onKeyDown={handleEditKeyDown}
-                    onBlur={saveEdit}
-                    autoFocus
-                  />
-                ) : (
-                  <span className={user?.is_admin ? 'editable-cell' : ''}>{asset.location}</span>
-                )}
-              </td>
-              {/* Пример для "ФИО пользователя" с onDoubleClick */}
-              <td
-                data-label="ФИО пользователя"
-                onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'user_name', asset.user_name)}
-              >
-                {editingCell.assetId === asset.id && editingCell.field === 'user_name' ? (
-                  <input
-                    type="text"
-                    className="form-control form-control-sm"
-                    value={editValue}
-                    onChange={handleEditChange}
-                    onKeyDown={handleEditKeyDown}
-                    onBlur={saveEdit}
-                    autoFocus
-                  />
-                ) : (
-                  <span className={user?.is_admin ? 'editable-cell' : ''}>{asset.user_name || '-'}</span>
-                )}
-              </td>
-              {/* Пример для "Комментарий" с onDoubleClick */}
-              <td
-                data-label="Комментарий"
-                onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'comment', asset.comment)}
-              >
-                {editingCell.assetId === asset.id && editingCell.field === 'comment' ? (
-                  <textarea // Используем textarea для многострочного комментария
-                    className="form-control form-control-sm"
-                    value={editValue}
-                    onChange={handleEditChange}
-                    onKeyDown={handleEditKeyDown}
-                    onBlur={saveEdit}
-                    autoFocus
-                  />
-                ) : (
-                  <div className={user?.is_admin ? 'editable-cell comment-cell' : 'comment-cell'}>
-                    {asset.comment || ''}
-                  </div>
-                )}
-              </td>
-	      {warrantyFilter === 'active' && <td data-label="Гарантия до">{asset.warranty_until || '-'}</td>}
-              {user?.is_admin && (
-                <td className="text-center">
-                  <button
-                    className="btn btn-sm btn-outline-primary me-1"
-                    title="Редактировать"
-                    onClick={() => handleEdit(asset)}
-                  >
-                    <i className="fas fa-edit"></i>
-                  </button>
-                  <button
-                    className="btn btn-sm btn-outline-danger me-1"
-                    title="Удалить"
-                    onClick={() => handleDelete(asset.id)}
-                  >
-                    <i className="fas fa-trash"></i>
-                  </button>
-                  <button
-                    className="btn btn-sm btn-outline-secondary"
-                    title={showHistory === asset.id ? "Скрыть историю" : "Показать историю"}
-                    onClick={() => setShowHistory(showHistory === asset.id ? null : asset.id)}
-                  >
-                    <i className={`fas ${showHistory === asset.id ? 'fa-eye-slash' : 'fa-history'}`}></i>
-                  </button>
-                </td>
-              )}
-            </tr>
-            {showHistory === asset.id && asset.history && asset.history.length > 0 && (
-              <tr>
-                <td colSpan={user?.is_admin ? "8" : "7"} className="bg-light small p-2" style={{ textAlign: 'left' }}>
-                  <strong>История изменений:</strong>
-                  <ul className="mb-0 ps-3">
-                    {asset.history.map((h, idx) => (
-                      <li key={idx}>
-                        ({h.changed_at}) {h.changed_by ? `[${h.changed_by}] ` : ''}
-                        {getHumanFieldName(h.field)}: "{h.old_value}" → "{h.new_value}"
-                      </li>
-                    ))}
-                  </ul>
-                </td>
-              </tr>
-            )}
-          </React.Fragment>
-        ))
-      ) : (
-        <tr>
-          <td colSpan={(user?.is_admin ? 8 : 7) + (warrantyFilter === 'active' ? 1 : 0)} className="text-center">Нет данных</td>
-        </tr>
-      )}
-    </tbody>
-  </table>
-</div>
+              <table className="custom-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Инвентарный номер</th>
+                    <th>Серийный номер</th>
+                    <th>Статус</th>
+                    <th>Расположение</th>
+                    <th>ФИО пользователя</th>
+                    <th>Комментарий</th>
+                    {warrantyFilter === 'active' && <th>Гарантия до</th>}
+                    {user?.is_admin && <th>Действия</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedAssets.length > 0 ? (
+                    paginatedAssets.map((asset) => (
+                      <React.Fragment key={asset.id}>
+                        <tr>
+                          <td data-label="ID">{asset.id}</td>
+                          <td
+                            data-label="Инвентарный номер"
+                            onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'inventory_number', asset.inventory_number)}
+                          >
+                            {editingCell.assetId === asset.id && editingCell.field === 'inventory_number' ? (
+                              <input
+                                type="text"
+                                className="form-control form-control-sm"
+                                value={editValue}
+                                onChange={handleEditChange}
+                                onKeyDown={handleEditKeyDown}
+                                onBlur={saveEdit}
+                                autoFocus
+                              />
+                            ) : (
+                              <span className={user?.is_admin ? 'editable-cell' : ''}>{asset.inventory_number || '-'}</span>
+                            )}
+                          </td>
+                          <td
+                            data-label="Серийный номер"
+                            onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'serial_number', asset.serial_number)}
+                          >
+                            {editingCell.assetId === asset.id && editingCell.field === 'serial_number' ? (
+                              <input
+                                type="text"
+                                className="form-control form-control-sm"
+                                value={editValue}
+                                onChange={handleEditChange}
+                                onKeyDown={handleEditKeyDown}
+                                onBlur={saveEdit}
+                                autoFocus
+                              />
+                            ) : (
+                              <span className={user?.is_admin ? 'editable-cell' : ''}>{asset.serial_number || '-'}</span>
+                            )}
+                          </td>
+                          <td
+                            data-label="Статус"
+                            onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'status', asset.status)}
+                          >
+                            {editingCell.assetId === asset.id && editingCell.field === 'status' ? (
+                              <select
+                                className="form-select form-select-sm"
+                                value={editValue}
+                                onChange={handleEditChange}
+                                onBlur={saveEdit}
+                                autoFocus
+                              >
+                                <option value="в эксплуатации">в эксплуатации</option>
+                                <option value="на ремонте">на ремонте</option>
+                                <option value="списано">списано</option>
+                              </select>
+                            ) : (
+                              <span className={user?.is_admin ? 'editable-cell' : ''}>{asset.status}</span>
+                            )}
+                          </td>
+                          <td
+                            data-label="Расположение"
+                            onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'location', asset.location)}
+                          >
+                            {editingCell.assetId === asset.id && editingCell.field === 'location' ? (
+                              <input
+                                type="text"
+                                className="form-control form-control-sm"
+                                value={editValue}
+                                onChange={handleEditChange}
+                                onKeyDown={handleEditKeyDown}
+                                onBlur={saveEdit}
+                                autoFocus
+                              />
+                            ) : (
+                              <span className={user?.is_admin ? 'editable-cell' : ''}>{asset.location}</span>
+                            )}
+                          </td>
+                          <td
+                            data-label="ФИО пользователя"
+                            onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'user_name', asset.user_name)}
+                          >
+                            {editingCell.assetId === asset.id && editingCell.field === 'user_name' ? (
+                              <input
+                                type="text"
+                                className="form-control form-control-sm"
+                                value={editValue}
+                                onChange={handleEditChange}
+                                onKeyDown={handleEditKeyDown}
+                                onBlur={saveEdit}
+                                autoFocus
+                              />
+                            ) : (
+                              <span className={user?.is_admin ? 'editable-cell' : ''}>{asset.user_name || '-'}</span>
+                            )}
+                          </td>
+                          <td
+                            data-label="Комментарий"
+                            onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'comment', asset.comment)}
+                          >
+                            {editingCell.assetId === asset.id && editingCell.field === 'comment' ? (
+                              <textarea
+                                className="form-control form-control-sm"
+                                value={editValue}
+                                onChange={handleEditChange}
+                                onKeyDown={handleEditKeyDown}
+                                onBlur={saveEdit}
+                                autoFocus
+                              />
+                            ) : (
+                              <div className={user?.is_admin ? 'editable-cell comment-cell' : 'comment-cell'}>
+                                {asset.comment || ''}
+                              </div>
+                            )}
+                          </td>
+                          {warrantyFilter === 'active' && <td data-label="Гарантия до">{asset.warranty_until || '-'}</td>}
+                          {user?.is_admin && (
+                            <td className="text-center">
+                              <button
+                                className="btn btn-sm btn-outline-primary me-1"
+                                title="Редактировать"
+                                onClick={() => handleEdit(asset)}
+                              >
+                                <i className="fas fa-edit"></i>
+                              </button>
+                              <button
+                                className="btn btn-sm btn-outline-danger me-1"
+                                title="Удалить"
+                                onClick={() => handleDelete(asset.id)}
+                              >
+                                <i className="fas fa-trash"></i>
+                              </button>
+                              <button
+                                className="btn btn-sm btn-outline-secondary me-1"
+                                title={showHistory === asset.id ? "Скрыть историю" : "Показать историю"}
+                                onClick={() => setShowHistory(showHistory === asset.id ? null : asset.id)}
+                              >
+                                <i className={`fas ${showHistory === asset.id ? 'fa-eye-slash' : 'fa-history'}`}></i>
+                              </button>
+                              <button
+                                className="btn btn-sm btn-outline-info"
+                                title="Показать ремонты"
+                                onClick={() => openRepairsModal(asset.id)}
+                              >
+                                <i className="fas fa-wrench"></i>
+                              </button>
+                            </td>
+                          )}
+                        </tr>
+                        {showHistory === asset.id && asset.history && asset.history.length > 0 && (
+                          <tr>
+                            <td colSpan={(user?.is_admin ? 8 : 7) + (warrantyFilter === 'active' ? 1 : 0)} className="bg-light small p-2" style={{ textAlign: 'left' }}>
+                              <strong>История изменений:</strong>
+                              <ul className="mb-0 ps-3">
+                                {asset.history.map((h, idx) => (
+                                  <li key={idx}>
+                                    ({h.changed_at}) {h.changed_by ? `[${h.changed_by}] ` : ''}
+                                    {getHumanFieldName(h.field)}: "{h.old_value}" → "{h.new_value}"
+                                  </li>
+                                ))}
+                              </ul>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={(user?.is_admin ? 8 : 7) + (warrantyFilter === 'active' ? 1 : 0)} className="text-center">Нет данных</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
@@ -1349,7 +1528,7 @@ function App() {
       </React.Fragment>
       {/* Конец контейнера для таблицы и мобильного представления */}
 
-      {token && activeTab === 'assets' && assets.length > 0 && (
+      {token && activeTab === 'assets' && assets.length > 0 && !isMobile && (
         <div className="pagination-container d-flex justify-content-between align-items-center mt-3 mb-4">
           <button
             className="btn btn-outline-primary"
@@ -1768,6 +1947,166 @@ function App() {
           </div>
         </div>
       )}
+      {/* Модальное окно для ремонтов */}
+      {showRepairsModal && (
+        <div className="modal fade show" style={{ display: 'block' }} tabIndex="-1" role="dialog">
+          <div className="modal-dialog modal-xl" role="document">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">
+                  История ремонтов (Актив ID: {currentAssetId})
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowRepairsModal(false)}
+                ></button>
+              </div>
+              <div className="modal-body">
+                {/* Форма добавления/редактирования */}
+                <form onSubmit={editingRepairId ? handleUpdateRepair : handleCreateRepair} className="mb-4 p-3 border rounded">
+                  <h6>{editingRepairId ? 'Редактировать запись' : 'Добавить новую запись'}</h6>
+                  <div className="row g-2">
+                    <div className="col-md-3">
+                      <label className="form-label">Дата ремонта *</label>
+                      <input
+                        type="date"
+                        className="form-control form-control-sm"
+                        name="repair_date"
+                        value={repairFormData.repair_date}
+                        onChange={handleRepairChange}
+                        required
+                      />
+                    </div>
+                    <div className="col-md-3">
+                      <label className="form-label">Стоимость</label>
+                      <input
+                        type="text"
+                        className="form-control form-control-sm"
+                        name="cost"
+                        value={repairFormData.cost}
+                        onChange={handleRepairChange}
+                        placeholder="Например, 1500 руб."
+                      />
+                    </div>
+                    <div className="col-md-3">
+                      <label className="form-label">Кто выполнил</label>
+                      <input
+                        type="text"
+                        className="form-control form-control-sm"
+                        name="performed_by"
+                        value={repairFormData.performed_by}
+                        onChange={handleRepairChange}
+                        placeholder="ФИО или организация"
+                      />
+                    </div>
+                    <div className="col-12">
+                      <label className="form-label">Описание работ *</label>
+                      <textarea
+                        className="form-control form-control-sm"
+                        name="description"
+                        value={repairFormData.description}
+                        onChange={handleRepairChange}
+                        rows="2"
+                        required
+                      ></textarea>
+                    </div>
+                    <div className="col-12 text-end">
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-secondary me-2"
+                        onClick={() => {
+                          setEditingRepairId(null);
+                          setRepairFormData({
+                            repair_date: '',
+                            description: '',
+                            cost: '',
+                            performed_by: '',
+                          });
+                        }}
+                      >
+                        Отмена
+                      </button>
+                      <button
+                        type="submit"
+                        className="btn btn-sm btn-success"
+                      >
+                        {editingRepairId ? 'Сохранить изменения' : 'Добавить запись'}
+                      </button>
+                    </div>
+                  </div>
+                </form>
+
+                {/* Список ремонтов */}
+                <h6>Список записей</h6>
+                {repairsForAsset.length > 0 ? (
+                  <div className="table-responsive">
+                    <table className="table table-striped table-hover table-sm">
+                      <thead>
+                        <tr>
+                          <th>Дата</th>
+                          <th>Описание</th>
+                          <th>Стоимость</th>
+                          <th>Кто выполнил</th>
+                          <th>Создано</th>
+                          <th>Действия</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {repairsForAsset.map((record) => (
+                          <tr key={record.id}>
+                            <td>{record.repair_date}</td>
+                            <td>{record.description}</td>
+                            <td>{record.cost}</td>
+                            <td>{record.performed_by}</td>
+                            <td>{new Date(record.created_at).toLocaleString()}</td>
+                            <td>
+                              <button
+                                className="btn btn-sm btn-outline-primary me-1"
+                                onClick={() => handleEditRepair(record)}
+                                title="Редактировать"
+                              >
+                                <i className="fas fa-edit"></i>
+                              </button>
+                              <button
+                                className="btn btn-sm btn-outline-danger"
+                                onClick={() => handleDeleteRepair(record.id)}
+                                title="Удалить"
+                              >
+                                <i className="fas fa-trash"></i>
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-muted">Нет записей о ремонте для этого актива.</p>
+                )}
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowRepairsModal(false)}
+                >
+                  Закрыть
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Фон затемнения для модального окна ремонтов */}
+      {showRepairsModal && (
+        <div
+          className="modal-backdrop fade show"
+          onClick={() => setShowRepairsModal(false)}
+        ></div>
+      )}
+      
       {(isModalOpen || showUserModal) && (
         <div
           className="modal-backdrop fade show"
