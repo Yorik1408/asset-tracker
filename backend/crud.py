@@ -94,52 +94,49 @@ def create_asset(db: Session, asset: schemas.AssetCreate, changed_by_username: s
         else:
              raise e
 
-def _log_changes(db: Session, asset_id: int, old_values: dict, update_data: dict, changed_by: str):
+def _log_changes(db: Session, asset_id: int, old_values: dict, new_values: dict, changed_by_username: str, exclude_fields=None):
     """
-    Создает записи в истории изменений ТОЛЬКО для полей, присутствующих в update_data.
+    Вспомогательная функция для логирования изменений в истории.
+    Сравнивает только те поля, которые присутствуют в new_values.
+    Считает None и пустую строку эквивалентными.
+    """
+    if exclude_fields is None:
+        exclude_fields = {'id'} # Не логируем ID
 
-    Args:
-        db: Сессия SQLAlchemy.
-        asset_id: ID актива.
-        old_values: Словарь {имя_поля: старое_значение} для ВСЕХ полей.
-        update_data: Словарь {имя_поля: новое_значение} ТОЛЬКО для ИЗМЕНЕННЫХ полей.
-        changed_by: Имя пользователя, внесшего изменения.
-    """
-    # Итерируемся ТОЛЬКО по измененным полям
-    for field_name, new_value in update_data.items():
-        # Получаем старое значение для этого поля
+    # --- ИТЕРИРУЕМСЯ ТОЛЬКО ПО ИЗМЕНЕННЫМ ПОЛЯМ ---
+    # new_values содержит только те поля, которые нужно проверить
+    for field_name, new_value in new_values.items():
+        # -----------------------------------------
+        if field_name in exclude_fields:
+            continue
+            
+        # Получаем старое значение для этого конкретного поля
         old_value = old_values.get(field_name)
 
-        # --- ЛОГИКА СРАВНЕНИЯ ---
-        # Функция для "мягкого" сравнения значений, считая None и "" равными
+        # --- УЛУЧШЕННАЯ ЛОГИКА СРАВНЕНИЯ ---
         def values_are_equal(v1, v2):
-            if (v1 is None or v1 == "") and (v2 is None or v2 == ""):
-                return True
-            # Для дат можно добавить: isinstance(v1, date) and isinstance(v2, date) and v1 == v2
-            return v1 == v2
-        # -----------------------
+            """Считаем None и пустую строку эквивалентными."""
+            # Приводим оба значения к строке для сравнения, считая None == ""
+            s1 = str(v1) if v1 is not None else ""
+            s2 = str(v2) if v2 is not None else ""
+            return s1 == s2
 
-        # Проверяем, действительно ли значение изменилось
+        # Сравниваем с учетом None/""
         if not values_are_equal(old_value, new_value):
-            # Преобразуем значения в строки для хранения, если они не None
-            # Это важно для согласованности и отображения в Excel/на фронте
+            # Преобразуем значения для сохранения в БД
+            # Сохраняем как строки, None -> None
             stored_old_value = str(old_value) if old_value is not None else None
             stored_new_value = str(new_value) if new_value is not None else None
 
-            # Создаем и добавляем запись истории
             history_entry = models.AssetHistory(
                 asset_id=asset_id,
-                field=field_name,
-                old_value=stored_old_value,
-                new_value=stored_new_value,
-                changed_at=date.today(), # Или datetime.utcnow().date()
-                changed_by=changed_by
+                field=field_name, # <-- Имя поля
+                old_value=stored_old_value, # <-- Старое значение (строка или None)
+                new_value=stored_new_value, # <-- Новое значение (строка или None)
+                changed_at=date.today(),
+                changed_by=changed_by_username
             )
             db.add(history_entry)
-            print(f"[HISTORY LOGGED] Asset {asset_id}: {field_name} changed from '{stored_old_value}' to '{stored_new_value}' by '{changed_by}'") # Для отладки
-        else:
-            # Значения фактически не изменились, пропускаем
-            print(f"[NO CHANGE SKIPPED] Asset {asset_id}: {field_name} was effectively unchanged ('{old_value}' == '{new_value}')") # Для отладки
 
 def update_asset(db: Session, asset_id: int, asset_update: schemas.AssetUpdate, changed_by_username: str):
     db_asset = db.query(models.Asset).filter(models.Asset.id == asset_id).first()
