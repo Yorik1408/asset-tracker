@@ -94,66 +94,102 @@ def create_asset(db: Session, asset: schemas.AssetCreate, changed_by_username: s
         else:
              raise e
 
-def _log_changes(db: Session, asset_id: int, old_values: dict, new_values: dict, changed_by_username: str, exclude_fields=None):
-    """Вспомогательная функция для логирования изменений в истории."""
-    if exclude_fields is None:
-        exclude_fields = {'id'} # Не логируем ID
+def _log_changes(db: Session, asset_id: int, old_values: dict, update_data: dict, changed_by: str):
+    """
+    Создает записи в истории изменений ТОЛЬКО для полей, присутствующих в update_data.
 
-    changed_fields = set(old_values.keys()) & set(new_values.keys())
-    for field in changed_fields:
-        if field in exclude_fields:
-            continue
-        old_val = old_values.get(field)
-        new_val = new_values.get(field)
-        # Преобразуем даты в строки для сравнения и логирования, если нужно
-        # Это помогает избежать проблем с типами при сравнении
-        if isinstance(old_val, date):
-            old_val = old_val.isoformat() if old_val else None
-        if isinstance(new_val, date):
-            new_val = new_val.isoformat() if new_val else None
+    Args:
+        db: Сессия SQLAlchemy.
+        asset_id: ID актива.
+        old_values: Словарь {имя_поля: старое_значение} для ВСЕХ полей.
+        update_data: Словарь {имя_поля: новое_значение} ТОЛЬКО для ИЗМЕНЕННЫХ полей.
+        changed_by: Имя пользователя, внесшего изменения.
+    """
+    # Итерируемся ТОЛЬКО по измененным полям
+    for field_name, new_value in update_data.items():
+        # Получаем старое значение для этого поля
+        old_value = old_values.get(field_name)
 
-        if old_val != new_val:
+        # --- ЛОГИКА СРАВНЕНИЯ ---
+        # Функция для "мягкого" сравнения значений, считая None и "" равными
+        def values_are_equal(v1, v2):
+            if (v1 is None or v1 == "") and (v2 is None or v2 == ""):
+                return True
+            # Для дат можно добавить: isinstance(v1, date) and isinstance(v2, date) and v1 == v2
+            return v1 == v2
+        # -----------------------
+
+        # Проверяем, действительно ли значение изменилось
+        if not values_are_equal(old_value, new_value):
+            # Преобразуем значения в строки для хранения, если они не None
+            # Это важно для согласованности и отображения в Excel/на фронте
+            stored_old_value = str(old_value) if old_value is not None else None
+            stored_new_value = str(new_value) if new_value is not None else None
+
+            # Создаем и добавляем запись истории
             history_entry = models.AssetHistory(
                 asset_id=asset_id,
-                field=field,
-                old_value=str(old_val) if old_val is not None else None,
-                new_value=str(new_val) if new_val is not None else None,
-                changed_at=date.today(),
-                changed_by=changed_by_username
+                field=field_name,
+                old_value=stored_old_value,
+                new_value=stored_new_value,
+                changed_at=date.today(), # Или datetime.utcnow().date()
+                changed_by=changed_by
             )
             db.add(history_entry)
+            print(f"[HISTORY LOGGED] Asset {asset_id}: {field_name} changed from '{stored_old_value}' to '{stored_new_value}' by '{changed_by}'") # Для отладки
+        else:
+            # Значения фактически не изменились, пропускаем
+            print(f"[NO CHANGE SKIPPED] Asset {asset_id}: {field_name} was effectively unchanged ('{old_value}' == '{new_value}')") # Для отладки
 
 def update_asset(db: Session, asset_id: int, asset_update: schemas.AssetUpdate, changed_by_username: str):
     db_asset = db.query(models.Asset).filter(models.Asset.id == asset_id).first()
     if not db_asset:
         return None
 
-    # Сохраняем старые значения для истории
+    # 1. Сохраняем ВСЕ старые значения для потенциальной истории
     old_values = {}
     for column in models.Asset.__table__.columns:
         old_values[column.name] = getattr(db_asset, column.name)
 
-    # Обновляем актив
+    # 2. Получаем только те данные, которые нужно обновить (исключая неустановленные)
     update_data = asset_update.dict(exclude_unset=True)
+
+    # 3. Применяем изменения к объекту SQLAlchemy (но еще не коммитим)
     for key, value in update_data.items():
         setattr(db_asset, key, value)
 
     try:
+        # 4. Коммитим изменения в БД
         db.commit()
-        db.refresh(db_asset)
+        db.refresh(db_asset) # Обновляем объект из БД
 
-        # Создаем записи в истории об изменениях
-        new_values = update_data # Только измененные поля
-        _log_changes(db, db_asset.id, old_values, new_values, changed_by_username)
+        # 5. --- ИСПРАВЛЕНИЕ ---
+        # Вместо того чтобы передавать все old_values и каким-то образом вычислять "новые" значения,
+        # мы передаем ТОЛЬКО те пары (поле, новое_значение), которые действительно изменились.
+        # update_data уже содержит именно эти пары!
+        # _log_changes теперь знает, что нужно записывать историю ТОЛЬКО для полей из update_data.
+        _log_changes(db, db_asset.id, old_values, update_data, changed_by_username)
+        # --------------------
+
+        # 6. Финальный коммит для записей истории (если _log_changes их добавил через db.add)
         db.commit()
 
         return db_asset
     except IntegrityError as e:
         db.rollback()
+        # Логируем или обрабатываем ошибку уникальности
+        print(f"IntegrityError in update_asset: {e}") # Для отладки
         if "inventory_number" in str(e.orig):
-             return None
+            # Можно вернуть специальную ошибку или просто None
+            return None # Указывает, что обновление не удалось из-за дубликата инв. номера
         else:
-             raise e
+            # Если другая ошибка уникальности, пробрасываем её
+            raise e
+    except Exception as e:
+        # Ловим любые другие ошибки, откатываем транзакцию и логируем
+        db.rollback()
+        print(f"Unexpected error in update_asset: {e}") # Для отладки
+        raise e # Пробрасываем, чтобы вызывающая сторона могла обработать
 
 def delete_asset(db: Session, asset_id: int, changed_by_username: str):
     db_asset = db.query(models.Asset).filter(models.Asset.id == asset_id).first()
@@ -213,3 +249,4 @@ def delete_repair_record(db: Session, record_id: int) -> bool:
         return True
     return False
 # --------------------------------------------
+

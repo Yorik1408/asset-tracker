@@ -48,7 +48,6 @@ function App() {
     expiringWarranty: 0,
     inRepair: 0
   });
-
   // --- Состояния для управления пользователями ---
   const [users, setUsers] = useState([]);
   const [showUserModal, setShowUserModal] = useState(false);
@@ -60,12 +59,10 @@ function App() {
     is_admin: false
   });
   // ---------------------------------------------
-
   // --- Состояния для inline-редактирования ---
   const [editingCell, setEditingCell] = useState({ assetId: null, field: null });
   const [editValue, setEditValue] = useState('');
   // --------------------------------------------
-
   // --- Состояния для управления ремонтами ---
   const [showRepairsModal, setShowRepairsModal] = useState(false);
   const [repairsForAsset, setRepairsForAsset] = useState([]);
@@ -78,10 +75,13 @@ function App() {
   });
   const [editingRepairId, setEditingRepairId] = useState(null);
   // --------------------------------------------
-
   // --- Состояние для определения мобильного устройства ---
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-
+  
+  // --- Состояния для пагинации истории ---
+  const [historyPage, setHistoryPage] = useState(1);
+  const historyItemsPerPage = 5;
+  
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth <= 768);
@@ -90,7 +90,6 @@ function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
   // -------------------------------------------------------
-
   // --- Загрузка активов (только если есть токен) ---
   const fetchAssets = async () => {
     if (!token) {
@@ -108,7 +107,6 @@ function App() {
       });
       return;
     }
-
     try {
       const res = await fetch('http://10.0.1.225:8000/assets/', {
         headers: { Authorization: `Bearer ${token}` }
@@ -121,7 +119,6 @@ function App() {
       }
       const data = await res.json();
       setAssets(data);
-
       const today = new Date();
       const total = data.length;
       const laptops = data.filter(a => a.type === 'Ноутбук').length;
@@ -130,7 +127,6 @@ function App() {
       const other = data.filter(a => a.type === 'Прочее').length;
       const retired = data.filter(a => a.status === 'списано').length;
       const inRepair = data.filter(a => a.status === 'на ремонте').length;
-
       const threshold = new Date();
       threshold.setDate(today.getDate() + 30);
       const expiringWarranty = data.filter(asset => {
@@ -138,13 +134,11 @@ function App() {
         const warrantyDate = new Date(asset.warranty_until);
         return warrantyDate >= today && warrantyDate <= threshold;
       }).length;
-
       const underWarranty = data.filter(asset => {
         if (!asset.warranty_until) return false;
         const warrantyDate = new Date(asset.warranty_until);
         return warrantyDate > today;
       }).length;
-
       setStats({
         total,
         laptops,
@@ -161,7 +155,6 @@ function App() {
       setAssets([]);
     }
   };
-
   const [expiringWarranty, setExpiringWarranty] = useState([]);
   useEffect(() => {
     if (assets.length > 0) {
@@ -178,7 +171,6 @@ function App() {
       setExpiringWarranty([]);
     }
   }, [assets]);
-
   const fetchUsers = async () => {
     if (!user || !user.is_admin || !token) return;
     try {
@@ -195,7 +187,6 @@ function App() {
       console.error("Ошибка сети при загрузке пользователей:", err);
     }
   };
-
   useEffect(() => {
     fetchAssets();
     const handleKeyDown = (e) => {
@@ -216,7 +207,6 @@ function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showAboutModal, isModalOpen, isEditing, showUserModal, showRepairsModal, token]);
-
   useEffect(() => {
     if (!token) {
       setUser(null);
@@ -240,7 +230,6 @@ function App() {
         handleLogout();
       });
   }, [token]);
-
   const handleLogin = async () => {
     const res = await fetch('http://10.0.1.225:8000/token', {
       method: 'POST',
@@ -256,7 +245,6 @@ function App() {
       alert("Неверный логин или пароль");
     }
   };
-
   const handleLogout = () => {
     localStorage.removeItem('token');
     setToken('');
@@ -276,7 +264,6 @@ function App() {
     });
     setExpiringWarranty([]);
   };
-
   const handleExport = async () => {
     let filterText = "всех активов";
     if (filter !== 'Все') {
@@ -301,7 +288,6 @@ function App() {
 Продолжить?`
     );
     if (!confirmExport) return;
-
     try {
       const params = new URLSearchParams();
       if (filter !== 'Все' && !disposedFilter) {
@@ -326,7 +312,8 @@ function App() {
         return;
       }
       const blob = await res.blob();
-      const filenameMatch = res.headers.get('Content-Disposition')?.match(/filename[^;=\n\r]*=([^;\n\r]*)/);
+      // Исправленное регулярное выражение
+      const filenameMatch = res.headers.get('Content-Disposition')?.match(/filename[^;=\r\n]*=([^;\r\n]*)/);
       const filename = decodeURIComponent(filenameMatch?.[1]?.replace(/['"]/g, '') || 'активы.xlsx');
       const urlBlob = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -341,7 +328,6 @@ function App() {
       console.error(err);
     }
   };
-
   const handleImport = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -366,7 +352,6 @@ function App() {
     }
     e.target.value = null;
   };
-
   const handleClearDatabase = async () => {
     const wantBackup = window.confirm(
       "Перед очисткой базы рекомендуется сделать резервную копию. Скачать Excel-файл со всеми данными перед удалением?"
@@ -414,12 +399,10 @@ function App() {
       console.error(err);
     }
   };
-
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
-
   const openModal = (asset = null) => {
     if (asset) {
       setFormData({
@@ -465,12 +448,10 @@ function App() {
     }
     setIsModalOpen(true);
   };
-
   const closeModal = () => {
     setIsModalOpen(false);
     setIsEditing(false);
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.inventory_number || !formData.inventory_number.trim()) {
@@ -534,7 +515,6 @@ function App() {
       console.error(err);
     }
   };
-
   const getHumanFieldName = (field) => {
     const labels = {
       inventory_number: 'Инвентарный номер',
@@ -558,7 +538,6 @@ function App() {
     };
     return labels[field] || field;
   };
-
   const handleEdit = async (asset) => {
     const res = await fetch(`http://10.0.1.225:8000/assets/${asset.id}`, {
       headers: { 'Authorization': `Bearer ${token}` }
@@ -566,7 +545,6 @@ function App() {
     const fullAsset = await res.json();
     openModal(fullAsset);
   };
-
   const handleDelete = async (id) => {
     if (!window.confirm('Вы уверены?')) return;
     const res = await fetch(`http://10.0.1.225:8000/assets/${id}`, {
@@ -581,42 +559,34 @@ function App() {
       alert("Ошибка удаления");
     }
   };
-
   // --- Inline-редактирование ---
   const startEditing = (assetId, field, currentValue) => {
     if (!user?.is_admin) return;
     setEditingCell({ assetId, field });
     setEditValue(currentValue == null ? '' : String(currentValue));
   };
-
   const handleEditChange = (e) => {
     setEditValue(e.target.value);
   };
-
   const saveEdit = async () => {
     const { assetId, field } = editingCell;
     if (assetId === null || field === null) return;
-
     const assetToEdit = assets.find(a => a.id === assetId);
     if (!assetToEdit) return;
-
     const currentValue = assetToEdit[field];
     const newValue = editValue;
     if (currentValue == newValue || (currentValue === null && newValue === '')) {
       cancelEdit();
       return;
     }
-
     const updatedAssetData = { ...assetToEdit };
     if (newValue === '' && (typeof currentValue === 'string' || currentValue === null || field.includes('date'))) {
       updatedAssetData[field] = null;
     } else {
       updatedAssetData[field] = newValue;
     }
-    
     delete updatedAssetData.id;
     delete updatedAssetData.history;
-
     try {
       const res = await fetch(`http://10.0.1.225:8000/assets/${assetId}`, {
         method: 'PUT',
@@ -626,7 +596,6 @@ function App() {
         },
         body: JSON.stringify(updatedAssetData)
       });
-
       if (res.ok) {
         const updatedAssetFromServer = await res.json();
         setAssets(assets.map(a => a.id === updatedAssetFromServer.id ? updatedAssetFromServer : a));
@@ -643,12 +612,10 @@ function App() {
       cancelEdit();
     }
   };
-
   const cancelEdit = () => {
     setEditingCell({ assetId: null, field: null });
     setEditValue('');
   };
-
   const handleEditKeyDown = (e) => {
     if (e.key === 'Enter') {
       saveEdit();
@@ -657,18 +624,15 @@ function App() {
     }
   };
   // -----------------------------
-
   // --- Фильтрация + поиск ---
   const getFilteredAssets = () => {
     let result = [...assets];
-    
     if (disposedFilter) {
       result = result.filter(asset => asset.status === 'списано');
     } else {
       if (filter !== 'Все') {
         result = result.filter(asset => asset.type === filter);
       }
-      
       const today = new Date();
       if (warrantyFilter === 'active') {
         result = result.filter(asset => {
@@ -686,7 +650,6 @@ function App() {
         });
       }
     }
-    
     if (searchQuery) {
       result = result.filter(asset =>
         Object.values(asset).some(val => {
@@ -697,10 +660,8 @@ function App() {
         })
       );
     }
-    
     return result;
   };
-
   const filteredAssets = getFilteredAssets();
   const totalPages = Math.ceil(filteredAssets.length / itemsPerPage);
   const paginatedAssets = filteredAssets.slice(
@@ -708,7 +669,6 @@ function App() {
     page * itemsPerPage
   );
   // ------------------------
-
   // --- Функции для управления пользователями ---
   const openUserModal = (userToEdit = null) => {
     if (userToEdit) {
@@ -731,7 +691,6 @@ function App() {
     setShowUserModal(true);
     fetchUsers();
   };
-
   const handleUserChange = (e) => {
     const { name, value, type, checked } = e.target;
     setUserFormData(prev => ({
@@ -739,7 +698,6 @@ function App() {
       [name]: type === 'checkbox' ? checked : value
     }));
   };
-
   const handleUserSubmit = async (e) => {
     e.preventDefault();
     if (!userFormData.username || !userFormData.username.trim()) {
@@ -754,12 +712,10 @@ function App() {
     if (isEditingUser && (!payload.password || !payload.password.trim())) {
       delete payload.password;
     }
-
     const url = isEditingUser
       ? `http://10.0.1.225:8000/users/${editingUser.id}`
       : 'http://10.0.1.225:8000/users/';
     const method = isEditingUser ? 'PUT' : 'POST';
-
     try {
       const res = await fetch(url, {
         method,
@@ -769,7 +725,6 @@ function App() {
         },
         body: JSON.stringify(payload)
       });
-
       if (res.ok) {
         const updatedOrNewUser = await res.json();
         if (isEditingUser) {
@@ -792,7 +747,6 @@ function App() {
       console.error(err);
     }
   };
-
   const handleDeleteUser = async (userId) => {
     if (!window.confirm('Вы уверены, что хотите удалить этого пользователя?')) return;
     if (userId === user.id) {
@@ -817,7 +771,6 @@ function App() {
     }
   };
   // ---------------------------------------------
-
   // --- Функции для управления ремонтами ---
   const fetchRepairsForAsset = async (assetId) => {
     if (!token) return;
@@ -837,7 +790,6 @@ function App() {
       setRepairsForAsset([]);
     }
   };
-
   const openRepairsModal = async (assetId) => {
     setCurrentAssetId(assetId);
     await fetchRepairsForAsset(assetId);
@@ -850,16 +802,13 @@ function App() {
     });
     setShowRepairsModal(true);
   };
-
   const handleRepairChange = (e) => {
     const { name, value } = e.target;
     setRepairFormData(prev => ({ ...prev, [name]: value }));
   };
-
   const handleCreateRepair = async (e) => {
     e.preventDefault();
     if (!currentAssetId || !token) return;
-
     try {
       const res = await fetch(`http://10.0.1.225:8000/assets/${currentAssetId}/repairs/`, {
         method: 'POST',
@@ -888,7 +837,6 @@ function App() {
       console.error(err);
     }
   };
-
   const handleEditRepair = (repair) => {
     setEditingRepairId(repair.id);
     setRepairFormData({
@@ -898,11 +846,9 @@ function App() {
       performed_by: repair.performed_by || '',
     });
   };
-
   const handleUpdateRepair = async (e) => {
     e.preventDefault();
     if (!editingRepairId || !token) return;
-
     try {
       const res = await fetch(`http://10.0.1.225:8000/repairs/${editingRepairId}`, {
         method: 'PUT',
@@ -932,11 +878,9 @@ function App() {
       console.error(err);
     }
   };
-
   const handleDeleteRepair = async (recordId) => {
     if (!window.confirm("Вы уверены, что хотите удалить эту запись о ремонте?")) return;
     if (!token) return;
-
     try {
       const res = await fetch(`http://10.0.1.225:8000/repairs/${recordId}`, {
         method: 'DELETE',
@@ -957,7 +901,7 @@ function App() {
     }
   };
   // ------------------------------------
-
+  
   // --- Функция для рендеринга мобильного представления актива ---
   const renderMobileAssetDetails = (asset) => (
     <div className="mobile-view" key={asset.id}>
@@ -990,7 +934,15 @@ function App() {
             <button
               className="btn btn-sm btn-outline-secondary"
               title={showHistory === asset.id ? "Скрыть историю" : "Показать историю"}
-              onClick={() => setShowHistory(showHistory === asset.id ? null : asset.id)}
+              onClick={() => {
+                if (showHistory === asset.id) {
+                  setShowHistory(null);
+                } else {
+                  setShowHistory(asset.id);
+                  // Сброс пагинации истории при открытии новой
+                  setHistoryPage(1);
+                }
+              }}
             >
               <i className={`fas ${showHistory === asset.id ? 'fa-eye-slash' : 'fa-history'}`}></i>
             </button>
@@ -1007,19 +959,60 @@ function App() {
       {showHistory === asset.id && asset.history && asset.history.length > 0 && (
         <div className="mt-2 p-2 bg-light rounded">
           <strong>История изменений:</strong>
+          {/* Пагинация истории - мобильная версия */}
+          <HistoryPagination 
+            history={asset.history} 
+            historyPage={historyPage} 
+            setHistoryPage={setHistoryPage} 
+            historyItemsPerPage={historyItemsPerPage}
+          />
           <ul className="mb-0 ps-3 small">
-            {asset.history.map((h, idx) => (
-              <li key={idx}>
-                ({h.changed_at}) {h.changed_by ? `[${h.changed_by}] ` : ''}
-                {getHumanFieldName(h.field)}: "{h.old_value}" → "{h.new_value}"
-              </li>
-            ))}
+            {asset.history
+              .slice()
+              .reverse() // Сортировка от свежих к старым
+              .slice((historyPage - 1) * historyItemsPerPage, historyPage * historyItemsPerPage)
+              .map((h, idx) => (
+                <li key={idx}>
+                  ({h.changed_at}) {h.changed_by ? `[${h.changed_by}] ` : ''}
+                  {getHumanFieldName(h.field)}: "{h.old_value}" → "{h.new_value}"
+                </li>
+              ))}
           </ul>
         </div>
       )}
     </div>
   );
   // ---------------------------------------------------------------
+  
+  // --- Функция для рендеринга пагинации истории ---
+  const HistoryPagination = ({ history, historyPage, setHistoryPage, historyItemsPerPage }) => {
+    const historyTotalPages = Math.ceil(history.length / historyItemsPerPage);
+    
+    if (historyTotalPages <= 1) return null;
+    
+    return (
+      <div className="d-flex justify-content-between align-items-center mb-2">
+        <button
+          className="btn btn-sm btn-outline-primary"
+          onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+          disabled={historyPage === 1}
+        >
+          Назад
+        </button>
+        <span className="small">
+          Страница {historyPage} из {historyTotalPages}
+        </span>
+        <button
+          className="btn btn-sm btn-outline-primary"
+          onClick={() => setHistoryPage(p => Math.min(historyTotalPages, p + 1))}
+          disabled={historyPage === historyTotalPages}
+        >
+          Вперёд
+        </button>
+      </div>
+    );
+  };
+  // ----------------------------------------------
 
   return (
     <div className="container mt-4">
@@ -1052,7 +1045,6 @@ function App() {
           </button>
         </form>
       )}
-
       {/* Статистика (показываем только если есть токен) */}
       {token && (
         <div className="mb-4 p-3 rounded shadow-sm">
@@ -1079,10 +1071,8 @@ function App() {
               <div className="stat-value text-muted">{stats.other}</div>
               <div className="stat-label">Прочее</div>
             </div>
-
             {/* Разделитель или новая строка (визуально) */}
             <div className="vr d-none d-md-block mx-2"></div> {/* Вертикальная линия на md+ */}
-
             {/* Группа 2: Статусы */}
             <div className="stat-card">
               <div className="stat-value text-dark">{stats.retired}</div>
@@ -1103,7 +1093,6 @@ function App() {
           </div>
         </div>
       )}
-
       {token && (
         <div className="d-flex justify-content-between align-items-center mb-3">
           <span>Вы вошли как {user?.username || 'пользователь'}</span>
@@ -1234,7 +1223,6 @@ function App() {
               Прочее
             </button>
           </div>
-
           <div className="btn-group" role="group">
             <button
               className={`btn btn-outline-dark ${disposedFilter ? 'active' : ''}`}
@@ -1250,7 +1238,6 @@ function App() {
               <i className="fas fa-trash-alt"></i> Списано
             </button>
           </div>
-
           <div className="btn-group" role="group">
             <button
               className={`btn btn-outline-success ${warrantyFilter === 'active' ? 'active' : ''}`}
@@ -1272,7 +1259,6 @@ function App() {
               <i className="fas fa-exclamation-triangle"></i> {activeTab === 'reports' ? 'Вернуться к таблице' : 'Гарантия заканчивается'}
             </button>
           </div>
-
           <div className="small text-muted">
             {filter !== 'Все' && `Тип: ${filter}`}
             {disposedFilter && ` | Списано`}
@@ -1315,7 +1301,6 @@ function App() {
           )}
         </div>
       )}
-
       {/* Основной контейнер для таблицы и мобильного представления */}
       <React.Fragment>
         {/* Десктопная таблица */}
@@ -1473,7 +1458,15 @@ function App() {
                               <button
                                 className="btn btn-sm btn-outline-secondary me-1"
                                 title={showHistory === asset.id ? "Скрыть историю" : "Показать историю"}
-                                onClick={() => setShowHistory(showHistory === asset.id ? null : asset.id)}
+                                onClick={() => {
+                                  if (showHistory === asset.id) {
+                                    setShowHistory(null);
+                                  } else {
+                                    setShowHistory(asset.id);
+                                    // Сброс пагинации истории при открытии новой
+                                    setHistoryPage(1);
+                                  }
+                                }}
                               >
                                 <i className={`fas ${showHistory === asset.id ? 'fa-eye-slash' : 'fa-history'}`}></i>
                               </button>
@@ -1491,13 +1484,24 @@ function App() {
                           <tr>
                             <td colSpan={(user?.is_admin ? 8 : 7) + (warrantyFilter === 'active' ? 1 : 0)} className="bg-light small p-2" style={{ textAlign: 'left' }}>
                               <strong>История изменений:</strong>
+                              {/* Пагинация истории - десктопная версия */}
+                              <HistoryPagination 
+                                history={asset.history} 
+                                historyPage={historyPage} 
+                                setHistoryPage={setHistoryPage} 
+                                historyItemsPerPage={historyItemsPerPage}
+                              />
                               <ul className="mb-0 ps-3">
-                                {asset.history.map((h, idx) => (
-                                  <li key={idx}>
-                                    ({h.changed_at}) {h.changed_by ? `[${h.changed_by}] ` : ''}
-                                    {getHumanFieldName(h.field)}: "{h.old_value}" → "{h.new_value}"
-                                  </li>
-                                ))}
+                                {asset.history
+                                  .slice()
+                                  .reverse() // Сортировка от свежих к старым
+                                  .slice((historyPage - 1) * historyItemsPerPage, historyPage * historyItemsPerPage)
+                                  .map((h, idx) => (
+                                    <li key={idx}>
+                                      ({h.changed_at}) {h.changed_by ? `[${h.changed_by}] ` : ''}
+                                      {getHumanFieldName(h.field)}: "{h.old_value}" → "{h.new_value}"
+                                    </li>
+                                  ))}
                               </ul>
                             </td>
                           </tr>
@@ -1514,7 +1518,6 @@ function App() {
             </div>
           </div>
         )}
-
         {/* Мобильное представление */}
         {token && activeTab === 'assets' && isMobile && (
           <div className="mobile-container">
@@ -1527,7 +1530,6 @@ function App() {
         )}
       </React.Fragment>
       {/* Конец контейнера для таблицы и мобильного представления */}
-
       {token && activeTab === 'assets' && assets.length > 0 && !isMobile && (
         <div className="pagination-container d-flex justify-content-between align-items-center mt-3 mb-4">
           <button
@@ -1878,7 +1880,6 @@ function App() {
                     {isEditingUser ? 'Сохранить изменения' : 'Создать'}
                   </button>
                 </form>
-
                 {user?.is_admin && (
                   <div>
                     <h5>Список пользователей</h5>
@@ -2036,7 +2037,6 @@ function App() {
                     </div>
                   </div>
                 </form>
-
                 {/* Список ремонтов */}
                 <h6>Список записей</h6>
                 {repairsForAsset.length > 0 ? (
@@ -2098,7 +2098,6 @@ function App() {
           </div>
         </div>
       )}
-
       {/* Фон затемнения для модального окна ремонтов */}
       {showRepairsModal && (
         <div
@@ -2106,7 +2105,6 @@ function App() {
           onClick={() => setShowRepairsModal(false)}
         ></div>
       )}
-      
       {(isModalOpen || showUserModal) && (
         <div
           className="modal-backdrop fade show"
@@ -2164,6 +2162,4 @@ function App() {
     </div>
   );
 }
-
 export default App;
-

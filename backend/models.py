@@ -78,3 +78,4 @@ class RepairRecord(Base):
 
     # Связь с активом
     asset = relationship("Asset", back_populates="repairs")
+
