@@ -4,7 +4,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import StreamingResponse
 import numpy as np
 import pandas as pd
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from urllib.parse import quote
 from io import BytesIO
 from sqlalchemy.orm import Session, joinedload
@@ -17,7 +17,8 @@ from schemas import AssetResponse, AssetCreate, AssetUpdate, UserLogin, UserCrea
 from crud import (
     get_asset, get_assets, create_asset, update_asset, delete_asset,
     get_user_by_username, create_user, get_user, get_users, update_user, delete_user,
-    get_repair_records, create_repair_record, update_repair_record, delete_repair_record
+    get_repair_records, create_repair_record, update_repair_record, delete_repair_record,
+    get_deletion_logs
 )
 from passlib.context import CryptContext
 
@@ -195,6 +196,30 @@ def delete_existing_asset(
     if not deleted:
         raise HTTPException(status_code=404, detail="Актив не найден")
     return {"detail": "Актив удален"}
+
+@app.get("/admin/deletion-log/", response_model=List[schemas.DeletionLogResponse]) # Создайте схему DeletionLogResponse
+def read_deletion_log(
+    skip: int = 0,
+    limit: int = 100,
+    entity_type: Optional[str] = None, # Опциональный фильтр по типу
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_admin) # Только админы
+):
+    """
+    Получает журнал удалений.
+
+    Args:
+        skip: Сколько записей пропустить.
+        limit: Максимальное количество записей.
+        entity_type: (Опционально) Фильтр по типу сущности (например, "Asset").
+        db: Сессия БД.
+        current_user: Текущий пользователь (должен быть админом).
+
+    Returns:
+        Список записей из журнала удалений.
+    """
+    logs = get_deletion_logs(db, skip=skip, limit=limit, entity_type=entity_type)
+    return logs
 
 # Экспорт в эксель
 @app.get("/export/excel")

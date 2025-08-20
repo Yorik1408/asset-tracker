@@ -1,5 +1,5 @@
 # models.py
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Date, Text, DateTime
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Date, Text, DateTime, JSON
 from sqlalchemy.orm import relationship
 from database import Base
 from passlib.context import CryptContext
@@ -51,7 +51,7 @@ class AssetHistory(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     asset_id = Column(Integer, ForeignKey("assets.id"))
-    field = Column(String)
+    field = Column(String, nullable=False)
     old_value = Column(String, nullable=True)
     new_value = Column(String, nullable=True)
     changed_at = Column(Date)
@@ -79,3 +79,23 @@ class RepairRecord(Base):
     # Связь с активом
     asset = relationship("Asset", back_populates="repairs")
 
+class DeletionLog(Base):
+    """
+    Модель для хранения журнала операций удаления.
+    """
+    __tablename__ = "deletion_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    # Тип удаляемой сущности (например, "Asset", "User", "RepairRecord")
+    entity_type = Column(String, nullable=False, index=True)
+    # ID удаляемой сущности
+    entity_id = Column(Integer, nullable=False, index=True)
+    # JSON-сериализованные данные удаляемой сущности на момент удаления (опционально)
+    # Это позволяет видеть, *что* было удалено
+    entity_data = Column(JSON, nullable=True)
+    # Имя пользователя, выполнившего удаление
+    deleted_by = Column(String, nullable=False, index=True)
+    # Время удаления
+    deleted_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    # Причина удаления (опционально, можно добавить в UI)
+    reason = Column(String, nullable=True)

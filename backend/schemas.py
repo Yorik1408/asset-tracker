@@ -52,7 +52,7 @@ class AssetType(str, Enum):
 
 class AssetHistoryBase(BaseModel):
     asset_id: int
-    field: str
+    field: Optional[str] = None
     old_value: Optional[str] = None
     new_value: Optional[str] = None
     changed_at: date
@@ -106,6 +106,24 @@ class RepairRecordResponse(RepairRecordBase):
     class Config:
         from_attributes = True
 # -----------------------------------
+
+class DeletionLogBase(BaseModel):
+    entity_type: str
+    entity_id: int
+    # entity_data: Optional[dict] = None # Можно использовать dict, Pydantic v2 поддерживает
+    entity_data: Optional[str] = None # Или передавать как строку JSON
+    deleted_by: str
+    deleted_at: datetime
+    reason: Optional[str] = None
+
+class DeletionLogCreate(DeletionLogBase):
+    pass
+
+class DeletionLogResponse(DeletionLogBase):
+    id: int
+
+    class Config:
+        from_attributes = True # Для совместимости с ORM
 
 class AssetCreate(AssetBase):
     pass

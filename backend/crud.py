@@ -1,11 +1,13 @@
 # crud.py
 import models
+from models import AssetHistory
 import schemas
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from passlib.context import CryptContext
-from datetime import date
+from datetime import date, datetime
 from typing import Optional, List
+import json
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -188,26 +190,90 @@ def update_asset(db: Session, asset_id: int, asset_update: schemas.AssetUpdate, 
         print(f"Unexpected error in update_asset: {e}") # Для отладки
         raise e # Пробрасываем, чтобы вызывающая сторона могла обработать
 
-def delete_asset(db: Session, asset_id: int, changed_by_username: str):
+# --- Функции для работы с журналом удалений ---
+def log_deletion(db: Session, entity_type: str, entity_id: int, deleted_by: str, entity_data: dict = None, reason: str = None):
+    """
+    Записывает информацию об удалении в журнал.
+
+    Args:
+        db: Сессия SQLAlchemy.
+        entity_type: Тип удаляемой сущности (например, "Asset", "User").
+        entity_id: ID удаляемой сущности.
+        deleted_by: Имя пользователя, выполнившего удаление.
+        entity_data: (Опционально) Словарь с данными сущности на момент удаления.
+        reason: (Опционально) Причина удаления.
+    """
+    # Преобразуем entity_data в JSON-строку, если она передана
+    serialized_data = json.dumps(entity_data, ensure_ascii=False, default=str) if entity_data else None
+
+    db_log = models.DeletionLog(
+        entity_type=entity_type,
+        entity_id=entity_id,
+        entity_data=serialized_data, # Может быть None
+        deleted_by=deleted_by,
+        deleted_at=datetime.utcnow(),
+        reason=reason # Может быть None
+    )
+    db.add(db_log)
+    # Не коммитим здесь, пусть вызывающая функция делает это
+    # Это позволяет включить запись в лог в ту же транзакцию, что и само удаление
+
+
+def get_deletion_logs(db: Session, skip: int = 0, limit: int = 100, entity_type: str = None):
+    """
+    Получает записи из журнала удалений.
+
+    Args:
+        db: Сессия SQLAlchemy.
+        skip: Сколько записей пропустить (для пагинации).
+        limit: Максимальное количество записей для получения.
+        entity_type: (Опционально) Фильтр по типу сущности.
+
+    Returns:
+        Список записей models.DeletionLog.
+    """
+    query = db.query(models.DeletionLog)
+    if entity_type:
+        query = query.filter(models.DeletionLog.entity_type == entity_type)
+    # Сортируем по времени удаления, от новых к старым
+    return query.order_by(models.DeletionLog.deleted_at.desc()).offset(skip).limit(limit).all()
+
+# ---------------------------------------------
+def delete_asset(db: Session, asset_id: int, changed_by_username: str): # Убедитесь, что аргумент есть
     db_asset = db.query(models.Asset).filter(models.Asset.id == asset_id).first()
     if db_asset:
-        # --- Создаем запись в истории об удалении ---
-        history_entry = models.AssetHistory(
-            asset_id=db_asset.id,
-            field="deleted",
-            old_value="Актив удален",
-            new_value=None,
-            changed_at=date.today(),
-            changed_by=changed_by_username
-        )
-        db.add(history_entry)
+        # --- Подготовка данных для лога ---
+        # Создаем копию данных актива перед удалением
+        asset_data_to_log = {
+            "id": db_asset.id,
+            "inventory_number": db_asset.inventory_number,
+            "serial_number": db_asset.serial_number,
+            "model": db_asset.model,
+            "type": db_asset.type,
+            "status": db_asset.status,
+            "location": db_asset.location,
+            "user_name": db_asset.user_name,
+        }
+        # -------------------------------
 
+        # --- УДАЛЕНИЕ АКТИВА ---
         db.delete(db_asset)
-        db.commit()
+        # ----------------------
 
-        # Коммитим историю после удаления актива
+        # --- ЗАПИСЬ В ЖУРНАЛ УДАЛЕНИЙ ---
+        # Передаем данные актива в функцию логирования
+        log_deletion(
+            db,
+            entity_type=db_asset.type,
+            entity_id=asset_id,
+            deleted_by=changed_by_username,
+            entity_data=asset_data_to_log, # Передаем данные
+            reason=None # Или добавьте поле reason в UI и передавайте сюда
+        )
+        # --------------------------------
+
         db.commit()
-        return db_asset
+        return db_asset # Возвращаем удаленный актив (данные все еще доступны в объекте)
     return None
 
 # --- Функции для работы с записями о ремонте ---
@@ -245,5 +311,4 @@ def delete_repair_record(db: Session, record_id: int) -> bool:
         db.commit()
         return True
     return False
-# --------------------------------------------
 
