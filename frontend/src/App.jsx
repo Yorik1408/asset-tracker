@@ -85,7 +85,9 @@ function App() {
   const [historyPage, setHistoryPage] = useState(1);
   const historyItemsPerPage = 5;
   
-
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, filter, warrantyFilter, disposedFilter]); 
 
   // --- Функция для загрузки журнала удалений ---
   const fetchDeletionLogs = async () => {
