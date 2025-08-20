@@ -33,6 +33,9 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const itemsPerPage = 10;
+  const [showDeletionLogModal, setShowDeletionLogModal] = useState(false);
+  const [deletionLogs, setDeletionLogs] = useState([]);
+  const [deletionLogLoading, setDeletionLogLoading] = useState(false);
   const [token, setToken] = useState(localStorage.getItem('token') || '');
   const [user, setUser] = useState(null);
   const [loginData, setLoginData] = useState({ username: '', password: '' });
@@ -82,6 +85,42 @@ function App() {
   const [historyPage, setHistoryPage] = useState(1);
   const historyItemsPerPage = 5;
   
+
+
+  // --- Функция для загрузки журнала удалений ---
+  const fetchDeletionLogs = async () => {
+    if (!token || !user?.is_admin) return;
+    setDeletionLogLoading(true);
+    try {
+      const res = await fetch(`http://10.0.1.225:8000/admin/deletion-log/?limit=100`, { // Можно добавить пагинацию
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDeletionLogs(data);
+      } else {
+        console.error("Ошибка загрузки журнала удалений:", await res.text());
+        setDeletionLogs([]);
+      }
+    } catch (err) {
+      console.error("Ошибка сети при загрузке журнала удалений:", err);
+      setDeletionLogs([]);
+    } finally {
+      setDeletionLogLoading(false);
+    }
+  };
+  // ---------------------------------------------
+
+  // --- Функция для открытия модального окна журнала ---
+  const openDeletionLogModal = async () => {
+    await fetchDeletionLogs(); // Загружаем данные при открытии
+    setShowDeletionLogModal(true);
+  };
+  // ----------------------------------------------------
+
+
+
+
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth <= 768);
@@ -202,11 +241,15 @@ function App() {
           setShowRepairsModal(false);
           setEditingRepairId(null);
         }
+        if (showDeletionLogModal) {
+          setShowDeletionLogModal(false);
+        }
+
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showAboutModal, isModalOpen, isEditing, showUserModal, showRepairsModal, token]);
+  }, [showAboutModal, isModalOpen, isEditing, showUserModal, showDeletionLogModal, showRepairsModal, token]);
   useEffect(() => {
     if (!token) {
       setUser(null);
@@ -534,7 +577,7 @@ function App() {
       issue_date: 'Дата выдачи',
       comment: 'Комментарий',
       created: 'Создание',
-      deleted: 'Удаление'
+     // deleted: 'Удаление'
     };
     return labels[field] || field;
   };
@@ -1142,6 +1185,7 @@ function App() {
               </label>
             )}
           </div>
+
           {user.is_admin && (
             <div className="d-flex flex-wrap gap-1">
               <button
@@ -1165,6 +1209,14 @@ function App() {
               >
                 <i className="fas fa-trash-alt"></i> Очистить
               </button>
+              <button
+                className="btn btn-info btn-sm"
+                onClick={openDeletionLogModal}
+                title="Просмотреть журнал удалений"
+              >
+                <i className="fas fa-history"></i> Журнал удалений
+              </button>
+               
             </div>
           )}
         </div>
@@ -2098,6 +2150,110 @@ function App() {
           </div>
         </div>
       )}
+
+
+
+
+      {/* Модальное окно для журнала удалений */}
+      {showDeletionLogModal && (
+        <div className="modal fade show" style={{ display: 'block' }} tabIndex="-1" role="dialog">
+          <div className="modal-dialog modal-xl" role="document"> {/* Используем modal-xl для большего пространства */}
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Журнал удалений</h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowDeletionLogModal(false)}
+                ></button>
+              </div>
+              <div className="modal-body">
+                {deletionLogLoading ? (
+                  <div className="text-center">
+                    <div className="spinner-border text-primary" role="status">
+                      <span className="visually-hidden">Загрузка...</span>
+                    </div>
+                  </div>
+                ) : deletionLogs.length > 0 ? (
+                  <div className="table-responsive">
+                    <table className="table table-striped table-hover table-sm">
+                      <thead>
+                        <tr>
+                          <th>Дата/Время</th>
+                          <th>Тип</th>
+                          <th>ID</th>
+                          <th>Удалено пользователем</th>
+                          {/* <th>Причина</th> Можно добавить, если реализована */}
+                          <th>Данные (кратко)</th> {/* Для отображения entity_data */}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {deletionLogs.map((log) => {
+                          let shortData = '-';
+                          if (log.entity_data) {
+                            try {
+                              // Если entity_data - строка JSON
+                              const dataObj = JSON.parse(log.entity_data);
+                              // Покажем, например, инвентарный номер или ID
+                              shortData = dataObj.inventory_number || dataObj.id || 'Данные есть';
+                            } catch (e) {
+                              // Если не JSON, покажем как есть или обрежем
+                              shortData = log.entity_data.substring(0, 50) + (log.entity_data.length > 50 ? '...' : '');
+                            }
+                          }
+                          return (
+                            <tr key={log.id}>
+                              <td>{new Date(log.deleted_at).toLocaleString()}</td>
+                              <td>{log.entity_type}</td>
+                              <td>{log.entity_id}</td>
+                              <td>{log.deleted_by}</td>
+                              {/* <td>{log.reason || '-'}</td> */}
+                              <td>{shortData}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-muted text-center">Записи об удалениях отсутствуют.</p>
+                )}
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowDeletionLogModal(false)}
+                >
+                  Закрыть
+                </button>
+                {/* Можно добавить кнопку обновления журнала */}
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={fetchDeletionLogs}
+                  disabled={deletionLogLoading}
+                >
+                  {deletionLogLoading ? 'Обновление...' : 'Обновить'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Фон затемнения для модального окна журнала */}
+      {showDeletionLogModal && (
+        <div
+          className="modal-backdrop fade show"
+          onClick={() => setShowDeletionLogModal(false)}
+        ></div>
+      )}
+
+
+
+
+
       {/* Фон затемнения для модального окна ремонтов */}
       {showRepairsModal && (
         <div
@@ -2136,6 +2292,7 @@ function App() {
                   <li>Отслеживать историю изменений с указанием пользователя</li>
                   <li>Экспортировать и импортировать данные через Excel</li>
                   <li>Контролировать гарантийные сроки</li>
+		  <li>Узнавать историю ремонтов оборудования</li>
                 </ul>
                 <p>Разработано для повышения прозрачности и эффективности учёта оборудования.</p>
                 <p>
