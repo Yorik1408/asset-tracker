@@ -1,5 +1,6 @@
 // app.jsx
 import React, { useState, useEffect } from 'react';
+import QRCode from "react-qr-code";
 import './TableStyles.css';
 import packageInfo from '../package.json';
 
@@ -38,19 +39,38 @@ function App() {
   const [deletionLogLoading, setDeletionLogLoading] = useState(false);
   const [token, setToken] = useState(localStorage.getItem('token') || '');
   const [user, setUser] = useState(null);
-
+  const [assetIdFromUrlHash, setAssetIdFromUrlHash] = useState(null);
   const [showAssetInfoModal, setShowAssetInfoModal] = useState(false);
   const [assetInfo, setAssetInfo] = useState(null);
 
+  // Ваша существующая функция открытия модального окна
   const openAssetInfoModal = (asset) => {
-    setAssetInfo(asset);
+    console.log("Открытие модального окна для актива:", asset?.inventory_number); // Для отладки
+    setAssetInfo(asset); // Предполагается, что состояние называется assetInfo
     setShowAssetInfoModal(true);
+    // Устанавливаем хэш в URL при открытии модального окна вручную (не через QR)
+    // Это позволяет пользователю использовать "Назад" в браузере для закрытия
+    if (asset && asset.id) {
+        // Проверяем, не установлен ли хэш уже (например, из QR-кода)
+        if (window.location.hash !== `#asset-info-${asset.id}`) {
+            window.location.hash = `asset-info-${asset.id}`;
+        }
+    }
   };
 
+  // Ваша существующая функция закрытия модального окна
   const closeAssetInfoModal = () => {
+    console.log("Закрытие модального окна"); // Для отладки
     setShowAssetInfoModal(false);
     setAssetInfo(null);
+    // Очищаем хэш при закрытии модального окна пользователем
+    // Проверяем, что хэш относится к нашему модальному окну
+    if (window.location.hash.startsWith('#asset-info-')) {
+       console.log("Очистка URL-хэша"); // Для отладки
+       window.location.hash = ''; // Это вызовет событие 'hashchange'
+    }
   };
+
   const [loginData, setLoginData] = useState({ username: '', password: '' });
   const [showAboutModal, setShowAboutModal] = useState(false);
   const [stats, setStats] = useState({
@@ -134,6 +154,68 @@ function App() {
   // ----------------------------------------------------
 
 
+  // Добавьте этот useEffect после других useEffect
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash;
+      // Проверяем, начинается ли хэш с #asset-info-
+      if (hash && hash.startsWith('#asset-info-')) {
+        const idStr = hash.substring(12); // Убираем '#asset-info-'
+        const id = parseInt(idStr, 10);
+        if (!isNaN(id) && id > 0) {
+          console.log("Найден ID актива в URL-хэше:", id); // Для отладки
+          setAssetIdFromUrlHash(id);
+        } else {
+          console.warn("Некорректный ID в URL-хэше:", idStr);
+          setAssetIdFromUrlHash(null);
+        }
+      } else {
+        // Если хэш не наш, сбрасываем состояние
+        setAssetIdFromUrlHash(null);
+      }
+    };
+
+    // Проверить при первой загрузке приложения
+    handleHashChange();
+
+    // Добавить слушатель события изменения хэша (например, при нажатии "Назад" в браузере)
+    window.addEventListener('hashchange', handleHashChange);
+
+    // Убрать слушатель при размонтировании компонента
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+    };
+  }, []); // Пустой массив зависимостей - запускается только при монтировании/размонтировании
+
+  // Добавьте этот useEffect рядом
+  useEffect(() => {
+      // Проверяем, есть ли ID из хэша и загружен ли список активов
+      if (assetIdFromUrlHash && assets.length > 0) {
+          console.log("Пытаемся открыть актив с ID:", assetIdFromUrlHash); // Для отладки
+          // Найти актив по ID в вашем уже загруженном списке assets
+          const assetToOpen = assets.find(a => a.id === assetIdFromUrlHash);
+          if (assetToOpen) {
+              console.log("Актив найден, открываем модальное окно:", assetToOpen.inventory_number); // Для отладки
+              // Открыть модальное окно с информацией об активе
+              // Предполагается, что openAssetInfoModal - ваша существующая функция
+              openAssetInfoModal(assetToOpen);
+              // ВАЖНО: Очистить assetIdFromUrlHash, чтобы это срабатывало только один раз
+              // и не мешало обычной работе модального окна
+              setAssetIdFromUrlHash(null);
+              // Опционально: очистить хэш из URL после открытия
+              // window.location.hash = '';
+          } else {
+              console.warn(`Актив с ID ${assetIdFromUrlHash} не найден в списке активов.`);
+              // Можно показать уведомление пользователю, если он отсканировал QR-код
+              // другого приложения или ID неверный
+              alert(`Актив с ID ${assetIdFromUrlHash} не найден.`);
+              setAssetIdFromUrlHash(null); // Важно сбросить, чтобы не было зацикливания
+          }
+      }
+      // Важно: зависимость от assetIdFromUrlHash, assets и openAssetInfoModal
+      // Если openAssetInfoModal не является useCallback, можно убрать её из зависимостей,
+      // но лучше обернуть в useCallback
+  }, [assetIdFromUrlHash, assets]); // Добавьте openAssetInfoModal, если она обернута в useCallback
 
 
   useEffect(() => {
@@ -2322,6 +2404,22 @@ function App() {
                   <button type="button" className="btn-close" onClick={closeAssetInfoModal}></button>
                 </div>
                 <div className="modal-body">
+		  {/* --- НАЧАЛО ДОБАВЛЕНИЯ QR-КОДА (react-qr-code) --- */}
+		  <div className="mb-3 d-flex flex-column align-items-center">
+                    <div style={{ height: "auto", margin: "0 auto", maxWidth: "160px", width: "100%" }}>
+                      <div style={{ height: "160px", width: "160px", backgroundColor: "white", padding: "8px", borderRadius: "4px" }}>
+                      {/* Кодируем хэш URL, который будет обрабатываться приложением */}
+                        <QRCode
+                          size={256}
+                          style={{ height: "100%", width: "100%" }}
+                          value={`${window.location.origin}${window.location.pathname}#asset-info-${assetInfo.id}`}
+                          viewBox={`0 0 256 256`}
+                        />
+                      </div>
+                    </div>
+                    <p className="text-center text-muted small mt-2 mb-0">Отсканируйте QR-код на активе для быстрого доступа к информации</p>
+                  </div>
+		   {/* --- КОНЕЦ ДОБАВЛЕНИЯ QR-КОДА --- */}
                   <table className="table table-bordered">
                     <tbody>
                       <tr><th>Материнская плата</th><td>{assetInfo.motherboard || '-'}</td></tr>
