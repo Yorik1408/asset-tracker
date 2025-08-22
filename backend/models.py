@@ -99,3 +99,4 @@ class DeletionLog(Base):
     deleted_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
     # Причина удаления (опционально, можно добавить в UI)
     reason = Column(String, nullable=True)
+

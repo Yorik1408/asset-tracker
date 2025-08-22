@@ -139,3 +139,4 @@ class AssetResponse(AssetBase):
     class Config:
         from_attributes = True
 
+

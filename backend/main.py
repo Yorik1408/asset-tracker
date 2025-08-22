@@ -515,3 +515,4 @@ def delete_repair(record_id: int, db: Session = Depends(get_db), current_user: m
         raise HTTPException(status_code=404, detail="Запись о ремонте не найдена")
     return {"detail": "Запись о ремонте удалена"}
 # ---------------------------------------
+

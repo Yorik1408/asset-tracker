@@ -98,7 +98,7 @@ td .form-control-sm {
 /* Фиксируем ширину колонки "Действия" */
 .table-container table th:last-child,
 .table-container table td:last-child {
-  width: 150px;
+  width: 200px;
   white-space: nowrap;
   text-align: center;
 }
@@ -280,3 +280,15 @@ td .form-control-sm {
     padding: 5px 10px; /* Уменьшаем отступы */ 
   }
 }
+
+
+/* --- Фикс ширины таблицы на всю страницу --- */
+.table {
+  width: 100% !important;
+  table-layout: auto;
+}
+
+.table th, .table td {
+  white-space: nowrap;
+}
+

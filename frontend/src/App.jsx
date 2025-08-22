@@ -38,6 +38,19 @@ function App() {
   const [deletionLogLoading, setDeletionLogLoading] = useState(false);
   const [token, setToken] = useState(localStorage.getItem('token') || '');
   const [user, setUser] = useState(null);
+
+  const [showAssetInfoModal, setShowAssetInfoModal] = useState(false);
+  const [assetInfo, setAssetInfo] = useState(null);
+
+  const openAssetInfoModal = (asset) => {
+    setAssetInfo(asset);
+    setShowAssetInfoModal(true);
+  };
+
+  const closeAssetInfoModal = () => {
+    setShowAssetInfoModal(false);
+    setAssetInfo(null);
+  };
   const [loginData, setLoginData] = useState({ username: '', password: '' });
   const [showAboutModal, setShowAboutModal] = useState(false);
   const [stats, setStats] = useState({
@@ -246,12 +259,15 @@ function App() {
         if (showDeletionLogModal) {
           setShowDeletionLogModal(false);
         }
+        if (showAssetInfoModal) {
+          closeAssetInfoModal();
+        }
 
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showAboutModal, isModalOpen, isEditing, showUserModal, showDeletionLogModal, showRepairsModal, token]);
+  }, [showAboutModal, isModalOpen, isEditing, showUserModal, showDeletionLogModal, showRepairsModal, showAssetInfoModal, token]);
   useEffect(() => {
     if (!token) {
       setUser(null);
@@ -998,6 +1014,15 @@ function App() {
             >
               <i className="fas fa-wrench"></i>
             </button>
+	    {(asset.type === 'Ноутбук' || asset.type === 'Компьютер') && (
+              <button
+                className="btn btn-sm btn-outline-info"
+                title="Информация о ПК"
+                onClick={() => openAssetInfoModal(asset)}
+              >
+                <i className="fas fa-info-circle"></i>
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -1524,6 +1549,15 @@ function App() {
                               >
                                 <i className={`fas ${showHistory === asset.id ? 'fa-eye-slash' : 'fa-history'}`}></i>
                               </button>
+                              {(asset.type === 'Ноутбук' || asset.type === 'Компьютер') && (
+	                        <button
+                                  className="btn btn-sm btn-outline-info"
+                                  title="Информация о ПК"
+                                  onClick={() => openAssetInfoModal(asset)}
+                                >
+                                  <i className="fas fa-info-circle"></i>
+                                </button>
+                              )}
                               <button
                                 className="btn btn-sm btn-outline-info"
                                 title="Показать ремонты"
@@ -2277,7 +2311,37 @@ function App() {
           }}
         ></div>
       )}
-      {showAboutModal && (
+      
+      {showAssetInfoModal && assetInfo && (
+        <>
+          <div className="modal fade show" style={{ display: 'block' }}>
+            <div className="modal-dialog modal-lg">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h5 className="modal-title">Информация об активе — {assetInfo.inventory_number}</h5>
+                  <button type="button" className="btn-close" onClick={closeAssetInfoModal}></button>
+                </div>
+                <div className="modal-body">
+                  <table className="table table-bordered">
+                    <tbody>
+                      <tr><th>Материнская плата</th><td>{assetInfo.motherboard || '-'}</td></tr>
+                      <tr><th>Процессор</th><td>{assetInfo.processor || '-'}</td></tr>
+                      <tr><th>ОЗУ</th><td>{assetInfo.ram || '-'}</td></tr>
+                      <tr><th>Операционная система</th><td>{assetInfo.os_type || '-'}</td></tr>
+                      <tr><th>Ключ Windows</th><td>{assetInfo.windows_key || '-'}</td></tr>
+                    </tbody>
+                  </table>                  
+		</div>
+                <div className="modal-footer">
+                  <button className="btn btn-secondary" onClick={closeAssetInfoModal}>Закрыть</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="modal-backdrop fade show"></div>
+        </>
+      )}
+{showAboutModal && (
         <div className="modal fade show" style={{ display: 'block' }} onClick={() => setShowAboutModal(false)}>
           <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
             <div className="modal-content">
@@ -2322,3 +2386,4 @@ function App() {
   );
 }
 export default App;
+

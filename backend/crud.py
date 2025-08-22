@@ -312,3 +312,4 @@ def delete_repair_record(db: Session, record_id: int) -> bool:
         return True
     return False
 
+
