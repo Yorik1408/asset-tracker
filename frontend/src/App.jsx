@@ -2301,8 +2301,7 @@ function App() {
                           <th>Тип</th>
                           <th>ID</th>
                           <th>Удалено пользователем</th>
-                          {/* <th>Причина</th> Можно добавить, если реализована */}
-                          <th>Данные (кратко)</th> {/* Для отображения entity_data */}
+                          <th>Данные (кратко)</th> 
                         </tr>
                       </thead>
                       <tbody>
@@ -2461,7 +2460,7 @@ function App() {
                 <p>Разработано для повышения прозрачности и эффективности учёта оборудования.</p>
                 <p>
                   <a
-                    href="https://github.com/yorik1408/asset-tracker"
+                    href="https://gitlab.aspro.cloud/office/asset_tracker/"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn btn-outline-primary btn-sm"
