@@ -1284,6 +1284,7 @@ const handlePrintAllQRCodes = () => {
           </div>
         </div>
       )}
+
       {showHistory === asset.id && asset.history && asset.history.length > 0 && (
         <div className="mt-2 p-2 bg-light rounded">
           <strong>История изменений:</strong>
