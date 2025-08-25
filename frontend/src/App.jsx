@@ -1,6 +1,7 @@
 // app.jsx
 import React, { useState, useEffect } from 'react';
 import QRCode from "react-qr-code";
+import qrCodeGenerator from 'qrcode-generator';
 import './TableStyles.css';
 import packageInfo from '../package.json';
 
@@ -152,6 +153,181 @@ function App() {
     setShowDeletionLogModal(true);
   };
   // ----------------------------------------------------
+
+
+const handlePrintAllQRCodes = () => {
+  if (!assets || assets.length === 0) {
+    alert("Нет активов для печати");
+    return;
+  }
+
+  // Фильтруем только компьютеры и ноутбуки
+  const assetsForQR = assets.filter(asset => 
+    asset.type === 'Ноутбук' || asset.type === 'Компьютер'
+  );
+
+  if (assetsForQR.length === 0) {
+    alert("Нет активов типа 'Ноутбук' или 'Компьютер' для печати QR-кодов");
+    return;
+  }
+
+  // Функция для генерации SVG QR-кода с помощью qrcode-generator
+  const generateQRCodeSVG = (text) => {
+    try {
+      // Используем импортированную библиотеку напрямую
+      const qr = qrCodeGenerator(0, 'M'); // 0 - автоматический выбор типа, 'M' - уровень коррекции
+      qr.addData(text);
+      qr.make();
+    
+      // Получаем SVG строку
+      const svgString = qr.createSvgTag({ cellSize: 3, margin: 2 }); 
+    
+      return svgString;
+    } catch (error) {
+      console.error("Ошибка генерации QR-кода:", error);
+      // Возвращаем placeholder в случае ошибки
+      return `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
+                <rect width="120" height="120" fill="#f0f0f0" stroke="#ccc"/>
+                <text x="60" y="60" text-anchor="middle" dominant-baseline="middle" 
+                      font-family="Arial" font-size="12" fill="#999">QR Ошибка</text>
+              </svg>`;
+    }
+  };
+  // Создаем HTML для печати
+  let printContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>QR-коды активов</title>
+      <meta charset="UTF-8">
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          margin: 20px;
+          background-color: white;
+        }
+        .header {
+          text-align: center;
+          margin-bottom: 30px;
+          color: #333;
+        }
+        .qr-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          gap: 20px;
+          margin: 0 auto;
+          max-width: 1200px;
+        }
+        .qr-card {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 15px;
+          border: 1px solid #ddd;
+          border-radius: 8px;
+          background-color: white;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+          page-break-inside: avoid;
+        }
+        .qr-container {
+          margin-bottom: 12px;
+          width: 120px;
+          height: 120px;
+          background-color: white;
+          border: 1px solid #ccc;
+          overflow: hidden;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+        }
+        .qr-title {
+          font-size: 14px;
+          font-weight: bold;
+          text-align: center;
+          margin-bottom: 5px;
+          color: #333;
+          word-break: break-word;
+        }
+        .qr-inventory {
+          font-size: 12px;
+          color: #666;
+          text-align: center;
+          margin-bottom: 5px;
+        }
+        .qr-id {
+          font-size: 10px;
+          color: #999;
+          text-align: center;
+        }
+        @media print {
+          body {
+            margin: 0;
+            padding: 20px;
+          }
+          .qr-card {
+            border: 1px solid black;
+            box-shadow: none;
+            page-break-inside: avoid;
+          }
+          .header {
+            margin-top: 0;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>QR-коды активов</h1>
+        <p>Всего кодов: ${assetsForQR.length}</p>
+      </div>
+      <div class="qr-grid">
+  `;
+
+  // Добавляем QR-коды для каждого актива
+  assetsForQR.forEach(asset => {
+    // Генерируем уникальный URL для этого актива
+    const qrUrl = `${window.location.origin}${window.location.pathname}#asset-info-${asset.id}`;
+    
+    // Генерируем SVG QR-кода
+    const qrSvg = generateQRCodeSVG(qrUrl);
+    
+    printContent += `
+      <div class="qr-card">
+        <div class="qr-container">
+          ${qrSvg} <!-- Вставляем сгенерированный SVG -->
+        </div>
+        <div class="qr-title">${asset.model || asset.type || 'Актив'}</div>
+        <div class="qr-inventory">${asset.inventory_number || 'Без инв. номера'}</div>
+        <div class="qr-id">ID: ${asset.id}</div>
+      </div>
+    `;
+  });
+
+  printContent += `
+      </div>
+      <script>
+        // Автоматически вызываем печать через небольшую задержку
+        setTimeout(() => {
+          window.print();
+        }, 1000);
+      </script>
+    </body>
+    </html>
+  `;
+
+  // Открываем новое окно для печати
+  const printWindow = window.open('', '_blank', 'width=1200,height=800');
+  printWindow.document.write(printContent);
+  printWindow.document.close();
+  
+  // Фокусируемся на новом окне
+  printWindow.focus();
+};
+
+
+
+
+
 
 
   // Добавьте этот useEffect после других useEffect
@@ -1280,18 +1456,23 @@ function App() {
               <i className="fas fa-file-export"></i> Экспорт
             </button>
             {user.is_admin && (
-              <label
-                className="btn btn-outline-primary btn-sm mb-0"
-                title="Импорт из Excel"
-              >
-                <i className="fas fa-file-import"></i> Импорт
-                <input
-                  type="file"
-                  accept=".xlsx"
-                  style={{ display: 'none' }}
-                  onChange={handleImport}
-                />
-              </label>
+              <>
+                <label
+                  className="btn btn-outline-primary btn-sm mb-0"
+                  title="Импорт из Excel"
+                >
+                  <i className="fas fa-file-import"></i> Импорт
+                  <input
+                    type="file"
+                    accept=".xlsx"
+                    style={{ display: 'none' }}
+                    onChange={handleImport}
+                  />
+                </label>
+                <button className="btn btn-info" onClick={handlePrintAllQRCodes}>
+                  <i className="fas fa-qrcode"></i> Печать всех QR-кодов
+                </button>
+              </>
             )}
           </div>
 
