@@ -106,23 +106,21 @@ sudo systemctl start docker
 sudo systemctl enable docker
 # Добавьте вашего пользователя в группу docker (чтобы не использовать sudo каждый раз)
 sudo usermod -aG docker $USER
-# ВАЖНО: Перезайдите в сессию пользователя (выйдите и войдите обратно или перезагрузитесь)
-# чтобы изменения группы вступили в силу.
+# ВАЖНО: Перезайдите в сессию пользователя (выйдите и войдите обратно или перезагрузитесь) чтобы изменения группы вступили в силу.
 ```
-# Перейди в репозиторий 
+## Перейди в репозиторий 
 ```
 cd asset-tracker
 
 ```
 
-# Установите Docker Compose Plugin:
+## Установите Docker Compose Plugin:
 ```
 sudo dnf install -y docker-compose-plugin
 ```
-# Запусти приложение
+## Запусти приложение
+
 ```
 docker compose down
 docker compose up --build
-```
-
 ```
