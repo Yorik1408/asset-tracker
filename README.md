@@ -76,6 +76,8 @@ podman-compose --version
 ```
 podman-compose up --build
 ```
+## Проверь, что стандартные порты приложения открыты, 5173 и 8000, если нет открой их
+
 
 ## Приложение будет доступно по адресу http://localhost:5173 
 
@@ -91,4 +93,36 @@ podman-compose up --build
 ```
 ## Первый пользователь (администратор) создан - логинемся под ним и пользуемся
 
+## Запуск контейнера с помощью docker compose 
 
+```
+# Добавьте репозиторий Docker
+sudo yum install -y yum-utils
+sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+# Установите Docker Engine
+sudo yum install -y docker-ce docker-ce-cli containerd.io
+# Запустите и включите автозапуск Docker
+sudo systemctl start docker
+sudo systemctl enable docker
+# Добавьте вашего пользователя в группу docker (чтобы не использовать sudo каждый раз)
+sudo usermod -aG docker $USER
+# ВАЖНО: Перезайдите в сессию пользователя (выйдите и войдите обратно или перезагрузитесь)
+# чтобы изменения группы вступили в силу.
+```
+# Перейди в репозиторий 
+```
+cd asset-tracker
+
+```
+
+# Установите Docker Compose Plugin:
+```
+sudo dnf install -y docker-compose-plugin
+```
+# Запусти приложение
+```
+docker compose down
+docker compose up --build
+```
+
+```
