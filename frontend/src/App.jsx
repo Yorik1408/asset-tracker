@@ -328,6 +328,110 @@ const handlePrintAllQRCodes = () => {
 
 
 
+const handlePrintSingleQRCode = (asset) => {
+  if (!asset) {
+    alert("Ошибка: нет данных об активе");
+    return;
+  }
+
+  try {
+    // Генерируем QR-код
+    const qr = qrCodeGenerator(0, 'M');
+    const qrUrl = `${window.location.origin}${window.location.pathname}#asset-info-${asset.id}`;
+    qr.addData(qrUrl);
+    qr.make();
+    const qrSvgString = qr.createSvgTag({ cellSize: 4, margin: 2 });
+
+    // Создаем HTML для печати
+    const printHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>QR-код для ${asset.inventory_number || asset.model || 'Актива'}</title>
+        <meta charset="UTF-8">
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: white;
+          }
+          .qr-container {
+            text-align: center;
+            padding: 20px;
+            border: 1px solid #000;
+            display: inline-block;
+          }
+          .qr-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 15px;
+          }
+          .qr-inventory {
+            font-size: 14px;
+            margin-bottom: 10px;
+          }
+          .qr-model {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 15px;
+          }
+          .qr-code {
+            width: 200px;
+            height: 200px;
+          }
+          @media print {
+            body {
+              padding: 10px;
+            }
+            .qr-container {
+              border: 1px solid black;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="qr-container">
+          <div class="qr-title">Информация об активе</div>
+          <div class="qr-inventory">Инв. номер: ${asset.inventory_number || 'Без номера'}</div>
+          <div class="qr-model">${asset.model || asset.type || 'Актив'}</div>
+          <div class="qr-code">${qrSvgString}</div>
+          <div style="margin-top: 15px; font-size: 10px; color: #999;">
+            Отсканируйте для просмотра информации
+          </div>
+        </div>
+        
+        <script>
+          window.onload = function() {
+            setTimeout(() => {
+              window.print();
+            }, 500);
+          };
+        </script>
+      </body>
+      </html>
+    `;
+
+    // Открываем новое окно для печати
+    const printWindow = window.open('', '_blank', 'width=450,height=550');
+    printWindow.document.write(printHtml);
+    printWindow.document.close();
+    printWindow.focus();
+    
+  } catch (error) {
+    console.error("Ошибка генерации QR-кода для печати:", error);
+    alert("Ошибка при подготовке к печати QR-кода");
+  }
+};
+
+
+
+
 
 
   // Добавьте этот useEffect после других useEffect
@@ -2599,6 +2703,12 @@ const handlePrintAllQRCodes = () => {
                       </div>
                     </div>
                     <p className="text-center text-muted small mt-2 mb-0">Отсканируйте QR-код на активе для быстрого доступа к информации</p>
+                    <button 
+                      className="btn btn-outline-primary btn-sm mt-2"
+                      onClick={() => handlePrintSingleQRCode(assetInfo)}
+                    >
+                      <i className="fas fa-print"></i> Печать QR-кода
+                    </button>
                   </div>
 		   {/* --- КОНЕЦ ДОБАВЛЕНИЯ QR-КОДА --- */}
                   <table className="table table-bordered">
