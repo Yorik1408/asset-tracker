@@ -10,6 +10,7 @@ BACKUP_FILENAME="${TIMESTAMP}_test.db"
 LOCAL_BACKUP_PATH="${BACKUP_DIR}/${BACKUP_FILENAME}"
 REMOTE_BACKUP_PATH="${RCLONE_REMOTE}:${RCLONE_PATH}/${BACKUP_FILENAME}"
 LOG_FILE="/home/server/asset-tracker/backups/backup.log"
+RETENTION_DAYS=30 # Количество дней хранения резервных копий в облаке
 
 # --- Логика ---
 echo "[$(date)] Начало резервного копирования..." >> "$LOG_FILE"
@@ -31,6 +32,24 @@ fi
 # 3. Загрузка копии в облако через rclone
 if rclone copyto "$LOCAL_BACKUP_PATH" "$REMOTE_BACKUP_PATH"; then
     echo "[$(date)] Копия успешно загружена в облако: $REMOTE_BACKUP_PATH" >> "$LOG_FILE"
+
+    # --- Удаление старых копий из облака ---
+    # Удаляем файлы в удаленной папке старше RETENTION_DAYS дней
+    if rclone delete --min-age ${RETENTION_DAYS}d "${RCLONE_REMOTE}:${RCLONE_PATH}"; then
+        echo "[$(date)] Старые копии (старше ${RETENTION_DAYS} дней) удалены из облака (${RCLONE_REMOTE}:${RCLONE_PATH})." >> "$LOG_FILE"
+
+        # --- Очистка корзины Google Drive ---
+        # Эта команда пытается окончательно удалить файлы, перемещенные в корзину Google Drive
+        if rclone cleanup "${RCLONE_REMOTE}:${RCLONE_PATH}"; then
+            echo "[$(date)] Команда очистки корзины Google Drive выполнена для ${RCLONE_REMOTE}:${RCLONE_PATH}." >> "$LOG_FILE"
+        else
+            echo "[$(date)] Предупреждение: Ошибка при выполнении очистки корзины Google Drive или функция не поддерживается/не требуется." >> "$LOG_FILE"
+            # Не завершаем с ошибкой, так как это может быть не критично
+        fi
+    else
+        echo "[$(date)] Предупреждение: Ошибка при удалении старых копий из облака или файлов для удаления не найдено." >> "$LOG_FILE"
+    fi
+
 else
     echo "[$(date)] ОШИБКА: Не удалось загрузить копию в облако!" >> "$LOG_FILE"
     # Не завершаем скрипт с ошибкой, так как локальная копия есть
