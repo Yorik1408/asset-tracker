@@ -140,3 +140,4 @@ class AssetResponse(AssetBase):
         from_attributes = True
 
 
+

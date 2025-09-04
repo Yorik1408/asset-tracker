@@ -229,6 +229,26 @@ def export_to_excel(
     warranty_status: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
+
+    FIELD_LABELS = {
+        'id': 'ID',
+        'inventory_number': 'Инвентарный номер',
+        'serial_number': 'Серийный номер',
+        'model': 'Модель',
+        'type': 'Тип',
+        'status': 'Статус',
+        'location': 'Расположение',
+        'user_name': 'ФИО пользователя',
+        'purchase_date': 'Дата покупки',
+        'warranty_until': 'Гарантия до',
+        'issue_date': 'Дата выдачи',
+        'comment': 'Комментарий',
+        'motherboard': 'Мат. плата',
+        'processor': 'Процессор',
+        'ram': 'ОЗУ',
+        'os_type': 'Тип ОС',
+        'windows_key': 'Ключ Windows'
+    }
     # Формируем запрос с фильтрацией
     # Используем joinedload для предварительной загрузки связанных данных (repairs, history)
     # Это уменьшает количество запросов к БД
@@ -307,10 +327,11 @@ def export_to_excel(
         # Добавляем историю изменений
         # Так как мы использовали joinedload, asset.history уже загружены
         for h in asset.history:
+            readable_field_name = FIELD_LABELS.get(h.field, h.field)
             history_data.append({
                 "Asset ID": asset.id,
                 "Инвентарный номер": asset.inventory_number,
-                "Поле": h.field,
+                "Поле": readable_field_name,
                 "Старое значение": h.old_value,
                 "Новое значение": h.new_value,
                 "Дата изменения": h.changed_at,
@@ -515,4 +536,5 @@ def delete_repair(record_id: int, db: Session = Depends(get_db), current_user: m
         raise HTTPException(status_code=404, detail="Запись о ремонте не найдена")
     return {"detail": "Запись о ремонте удалена"}
 # ---------------------------------------
+
 

@@ -10,7 +10,7 @@ BACKUP_FILENAME="${TIMESTAMP}_test.db"
 LOCAL_BACKUP_PATH="${BACKUP_DIR}/${BACKUP_FILENAME}"
 REMOTE_BACKUP_PATH="${RCLONE_REMOTE}:${RCLONE_PATH}/${BACKUP_FILENAME}"
 LOG_FILE="/home/server/asset-tracker/backups/backup.log"
-RETENTION_DAYS=30 # Количество дней хранения резервных копий в облаке
+RETENTION_DAYS=7 # Количество дней хранения резервных копий в облаке
 
 # --- Логика ---
 echo "[$(date)] Начало резервного копирования..." >> "$LOG_FILE"

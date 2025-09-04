@@ -100,3 +100,4 @@ class DeletionLog(Base):
     # Причина удаления (опционально, можно добавить в UI)
     reason = Column(String, nullable=True)
 
+
