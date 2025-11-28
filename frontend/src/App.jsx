@@ -4,6 +4,7 @@ import QRCode from "react-qr-code";
 import qrCodeGenerator from 'qrcode-generator';
 import './TableStyles.css';
 import packageInfo from '../package.json';
+import Select from 'react-select'; // NEW: Импорт react-select для улучшенного select с поиском
 
 function App() {
   const [assets, setAssets] = useState([]);
@@ -119,9 +120,23 @@ function App() {
   const [historyPage, setHistoryPage] = useState(1);
   const historyItemsPerPage = 5;
   
+  // NEW: Состояния для фильтра по ФИО пользователя
+  const [uniqueUsers, setUniqueUsers] = useState([]);
+  const [selectedUser, setSelectedUser] = useState('');
+
+  // NEW: Обновлённый useEffect для сброса страницы, включая selectedUser
   useEffect(() => {
     setPage(1);
-  }, [searchQuery, filter, warrantyFilter, disposedFilter]); 
+  }, [searchQuery, filter, warrantyFilter, disposedFilter, selectedUser]); 
+
+  // NEW: Вычисление уникальных пользователей как опций для react-select
+  useEffect(() => {
+    if (assets.length > 0) {
+      const userNames = [...new Set(assets.map(asset => asset.user_name).filter(name => name && name.trim() !== ''))].sort();
+      const userOptions = userNames.map(name => ({ value: name, label: name }));
+      setUniqueUsers(userOptions);
+    }
+  }, [assets]);
 
   // --- Функция для загрузки журнала удалений ---
   const fetchDeletionLogs = async () => {
@@ -326,8 +341,6 @@ const handlePrintAllQRCodes = () => {
 
 
 
-
-
 const handlePrintSingleQRCode = (asset) => {
   if (!asset) {
     alert("Ошибка: нет данных об активе");
@@ -428,11 +441,6 @@ const handlePrintSingleQRCode = (asset) => {
     alert("Ошибка при подготовке к печати QR-кода");
   }
 };
-
-
-
-
-
 
   // Добавьте этот useEffect после других useEffect
   useEffect(() => {
@@ -1083,6 +1091,8 @@ const handlePrintSingleQRCode = (asset) => {
         })
       );
     }
+    // NEW: Фильтрация по выбранному пользователю
+    result = result.filter(asset => !selectedUser || asset.user_name === selectedUser);
     return result;
   };
   const filteredAssets = getFilteredAssets();
@@ -1563,7 +1573,7 @@ const handlePrintSingleQRCode = (asset) => {
             {user.is_admin && (
               <>
                 <label
-                  className="btn btn-outline-primary btn-sm mb-0"
+                  className="btn btn-outline-primary btn-sm mb-0 d-flex align-items-center"
                   title="Импорт из Excel"
                 >
                   <i className="fas fa-file-import"></i> Импорт
@@ -1574,7 +1584,7 @@ const handlePrintSingleQRCode = (asset) => {
                     onChange={handleImport}
                   />
                 </label>
-                <button className="btn btn-info" onClick={handlePrintAllQRCodes}>
+                <button className="btn btn-info btn-sm" onClick={handlePrintAllQRCodes}>
                   <i className="fas fa-qrcode"></i> Печать всех QR-кодов
                 </button>
               </>
@@ -1723,6 +1733,22 @@ const handlePrintSingleQRCode = (asset) => {
                 Сбросить фильтры
               </button>
             )}
+          </div>
+          {/* NEW: Выпадающий список с поиском по ФИО пользователя (react-select) */}
+          <div className="me-2 align-self-center" style={{ minWidth: '200px' }}>
+            <Select
+              options={uniqueUsers}
+              value={selectedUser ? { value: selectedUser, label: selectedUser } : null}
+              onChange={(option) => {
+                setSelectedUser(option ? option.value : '');
+                setPage(1);
+              }}
+              isClearable
+              isSearchable
+              placeholder="Все пользователи"
+              noOptionsMessage={() => "Нет пользователей"}
+              classNamePrefix="react-select"
+            />
           </div>
         </div>
       )}
@@ -2556,8 +2582,6 @@ const handlePrintSingleQRCode = (asset) => {
       )}
 
 
-
-
       {/* Модальное окно для журнала удалений */}
       {showDeletionLogModal && (
         <div className="modal fade show" style={{ display: 'block' }} tabIndex="-1" role="dialog">
@@ -2652,7 +2676,6 @@ const handlePrintSingleQRCode = (asset) => {
           onClick={() => setShowDeletionLogModal(false)}
         ></div>
       )}
-
 
 
 
@@ -2775,4 +2798,3 @@ const handlePrintSingleQRCode = (asset) => {
   );
 }
 export default App;
-
