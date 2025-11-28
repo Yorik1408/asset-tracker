@@ -714,8 +714,13 @@ const handlePrintSingleQRCode = (asset) => {
     if (searchQuery) {
       filterText += ` с поиском по "${searchQuery}"`;
     }
+
+    if (selectedUser) {
+      filterText += ` для пользователя "${selectedUser}"`;
+    }
+
     const confirmExport = window.confirm(
-      `Экспорт будет выполнен согласено выбранному фильтру ${filterText}.
+      `Экспорт будет выполнен согласно выбранному фильтру ${filterText}.
 Продолжить?`
     );
     if (!confirmExport) return;
@@ -733,6 +738,11 @@ const handlePrintSingleQRCode = (asset) => {
       if (warrantyFilter !== 'all' && !disposedFilter) {
           params.append('warranty_status', warrantyFilter);
       }
+
+      if (selectedUser) {
+        params.append('user_name', selectedUser);
+      }
+
       const url = `http://10.0.1.225:8000/export/excel?${params.toString()}`;
       const res = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -1745,7 +1755,7 @@ const handlePrintSingleQRCode = (asset) => {
               }}
               isClearable
               isSearchable
-              placeholder="Все пользователи"
+              placeholder="Фильтр по пользователю"
               noOptionsMessage={() => "Нет пользователей"}
               classNamePrefix="react-select"
             />

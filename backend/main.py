@@ -227,6 +227,7 @@ def export_to_excel(
     type: Optional[str] = None,
     q: Optional[str] = None,
     warranty_status: Optional[str] = None,
+    user_name: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
 
@@ -271,6 +272,10 @@ def export_to_excel(
                 models.Asset.comment.ilike(search),
             )
         )
+
+    # Фильтр по пользователю
+    if user_name:
+        query = query.filter(models.Asset.user_name == user_name)
 
     # Логика фильтрации по гарантии
     if warranty_status:
