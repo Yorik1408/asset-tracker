@@ -2023,16 +2023,110 @@ const handlePrintSingleQRCode = (asset) => {
       </React.Fragment>
       {/* Конец контейнера для таблицы и мобильного представления */}
       {token && activeTab === 'assets' && assets.length > 0 && !isMobile && (
-        <div className="pagination-container d-flex justify-content-between align-items-center mt-3 mb-4">
-          <button
-            className="btn btn-outline-primary"
-            onClick={() => setPage(p => Math.max(1, p - 1))}
-            disabled={page === 1}
-          >
-            Назад
-          </button>
-          <div className="d-flex align-items-center gap-2">
-            <span>Страница</span>
+        <div className="pagination-container d-flex justify-content-center align-items-center mt-3 mb-4 flex-wrap gap-2">
+          {/* Информация о записях */}
+          <div className="pagination-info text-muted me-auto">
+            Показано {((page - 1) * itemsPerPage) + 1}-{Math.min(page * itemsPerPage, filteredAssets.length)} из {filteredAssets.length} записей
+          </div>
+
+          {/* Навигация по страницам */}
+          <div className="d-flex align-items-center gap-1">
+            {/* Кнопка "Первая" */}
+            <button
+              className="btn btn-outline-primary btn-sm"
+              onClick={() => setPage(1)}
+              disabled={page === 1}
+              title="Первая страница"
+            >
+              <i className="fas fa-angle-double-left"></i>
+              <span className="d-none d-sm-inline ms-1">Первая</span>
+            </button>
+
+            {/* Кнопка "Предыдущая" */}
+            <button
+              className="btn btn-outline-primary btn-sm"
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              title="Предыдущая страница"
+            >
+              <i className="fas fa-angle-left"></i>
+              <span className="d-none d-sm-inline ms-1">Назад</span>
+            </button>
+
+            {/* Номера страниц (показываем умную пагинацию) */}
+            {(() => {
+              const totalPages = Math.ceil(filteredAssets.length / itemsPerPage);
+              const delta = 2; // Количество страниц по обе стороны от текущей
+              const range = [];
+        
+              // Определяем диапазон страниц для отображения
+              for (let i = Math.max(2, page - delta); 
+                   i <= Math.min(totalPages - 1, page + delta); 
+                   i++) {
+                range.push(i);
+              }
+        
+              // Добавляем многоточие если нужно
+              if (page - delta > 2) {
+                range.unshift('...');
+              }
+              if (page + delta < totalPages - 1) {
+                range.push('...');
+              }
+        
+              // Всегда показываем первую страницу
+              range.unshift(1);
+        
+              // Добавляем последнюю страницу если она не первая
+              if (totalPages !== 1) {
+                range.push(totalPages);
+              }
+        
+              return range.map((pageNum, index) => (
+                <button
+                  key={index}
+                  className={`btn btn-sm ${
+                    pageNum === page 
+                      ? 'btn-primary' 
+                      : pageNum === '...' 
+                        ? 'btn-outline-secondary disabled' 
+                        : 'btn-outline-primary'
+                  }`}
+                  onClick={() => pageNum !== '...' && setPage(pageNum)}
+                  disabled={pageNum === '...' || pageNum === page}
+                  style={{ minWidth: '35px' }}
+                >
+                  {pageNum}
+                </button>
+              ));
+            })()}
+
+            {/* Кнопка "Следующая" */}
+            <button
+              className="btn btn-outline-primary btn-sm"
+              onClick={() => setPage(p => Math.min(Math.ceil(filteredAssets.length / itemsPerPage), p + 1))}
+              disabled={page === Math.ceil(filteredAssets.length / itemsPerPage) || filteredAssets.length === 0}
+              title="Следующая страница"
+            >
+              <span className="d-none d-sm-inline me-1">Вперёд</span>
+              <i className="fas fa-angle-right"></i>
+            </button>
+
+            {/* Кнопка "Последняя" */}
+            <button
+              className="btn btn-outline-primary btn-sm"
+              onClick={() => setPage(Math.ceil(filteredAssets.length / itemsPerPage))}
+              disabled={page === Math.ceil(filteredAssets.length / itemsPerPage) || filteredAssets.length === 0}
+              title="Последняя страница"
+            >
+              <span className="d-none d-sm-inline me-1">Последняя</span>
+              <i className="fas fa-angle-double-right"></i>
+            </button>
+          </div>
+
+          {/* Прямой переход на страницу */}
+          <div className="d-flex align-items-center gap-2 ms-auto">
+            <span className="text-muted">Перейти:</span>
             <input
               type="number"
               min="1"
@@ -2049,20 +2143,19 @@ const handlePrintSingleQRCode = (asset) => {
                   setPage(num);
                 }
               }}
-              className="form-control text-center"
-              style={{ width: '70px' }}
+              className="form-control form-control-sm text-center"
+              style={{ width: '60px' }}
+              title="Введите номер страницы"
             />
-            <span>из {Math.ceil(filteredAssets.length / itemsPerPage)}</span>
+            <span className="text-muted">из {Math.ceil(filteredAssets.length / itemsPerPage)}</span>
           </div>
-          <button
-            className="btn btn-outline-primary"
-            onClick={() => setPage(p => Math.min(Math.ceil(filteredAssets.length / itemsPerPage), p + 1))}
-            disabled={page === Math.ceil(filteredAssets.length / itemsPerPage) || filteredAssets.length === 0}
-          >
-            Вперёд
-          </button>
         </div>
       )}
+
+
+
+
+
       {activeTab === 'reports' && token && (
         <div className="reports-section">
           <h4>Отчёт: Гарантия заканчивается</h4>
@@ -2808,3 +2901,4 @@ const handlePrintSingleQRCode = (asset) => {
   );
 }
 export default App;
+
