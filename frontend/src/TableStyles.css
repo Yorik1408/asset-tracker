@@ -343,7 +343,7 @@ td .form-control-sm {
 /* === УЛУЧШЕННАЯ ПАГИНАЦИЯ === */
 
 .pagination-container {
-  padding: 15px 0;
+  padding: 15px 20px;
   border-top: 1px solid #dee2e6;
   margin-top: 20px;
   background: #f8f9fa;
@@ -354,6 +354,12 @@ td .form-control-sm {
   font-size: 0.875rem;
   font-weight: 500;
   color: #6c757d;
+  margin-left: 5px;
+}
+
+/* Отступ для блока перехода на страницу справа */
+.pagination-container .ms-auto {
+  margin-right: 5px !important; /* Добавил отступ справа */
 }
 
 /* Стили для кнопок пагинации */
@@ -387,6 +393,7 @@ td .form-control-sm {
     flex-direction: column;
     gap: 1rem;
     text-align: center;
+    padding: 15px 10px; 
   }
   
   .pagination-container .d-flex {
@@ -396,6 +403,7 @@ td .form-control-sm {
   .pagination-info {
     order: -1;
     text-align: center;
+    margin-left: 0;
   }
   
   /* Скрываем текст на кнопках на мобильных */
