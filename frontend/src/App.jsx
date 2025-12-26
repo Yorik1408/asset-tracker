@@ -4,7 +4,8 @@ import QRCode from "react-qr-code";
 import qrCodeGenerator from 'qrcode-generator';
 import './TableStyles.css';
 import packageInfo from '../package.json';
-import Select from 'react-select'; // NEW: Импорт react-select для улучшенного select с поиском
+import Select from 'react-select';
+import toast, { Toaster } from 'react-hot-toast';
 
 function App() {
   const [assets, setAssets] = useState([]);
@@ -44,35 +45,6 @@ function App() {
   const [assetIdFromUrlHash, setAssetIdFromUrlHash] = useState(null);
   const [showAssetInfoModal, setShowAssetInfoModal] = useState(false);
   const [assetInfo, setAssetInfo] = useState(null);
-
-  // Ваша существующая функция открытия модального окна
-  const openAssetInfoModal = (asset) => {
-    console.log("Открытие модального окна для актива:", asset?.inventory_number); // Для отладки
-    setAssetInfo(asset); // Предполагается, что состояние называется assetInfo
-    setShowAssetInfoModal(true);
-    // Устанавливаем хэш в URL при открытии модального окна вручную (не через QR)
-    // Это позволяет пользователю использовать "Назад" в браузере для закрытия
-    if (asset && asset.id) {
-        // Проверяем, не установлен ли хэш уже (например, из QR-кода)
-        if (window.location.hash !== `#asset-info-${asset.id}`) {
-            window.location.hash = `asset-info-${asset.id}`;
-        }
-    }
-  };
-
-  // Ваша существующая функция закрытия модального окна
-  const closeAssetInfoModal = () => {
-    console.log("Закрытие модального окна"); // Для отладки
-    setShowAssetInfoModal(false);
-    setAssetInfo(null);
-    // Очищаем хэш при закрытии модального окна пользователем
-    // Проверяем, что хэш относится к нашему модальному окну
-    if (window.location.hash.startsWith('#asset-info-')) {
-       console.log("Очистка URL-хэша"); // Для отладки
-       window.location.hash = ''; // Это вызовет событие 'hashchange'
-    }
-  };
-
   const [loginData, setLoginData] = useState({ username: '', password: '' });
   const [showAboutModal, setShowAboutModal] = useState(false);
   const [stats, setStats] = useState({
@@ -86,7 +58,6 @@ function App() {
     expiringWarranty: 0,
     inRepair: 0
   });
-  // --- Состояния для управления пользователями ---
   const [users, setUsers] = useState([]);
   const [showUserModal, setShowUserModal] = useState(false);
   const [isEditingUser, setIsEditingUser] = useState(false);
@@ -96,12 +67,8 @@ function App() {
     password: '',
     is_admin: false
   });
-  // ---------------------------------------------
-  // --- Состояния для inline-редактирования ---
   const [editingCell, setEditingCell] = useState({ assetId: null, field: null });
   const [editValue, setEditValue] = useState('');
-  // --------------------------------------------
-  // --- Состояния для управления ремонтами ---
   const [showRepairsModal, setShowRepairsModal] = useState(false);
   const [repairsForAsset, setRepairsForAsset] = useState([]);
   const [currentAssetId, setCurrentAssetId] = useState(null);
@@ -112,24 +79,161 @@ function App() {
     performed_by: '',
   });
   const [editingRepairId, setEditingRepairId] = useState(null);
-  // --------------------------------------------
-  // --- Состояние для определения мобильного устройства ---
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-  
-  // --- Состояния для пагинации истории ---
   const [historyPage, setHistoryPage] = useState(1);
   const historyItemsPerPage = 5;
-  
-  // NEW: Состояния для фильтра по ФИО пользователя
   const [uniqueUsers, setUniqueUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState('');
+  const [expiringWarranty, setExpiringWarranty] = useState([]);
 
-  // NEW: Обновлённый useEffect для сброса страницы, включая selectedUser
+  // Toast helper functions
+  const showToast = {
+    success: (message, options = {}) => {
+      toast.success(message, {
+        icon: '✅',
+        duration: 3000,
+        ...options,
+      });
+    },
+    
+    error: (message, options = {}) => {
+      toast.error(message, {
+        icon: '❌',
+        duration: 4000,
+        ...options,
+      });
+    },
+    
+    loading: (message) => {
+      return toast.loading(message, {
+        icon: '⏳',
+      });
+    },
+    
+    info: (message, options = {}) => {
+      toast(message, {
+        icon: 'ℹ️',
+        style: {
+          background: '#3b82f6',
+          color: '#fff',
+        },
+        duration: 3000,
+        ...options,
+      });
+    },
+    
+    warning: (message, options = {}) => {
+      toast(message, {
+        icon: '⚠️',
+        style: {
+          background: '#f59e0b',
+          color: '#fff',
+        },
+        duration: 4000,
+        ...options,
+      });
+    },
+
+    confirm: (message, onConfirm, onCancel = null) => {
+      return toast.custom((t) => (
+        <div className="bg-white rounded-lg shadow-lg p-4 border toast-confirm" style={{ minWidth: '300px' }}>
+          <div className="d-flex align-items-start">
+            <i className="fas fa-question-circle text-primary me-3 mt-1"></i>
+            <div className="flex-grow-1">
+              <h6 className="mb-2 fw-bold">Подтверждение</h6>
+              <p className="mb-3 text-muted small">{message}</p>
+              <div className="d-flex gap-2">
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={() => {
+                    toast.dismiss(t.id);
+                    onConfirm && onConfirm();
+                  }}
+                >
+                  Да
+                </button>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => {
+                    toast.dismiss(t.id);
+                    onCancel && onCancel();
+                  }}
+                >
+                  Отмена
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ), { 
+        duration: Infinity,
+        // Важно! Настройки анимации
+        style: {
+          animation: 'slideInRight 0.3s ease-out'
+        }
+      });
+    },
+
+    deleteConfirm: (message, onConfirm, onCancel = null) => {
+      return toast.custom((t) => (
+        <div className="bg-white rounded-lg shadow-lg p-4 border toast-confirm" style={{ minWidth: '300px' }}>
+          <div className="d-flex align-items-start">
+            <i className="fas fa-exclamation-triangle text-danger me-3 mt-1"></i>
+            <div className="flex-grow-1">
+              <h6 className="mb-2 fw-bold text-danger">Подтверждение удаления</h6>
+              <p className="mb-3 text-muted small">{message}</p>
+              <div className="d-flex gap-2">
+                <button
+                  className="btn btn-danger btn-sm"
+                  onClick={() => {
+                    toast.dismiss(t.id);
+                    onConfirm && onConfirm();
+                  }}
+                >
+                  Удалить
+                </button>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => {
+                    toast.dismiss(t.id);
+                    onCancel && onCancel();
+                  }}
+                >
+                  Отмена
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ), { duration: Infinity });
+    }
+  };
+
+  const openAssetInfoModal = (asset) => {
+    console.log("Открытие модального окна для актива:", asset?.inventory_number);
+    setAssetInfo(asset);
+    setShowAssetInfoModal(true);
+    if (asset && asset.id) {
+      if (window.location.hash !== `#asset-info-${asset.id}`) {
+        window.location.hash = `asset-info-${asset.id}`;
+      }
+    }
+  };
+
+  const closeAssetInfoModal = () => {
+    console.log("Закрытие модального окна");
+    setShowAssetInfoModal(false);
+    setAssetInfo(null);
+    if (window.location.hash.startsWith('#asset-info-')) {
+      console.log("Очистка URL-хэша");
+      window.location.hash = '';
+    }
+  };
+
   useEffect(() => {
     setPage(1);
-  }, [searchQuery, filter, warrantyFilter, disposedFilter, selectedUser]); 
+  }, [searchQuery, filter, warrantyFilter, disposedFilter, selectedUser]);
 
-  // NEW: Вычисление уникальных пользователей как опций для react-select
   useEffect(() => {
     if (assets.length > 0) {
       const userNames = [...new Set(assets.map(asset => asset.user_name).filter(name => name && name.trim() !== ''))].sort();
@@ -138,12 +242,11 @@ function App() {
     }
   }, [assets]);
 
-  // --- Функция для загрузки журнала удалений ---
   const fetchDeletionLogs = async () => {
     if (!token || !user?.is_admin) return;
     setDeletionLogLoading(true);
     try {
-      const res = await fetch(`http://10.0.1.225:8000/admin/deletion-log/?limit=100`, { // Можно добавить пагинацию
+      const res = await fetch(`http://10.0.1.225:8000/admin/deletion-log/?limit=100`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -160,351 +263,308 @@ function App() {
       setDeletionLogLoading(false);
     }
   };
-  // ---------------------------------------------
 
-  // --- Функция для открытия модального окна журнала ---
   const openDeletionLogModal = async () => {
-    await fetchDeletionLogs(); // Загружаем данные при открытии
+    await fetchDeletionLogs();
     setShowDeletionLogModal(true);
   };
-  // ----------------------------------------------------
 
-
-const handlePrintAllQRCodes = () => {
-  if (!assets || assets.length === 0) {
-    alert("Нет активов для печати");
-    return;
-  }
-
-  // Фильтруем только компьютеры и ноутбуки
-  const assetsForQR = assets.filter(asset => 
-    asset.type === 'Ноутбук' || asset.type === 'Компьютер'
-  );
-
-  if (assetsForQR.length === 0) {
-    alert("Нет активов типа 'Ноутбук' или 'Компьютер' для печати QR-кодов");
-    return;
-  }
-
-  // Функция для генерации SVG QR-кода с помощью qrcode-generator
-  const generateQRCodeSVG = (text) => {
-    try {
-      // Используем импортированную библиотеку напрямую
-      const qr = qrCodeGenerator(0, 'M'); // 0 - автоматический выбор типа, 'M' - уровень коррекции
-      qr.addData(text);
-      qr.make();
-    
-      // Получаем SVG строку
-      const svgString = qr.createSvgTag({ cellSize: 3, margin: 2 }); 
-    
-      return svgString;
-    } catch (error) {
-      console.error("Ошибка генерации QR-кода:", error);
-      // Возвращаем placeholder в случае ошибки
-      return `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
-                <rect width="120" height="120" fill="#f0f0f0" stroke="#ccc"/>
-                <text x="60" y="60" text-anchor="middle" dominant-baseline="middle" 
-                      font-family="Arial" font-size="12" fill="#999">QR Ошибка</text>
-              </svg>`;
+  const handlePrintAllQRCodes = () => {
+    if (!assets || assets.length === 0) {
+      showToast.warning("Нет активов для печати");
+      return;
     }
-  };
-  // Создаем HTML для печати
-  let printContent = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>QR-коды активов</title>
-      <meta charset="UTF-8">
-      <style>
-        body {
-          font-family: Arial, sans-serif;
-          margin: 20px;
-          background-color: white;
-        }
-        .header {
-          text-align: center;
-          margin-bottom: 30px;
-          color: #333;
-        }
-        .qr-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-          gap: 20px;
-          margin: 0 auto;
-          max-width: 1200px;
-        }
-        .qr-card {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          padding: 15px;
-          border: 1px solid #ddd;
-          border-radius: 8px;
-          background-color: white;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-          page-break-inside: avoid;
-        }
-        .qr-container {
-          margin-bottom: 12px;
-          width: 120px;
-          height: 120px;
-          background-color: white;
-          border: 1px solid #ccc;
-          overflow: hidden;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-        }
-        .qr-title {
-          font-size: 14px;
-          font-weight: bold;
-          text-align: center;
-          margin-bottom: 5px;
-          color: #333;
-          word-break: break-word;
-        }
-        .qr-inventory {
-          font-size: 12px;
-          color: #666;
-          text-align: center;
-          margin-bottom: 5px;
-        }
-        .qr-id {
-          font-size: 10px;
-          color: #999;
-          text-align: center;
-        }
-        @media print {
-          body {
-            margin: 0;
-            padding: 20px;
-          }
-          .qr-card {
-            border: 1px solid black;
-            box-shadow: none;
-            page-break-inside: avoid;
-          }
-          .header {
-            margin-top: 0;
-          }
-        }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <h1>QR-коды активов</h1>
-        <p>Всего кодов: ${assetsForQR.length}</p>
-      </div>
-      <div class="qr-grid">
-  `;
 
-  // Добавляем QR-коды для каждого актива
-  assetsForQR.forEach(asset => {
-    // Генерируем уникальный URL для этого актива
-    const qrUrl = `${window.location.origin}${window.location.pathname}#asset-info-${asset.id}`;
-    
-    // Генерируем SVG QR-кода
-    const qrSvg = generateQRCodeSVG(qrUrl);
-    
-    printContent += `
-      <div class="qr-card">
-        <div class="qr-container">
-          ${qrSvg} <!-- Вставляем сгенерированный SVG -->
-        </div>
-        <div class="qr-title">${asset.model || asset.type || 'Актив'}</div>
-        <div class="qr-inventory">${asset.inventory_number || 'Без инв. номера'}</div>
-        <div class="qr-id">ID: ${asset.id}</div>
-      </div>
-    `;
-  });
+    const assetsForQR = assets.filter(asset => 
+      asset.type === 'Ноутбук' || asset.type === 'Компьютер'
+    );
 
-  printContent += `
-      </div>
-      <script>
-        // Автоматически вызываем печать через небольшую задержку
-        setTimeout(() => {
-          window.print();
-        }, 1000);
-      </script>
-    </body>
-    </html>
-  `;
+    if (assetsForQR.length === 0) {
+      showToast.warning("Нет активов типа 'Ноутбук' или 'Компьютер' для печати QR-кодов");
+      return;
+    }
 
-  // Открываем новое окно для печати
-  const printWindow = window.open('', '_blank', 'width=1200,height=800');
-  printWindow.document.write(printContent);
-  printWindow.document.close();
-  
-  // Фокусируемся на новом окне
-  printWindow.focus();
-};
+    const generateQRCodeSVG = (text) => {
+      try {
+        const qr = qrCodeGenerator(0, 'M');
+        qr.addData(text);
+        qr.make();
+        const svgString = qr.createSvgTag({ cellSize: 3, margin: 2 }); 
+        return svgString;
+      } catch (error) {
+        console.error("Ошибка генерации QR-кода:", error);
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
+                  <rect width="120" height="120" fill="#f0f0f0" stroke="#ccc"/>
+                  <text x="60" y="60" text-anchor="middle" dominant-baseline="middle" 
+                        font-family="Arial" font-size="12" fill="#999">QR Ошибка</text>
+                </svg>`;
+      }
+    };
 
-
-
-const handlePrintSingleQRCode = (asset) => {
-  if (!asset) {
-    alert("Ошибка: нет данных об активе");
-    return;
-  }
-
-  try {
-    // Генерируем QR-код
-    const qr = qrCodeGenerator(0, 'M');
-    const qrUrl = `${window.location.origin}${window.location.pathname}#asset-info-${asset.id}`;
-    qr.addData(qrUrl);
-    qr.make();
-    const qrSvgString = qr.createSvgTag({ cellSize: 4, margin: 2 });
-
-    // Создаем HTML для печати
-    const printHtml = `
+    let printContent = `
       <!DOCTYPE html>
       <html>
       <head>
-        <title>QR-код для ${asset.inventory_number || asset.model || 'Актива'}</title>
+        <title>QR-коды активов</title>
         <meta charset="UTF-8">
         <style>
           body {
             font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
+            margin: 20px;
+            background-color: white;
+          }
+          .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #333;
+          }
+          .qr-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 20px;
+            margin: 0 auto;
+            max-width: 1200px;
+          }
+          .qr-card {
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            min-height: 100vh;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
             background-color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            page-break-inside: avoid;
           }
           .qr-container {
-            text-align: center;
-            padding: 20px;
-            border: 1px solid #000;
-            display: inline-block;
+            margin-bottom: 12px;
+            width: 120px;
+            height: 120px;
+            background-color: white;
+            border: 1px solid #ccc;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
           }
           .qr-title {
-            font-size: 16px;
+            font-size: 14px;
             font-weight: bold;
-            margin-bottom: 15px;
+            text-align: center;
+            margin-bottom: 5px;
+            color: #333;
+            word-break: break-word;
           }
           .qr-inventory {
-            font-size: 14px;
-            margin-bottom: 10px;
-          }
-          .qr-model {
             font-size: 12px;
             color: #666;
-            margin-bottom: 15px;
+            text-align: center;
+            margin-bottom: 5px;
           }
-          .qr-code {
-            width: 200px;
-            height: 200px;
+          .qr-id {
+            font-size: 10px;
+            color: #999;
+            text-align: center;
           }
           @media print {
             body {
-              padding: 10px;
+              margin: 0;
+              padding: 20px;
             }
-            .qr-container {
+            .qr-card {
               border: 1px solid black;
+              box-shadow: none;
+              page-break-inside: avoid;
+            }
+            .header {
+              margin-top: 0;
             }
           }
         </style>
       </head>
       <body>
-        <div class="qr-container">
-          <div class="qr-title">Информация об активе</div>
-          <div class="qr-inventory">Инв. номер: ${asset.inventory_number || 'Без номера'}</div>
-          <div class="qr-model">${asset.model || asset.type || 'Актив'}</div>
-          <div class="qr-code">${qrSvgString}</div>
-          <div style="margin-top: 15px; font-size: 10px; color: #999;">
-            Отсканируйте для просмотра информации
-          </div>
+        <div class="header">
+          <h1>QR-коды активов</h1>
+          <p>Всего кодов: ${assetsForQR.length}</p>
         </div>
-        
+        <div class="qr-grid">
+    `;
+
+    assetsForQR.forEach(asset => {
+      const qrUrl = `${window.location.origin}${window.location.pathname}#asset-info-${asset.id}`;
+      const qrSvg = generateQRCodeSVG(qrUrl);
+      
+      printContent += `
+        <div class="qr-card">
+          <div class="qr-container">
+            ${qrSvg}
+          </div>
+          <div class="qr-title">${asset.model || asset.type || 'Актив'}</div>
+          <div class="qr-inventory">${asset.inventory_number || 'Без инв. номера'}</div>
+          <div class="qr-id">ID: ${asset.id}</div>
+        </div>
+      `;
+    });
+
+    printContent += `
+        </div>
         <script>
-          window.onload = function() {
-            setTimeout(() => {
-              window.print();
-            }, 500);
-          };
+          setTimeout(() => {
+            window.print();
+          }, 1000);
         </script>
       </body>
       </html>
     `;
 
-    // Открываем новое окно для печати
-    const printWindow = window.open('', '_blank', 'width=450,height=550');
-    printWindow.document.write(printHtml);
+    const printWindow = window.open('', '_blank', 'width=1200,height=800');
+    printWindow.document.write(printContent);
     printWindow.document.close();
     printWindow.focus();
     
-  } catch (error) {
-    console.error("Ошибка генерации QR-кода для печати:", error);
-    alert("Ошибка при подготовке к печати QR-кода");
-  }
-};
+    showToast.success(`Подготовлено ${assetsForQR.length} QR-кодов для печати`, { icon: '🖨️' });
+  };
 
-  // Добавьте этот useEffect после других useEffect
+  const handlePrintSingleQRCode = (asset) => {
+    if (!asset) {
+      showToast.error("Ошибка: нет данных об активе");
+      return;
+    }
+
+    try {
+      const qr = qrCodeGenerator(0, 'M');
+      const qrUrl = `${window.location.origin}${window.location.pathname}#asset-info-${asset.id}`;
+      qr.addData(qrUrl);
+      qr.make();
+      const qrSvgString = qr.createSvgTag({ cellSize: 4, margin: 2 });
+
+      const printHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>QR-код для ${asset.inventory_number || asset.model || 'Актива'}</title>
+          <meta charset="UTF-8">
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              margin: 0;
+              padding: 20px;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              min-height: 100vh;
+              background-color: white;
+            }
+            .qr-container {
+              text-align: center;
+              padding: 20px;
+              border: 1px solid #000;
+              display: inline-block;
+            }
+            .qr-title {
+              font-size: 16px;
+              font-weight: bold;
+              margin-bottom: 15px;
+            }
+            .qr-inventory {
+              font-size: 14px;
+              margin-bottom: 10px;
+            }
+            .qr-model {
+              font-size: 12px;
+              color: #666;
+              margin-bottom: 15px;
+            }
+            .qr-code {
+              width: 200px;
+              height: 200px;
+            }
+            @media print {
+              body {
+                padding: 10px;
+              }
+              .qr-container {
+                border: 1px solid black;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="qr-container">
+            <div class="qr-title">Информация об активе</div>
+            <div class="qr-inventory">Инв. номер: ${asset.inventory_number || 'Без номера'}</div>
+            <div class="qr-model">${asset.model || asset.type || 'Актив'}</div>
+            <div class="qr-code">${qrSvgString}</div>
+            <div style="margin-top: 15px; font-size: 10px; color: #999;">
+              Отсканируйте для просмотра информации
+            </div>
+          </div>
+          
+          <script>
+            window.onload = function() {
+              setTimeout(() => {
+                window.print();
+              }, 500);
+            };
+          </script>
+        </body>
+        </html>
+      `;
+
+      const printWindow = window.open('', '_blank', 'width=450,height=550');
+      printWindow.document.write(printHtml);
+      printWindow.document.close();
+      printWindow.focus();
+      
+      showToast.success('QR-код подготовлен для печати', { icon: '🖨️' });
+      
+    } catch (error) {
+      console.error("Ошибка генерации QR-кода для печати:", error);
+      showToast.error("Ошибка при подготовке к печати QR-кода");
+    }
+  };
+
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash;
-      // Проверяем, начинается ли хэш с #asset-info-
       if (hash && hash.startsWith('#asset-info-')) {
-        const idStr = hash.substring(12); // Убираем '#asset-info-'
+        const idStr = hash.substring(12);
         const id = parseInt(idStr, 10);
         if (!isNaN(id) && id > 0) {
-          console.log("Найден ID актива в URL-хэше:", id); // Для отладки
+          console.log("Найден ID актива в URL-хэше:", id);
           setAssetIdFromUrlHash(id);
         } else {
           console.warn("Некорректный ID в URL-хэше:", idStr);
           setAssetIdFromUrlHash(null);
         }
       } else {
-        // Если хэш не наш, сбрасываем состояние
         setAssetIdFromUrlHash(null);
       }
     };
 
-    // Проверить при первой загрузке приложения
     handleHashChange();
-
-    // Добавить слушатель события изменения хэша (например, при нажатии "Назад" в браузере)
     window.addEventListener('hashchange', handleHashChange);
-
-    // Убрать слушатель при размонтировании компонента
     return () => {
       window.removeEventListener('hashchange', handleHashChange);
     };
-  }, []); // Пустой массив зависимостей - запускается только при монтировании/размонтировании
+  }, []);
 
-  // Добавьте этот useEffect рядом
   useEffect(() => {
-      // Проверяем, есть ли ID из хэша и загружен ли список активов
-      if (assetIdFromUrlHash && assets.length > 0) {
-          console.log("Пытаемся открыть актив с ID:", assetIdFromUrlHash); // Для отладки
-          // Найти актив по ID в вашем уже загруженном списке assets
-          const assetToOpen = assets.find(a => a.id === assetIdFromUrlHash);
-          if (assetToOpen) {
-              console.log("Актив найден, открываем модальное окно:", assetToOpen.inventory_number); // Для отладки
-              // Открыть модальное окно с информацией об активе
-              // Предполагается, что openAssetInfoModal - ваша существующая функция
-              openAssetInfoModal(assetToOpen);
-              // ВАЖНО: Очистить assetIdFromUrlHash, чтобы это срабатывало только один раз
-              // и не мешало обычной работе модального окна
-              setAssetIdFromUrlHash(null);
-              // Опционально: очистить хэш из URL после открытия
-              // window.location.hash = '';
-          } else {
-              console.warn(`Актив с ID ${assetIdFromUrlHash} не найден в списке активов.`);
-              // Можно показать уведомление пользователю, если он отсканировал QR-код
-              // другого приложения или ID неверный
-              alert(`Актив с ID ${assetIdFromUrlHash} не найден.`);
-              setAssetIdFromUrlHash(null); // Важно сбросить, чтобы не было зацикливания
-          }
+    if (assetIdFromUrlHash && assets.length > 0) {
+      console.log("Пытаемся открыть актив с ID:", assetIdFromUrlHash);
+      const assetToOpen = assets.find(a => a.id === assetIdFromUrlHash);
+      if (assetToOpen) {
+        console.log("Актив найден, открываем модальное окно:", assetToOpen.inventory_number);
+        openAssetInfoModal(assetToOpen);
+        setAssetIdFromUrlHash(null);
+      } else {
+        console.warn(`Актив с ID ${assetIdFromUrlHash} не найден в списке активов.`);
+        showToast.error(`Актив с ID ${assetIdFromUrlHash} не найден.`);
+        setAssetIdFromUrlHash(null);
       }
-      // Важно: зависимость от assetIdFromUrlHash, assets и openAssetInfoModal
-      // Если openAssetInfoModal не является useCallback, можно убрать её из зависимостей,
-      // но лучше обернуть в useCallback
-  }, [assetIdFromUrlHash, assets]); // Добавьте openAssetInfoModal, если она обернута в useCallback
-
+    }
+  }, [assetIdFromUrlHash, assets]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -513,8 +573,7 @@ const handlePrintSingleQRCode = (asset) => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-  // -------------------------------------------------------
-  // --- Загрузка активов (только если есть токен) ---
+
   const fetchAssets = async () => {
     if (!token) {
       setAssets([]);
@@ -576,10 +635,11 @@ const handlePrintSingleQRCode = (asset) => {
       });
     } catch (err) {
       console.error("Ошибка загрузки активов:", err);
+      showToast.error("Ошибка при загрузке активов");
       setAssets([]);
     }
   };
-  const [expiringWarranty, setExpiringWarranty] = useState([]);
+
   useEffect(() => {
     if (assets.length > 0) {
       const today = new Date();
@@ -595,6 +655,7 @@ const handlePrintSingleQRCode = (asset) => {
       setExpiringWarranty([]);
     }
   }, [assets]);
+
   const fetchUsers = async () => {
     if (!user || !user.is_admin || !token) return;
     try {
@@ -611,6 +672,7 @@ const handlePrintSingleQRCode = (asset) => {
       console.error("Ошибка сети при загрузке пользователей:", err);
     }
   };
+
   useEffect(() => {
     fetchAssets();
     const handleKeyDown = (e) => {
@@ -632,12 +694,12 @@ const handlePrintSingleQRCode = (asset) => {
         if (showAssetInfoModal) {
           closeAssetInfoModal();
         }
-
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showAboutModal, isModalOpen, isEditing, showUserModal, showDeletionLogModal, showRepairsModal, showAssetInfoModal, token]);
+
   useEffect(() => {
     if (!token) {
       setUser(null);
@@ -661,21 +723,33 @@ const handlePrintSingleQRCode = (asset) => {
         handleLogout();
       });
   }, [token]);
+
   const handleLogin = async () => {
-    const res = await fetch('http://10.0.1.225:8000/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams(loginData).toString()
-    });
-    if (res.ok) {
-      const data = await res.json();
-      localStorage.setItem('token', data.access_token);
-      setToken(data.access_token);
-      alert("Вы вошли");
-    } else {
-      alert("Неверный логин или пароль");
+    const loadingToast = showToast.loading('Выполняется вход...');
+    
+    try {
+      const res = await fetch('http://10.0.1.225:8000/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(loginData).toString()
+      });
+      
+      toast.dismiss(loadingToast);
+      
+      if (res.ok) {
+        const data = await res.json();
+        localStorage.setItem('token', data.access_token);
+        setToken(data.access_token);
+        showToast.success(`Добро пожаловать, ${loginData.username}!`, { icon: '👋' });
+      } else {
+        showToast.error('Неверный логин или пароль', { icon: '🔒' });
+      }
+    } catch (error) {
+      toast.dismiss(loadingToast);
+      showToast.error('Ошибка подключения к серверу');
     }
   };
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     setToken('');
@@ -694,7 +768,9 @@ const handlePrintSingleQRCode = (asset) => {
       inRepair: 0
     });
     setExpiringWarranty([]);
+    showToast.info('Вы вышли из системы', { icon: '👋' });
   };
+
   const handleExport = async () => {
     let filterText = "всех активов";
     if (filter !== 'Все') {
@@ -714,136 +790,247 @@ const handlePrintSingleQRCode = (asset) => {
     if (searchQuery) {
       filterText += ` с поиском по "${searchQuery}"`;
     }
-
     if (selectedUser) {
       filterText += ` для пользователя "${selectedUser}"`;
     }
 
-    const confirmExport = window.confirm(
-      `Экспорт будет выполнен согласно выбранному фильтру ${filterText}.
-Продолжить?`
+    showToast.confirm(
+      `Экспорт будет выполнен согласно выбранному фильтру ${filterText}. Продолжить?`,
+      async () => {
+        const loadingToast = showToast.loading('Подготовка экспорта...');
+        
+        try {
+          const params = new URLSearchParams();
+          if (filter !== 'Все' && !disposedFilter) {
+            params.append('type', filter);
+          }
+          if (disposedFilter) {
+            params.append('status', 'списано');
+          }
+          if (searchQuery) {
+            params.append('q', searchQuery);
+          }
+          if (warrantyFilter !== 'all' && !disposedFilter) {
+              params.append('warranty_status', warrantyFilter);
+          }
+          if (selectedUser) {
+            params.append('user_name', selectedUser);
+          }
+
+          const url = `http://10.0.1.225:8000/export/excel?${params.toString()}`;
+          const res = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          
+          toast.dismiss(loadingToast);
+          
+          if (!res.ok) {
+            const error = await res.json().catch(() => ({ detail: 'Ошибка экспорта' }));
+            showToast.error(error.detail);
+            return;
+          }
+          
+          const blob = await res.blob();
+          const filenameMatch = res.headers.get('Content-Disposition')?.match(/filename[^;=\r\n]*=([^;\r\n]*)/);
+          const filename = decodeURIComponent(filenameMatch?.[1]?.replace(/['"]/g, '') || 'активы.xlsx');
+          const urlBlob = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = urlBlob;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(urlBlob);
+          document.body.removeChild(a);
+          
+          showToast.success('Файл успешно экспортирован', { icon: '📥' });
+        } catch (err) {
+          toast.dismiss(loadingToast);
+          showToast.error('Ошибка сети при экспорте');
+          console.error(err);
+        }
+      },
+      () => {
+        // Обработчик для кнопки "Отмена"
+        showToast.info('Экспорт отменен', { 
+          icon: '❌', 
+          duration: 2000,
+          style: {
+            background: '#6c757d',
+            color: '#fff',
+          }
+        });
+      }
     );
-    if (!confirmExport) return;
-    try {
-      const params = new URLSearchParams();
-      if (filter !== 'Все' && !disposedFilter) {
-        params.append('type', filter);
-      }
-      if (disposedFilter) {
-        params.append('status', 'списано');
-      }
-      if (searchQuery) {
-        params.append('q', searchQuery);
-      }
-      if (warrantyFilter !== 'all' && !disposedFilter) {
-          params.append('warranty_status', warrantyFilter);
-      }
-
-      if (selectedUser) {
-        params.append('user_name', selectedUser);
-      }
-
-      const url = `http://10.0.1.225:8000/export/excel?${params.toString()}`;
-      const res = await fetch(url, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({ detail: 'Ошибка экспорта' }));
-        alert(error.detail);
-        return;
-      }
-      const blob = await res.blob();
-      // Исправленное регулярное выражение
-      const filenameMatch = res.headers.get('Content-Disposition')?.match(/filename[^;=\r\n]*=([^;\r\n]*)/);
-      const filename = decodeURIComponent(filenameMatch?.[1]?.replace(/['"]/g, '') || 'активы.xlsx');
-      const urlBlob = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = urlBlob;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(urlBlob);
-      document.body.removeChild(a);
-    } catch (err) {
-      alert('Ошибка сети при экспорте');
-      console.error(err);
-    }
   };
+
   const handleImport = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    
+    const loadingToast = showToast.loading('Импорт файла...');
     const formData = new FormData();
     formData.append('file', file);
+    
     try {
       const res = await fetch('http://10.0.1.225:8000/import/excel', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData
       });
+      
       const result = await res.json();
+      toast.dismiss(loadingToast);
+      
       if (result.errors && result.errors.length > 0) {
-        alert(`Импорт частично завершён:\n${result.errors.join('\n')}`);
+        toast.custom((t) => (
+          <div className="bg-warning text-dark rounded-lg shadow-lg p-4" style={{ maxWidth: '400px' }}>
+            <div className="d-flex align-items-start">
+              <i className="fas fa-exclamation-triangle me-2"></i>
+              <div>
+                <h6 className="mb-2 fw-bold">Импорт завершен с предупреждениями</h6>
+                <div className="small">
+                  {result.errors.slice(0, 3).map((error, idx) => (
+                    <div key={idx} className="mb-1">• {error}</div>
+                  ))}
+                  {result.errors.length > 3 && (
+                    <div className="text-muted">и еще {result.errors.length - 3} ошибок...</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        ), { duration: 8000 });
       } else {
-        alert(result.detail);
+        showToast.success(result.detail, { icon: '📥' });
       }
       await fetchAssets();
     } catch (err) {
-      alert('Критическая ошибка импорта: ' + err.message);
+      toast.dismiss(loadingToast);
+      showToast.error('Критическая ошибка импорта: ' + err.message);
       console.error(err);
     }
     e.target.value = null;
   };
+
   const handleClearDatabase = async () => {
-    const wantBackup = window.confirm(
-      "Перед очисткой базы рекомендуется сделать резервную копию. Скачать Excel-файл со всеми данными перед удалением?"
-    );
-    if (wantBackup) {
-      const link = document.createElement('a');
-      link.href = `http://10.0.1.225:8000/export/excel`;
-      link.setAttribute('download', '');
-      link.style.display = 'none';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-    const confirmed = window.confirm(
-      "ВНИМАНИЕ: Все активы и история изменений будут безвозвратно удалены. Вы уверены, что хотите очистить всю базу?"
-    );
-    if (!confirmed) return;
-    try {
-      const res = await fetch('http://10.0.1.225:8000/admin/clear-db', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const result = await res.json();
-      if (res.ok) {
-        alert(result.message);
-        setAssets([]);
-        setStats({
-          total: 0,
-          laptops: 0,
-          monitors: 0,
-          computers: 0,
-          other: 0,
-          retired: 0,
-          underWarranty: 0,
-          expiringWarranty: 0,
-          inRepair: 0
-        });
-        setExpiringWarranty([]);
-      } else {
-        alert(`Ошибка: ${result.detail}`);
+    showToast.confirm(
+      "Перед очисткой базы рекомендуется сделать резервную копию. Скачать Excel-файл со всеми данными перед удалением?",
+      async () => {
+        const link = document.createElement('a');
+        link.href = `http://10.0.1.225:8000/export/excel`;
+        link.setAttribute('download', '');
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        showToast.success('Резервная копия скачана', { icon: '💾' });
+        
+        setTimeout(() => {
+          showToast.deleteConfirm(
+            "ВНИМАНИЕ: Все активы и история изменений будут безвозвратно удалены. Вы уверены, что хотите очистить всю базу?",
+            async () => {
+              const loadingToast = showToast.loading('Очистка базы данных...');
+              
+              try {
+                const res = await fetch('http://10.0.1.225:8000/admin/clear-db', {
+                  method: 'POST',
+                  headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const result = await res.json();
+                toast.dismiss(loadingToast);
+                
+                if (res.ok) {
+                  showToast.success(result.message, { icon: '🗑️' });
+                  setAssets([]);
+                  setStats({
+                    total: 0,
+                    laptops: 0,
+                    monitors: 0,
+                    computers: 0,
+                    other: 0,
+                    retired: 0,
+                    underWarranty: 0,
+                    expiringWarranty: 0,
+                    inRepair: 0
+                  });
+                  setExpiringWarranty([]);
+                } else {
+                  showToast.error(`Ошибка: ${result.detail}`);
+                }
+              } catch (err) {
+                toast.dismiss(loadingToast);
+                showToast.error('Ошибка сети');
+                console.error(err);
+              }
+            },
+            () => {
+              // Обработчик отмены для окончательного подтверждения
+              showToast.info('Очистка базы отменена', { 
+                icon: '❌', 
+                duration: 2000 
+              });
+            }
+          );
+        }, 500);
+      },
+      () => {
+        showToast.deleteConfirm(
+          "ВНИМАНИЕ: Все активы и история изменений будут безвозвратно удалены без резервной копии. Вы уверены?",
+          async () => {
+            const loadingToast = showToast.loading('Очистка базы данных...');
+            
+            try {
+              const res = await fetch('http://10.0.1.225:8000/admin/clear-db', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+              });
+              
+              const result = await res.json();
+              toast.dismiss(loadingToast);
+              
+              if (res.ok) {
+                showToast.success(result.message, { icon: '🗑️' });
+                setAssets([]);
+                setStats({
+                  total: 0,
+                  laptops: 0,
+                  monitors: 0,
+                  computers: 0,
+                  other: 0,
+                  retired: 0,
+                  underWarranty: 0,
+                  expiringWarranty: 0,
+                  inRepair: 0
+                });
+                setExpiringWarranty([]);
+              } else {
+                showToast.error(`Ошибка: ${result.detail}`);
+              }
+            } catch (err) {
+              toast.dismiss(loadingToast);
+              showToast.error('Ошибка сети');
+              console.error(err);
+            }
+          },
+          () => {
+            // Обработчик отмены без резервной копии
+            showToast.info('Очистка базы отменена', { 
+              icon: '❌', 
+              duration: 2000 
+            });
+          }
+        );
       }
-    } catch (err) {
-      alert('Ошибка сети');
-      console.error(err);
-    }
+    );
   };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
+
   const openModal = (asset = null) => {
     if (asset) {
       setFormData({
@@ -889,24 +1076,30 @@ const handlePrintSingleQRCode = (asset) => {
     }
     setIsModalOpen(true);
   };
+
   const closeModal = () => {
     setIsModalOpen(false);
     setIsEditing(false);
   };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
     if (!formData.inventory_number || !formData.inventory_number.trim()) {
-      alert("Поле 'Инвентарный номер' обязательно для заполнения");
+      showToast.error("Инвентарный номер обязателен для заполнения", { icon: '📝' });
       return;
     }
     if (!formData.location || !formData.location.trim()) {
-      alert("Поле 'Расположение' обязательно для заполнения");
+      showToast.error("Поле 'Расположение' обязательно для заполнения", { icon: '📍' });
       return;
     }
     if (!formData.type) {
-      alert("Пожалуйста, выберите тип оборудования из списка");
+      showToast.error("Пожалуйста, выберите тип оборудования из списка", { icon: '🔧' });
       return;
     }
+
+    const loadingToast = showToast.loading(isEditing ? 'Сохранение изменений...' : 'Создание актива...');
+    
     const payload = {};
     for (const key in formData) {
       const value = formData[key];
@@ -916,10 +1109,12 @@ const handlePrintSingleQRCode = (asset) => {
         payload[key] = value;
       }
     }
+    
     const url = isEditing
       ? `http://10.0.1.225:8000/assets/${formData.id}`
       : 'http://10.0.1.225:8000/assets/';
     const method = isEditing ? 'PUT' : 'POST';
+    
     try {
       const res = await fetch(url, {
         method,
@@ -929,12 +1124,17 @@ const handlePrintSingleQRCode = (asset) => {
         },
         body: JSON.stringify(payload)
       });
+      
+      toast.dismiss(loadingToast);
+      
       if (res.ok) {
         const updated = await res.json();
         if (isEditing) {
           setAssets(assets.map(a => a.id === updated.id ? updated : a));
+          showToast.success('Актив успешно обновлен', { icon: '✏️' });
         } else {
           setAssets([...assets, updated]);
+          showToast.success('Актив успешно создан', { icon: '🆕' });
         }
         closeModal();
         fetchAssets();
@@ -943,19 +1143,21 @@ const handlePrintSingleQRCode = (asset) => {
         if (errorData?.detail) {
           if (Array.isArray(errorData.detail)) {
             const messages = errorData.detail.map(err => `${err.loc?.[1]}: ${err.msg}`).join('; ');
-            alert(`Ошибка валидации: ${messages}`);
+            showToast.error(`Ошибка валидации: ${messages}`);
           } else {
-            alert(errorData.detail);
+            showToast.error(errorData.detail);
           }
         } else {
-          alert('Ошибка сохранения актива');
+          showToast.error('Ошибка сохранения актива');
         }
       }
     } catch (err) {
-      alert('Ошибка сети');
+      toast.dismiss(loadingToast);
+      showToast.error('Ошибка сети');
       console.error(err);
     }
   };
+
   const getHumanFieldName = (field) => {
     const labels = {
       inventory_number: 'Инвентарный номер',
@@ -975,59 +1177,100 @@ const handlePrintSingleQRCode = (asset) => {
       issue_date: 'Дата выдачи',
       comment: 'Комментарий',
       created: 'Создание',
-     // deleted: 'Удаление'
     };
     return labels[field] || field;
   };
+
   const handleEdit = async (asset) => {
-    const res = await fetch(`http://10.0.1.225:8000/assets/${asset.id}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    const fullAsset = await res.json();
-    openModal(fullAsset);
-  };
-  const handleDelete = async (id) => {
-    if (!window.confirm('Вы уверены?')) return;
-    const res = await fetch(`http://10.0.1.225:8000/assets/${id}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    if (res.ok) {
-      setAssets(assets.filter(a => a.id !== id));
-      alert("Актив удален");
-      fetchAssets();
-    } else {
-      alert("Ошибка удаления");
+    const loadingToast = showToast.loading('Загрузка данных актива...');
+    
+    try {
+      const res = await fetch(`http://10.0.1.225:8000/assets/${asset.id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      toast.dismiss(loadingToast);
+      
+      if (res.ok) {
+        const fullAsset = await res.json();
+        openModal(fullAsset);
+      } else {
+        showToast.error('Не удалось загрузить данные актива');
+      }
+    } catch (err) {
+      toast.dismiss(loadingToast);
+      showToast.error('Ошибка сети при загрузке актива');
+      console.error(err);
     }
   };
-  // --- Inline-редактирование ---
+
+  const handleDelete = async (id) => {
+    showToast.deleteConfirm(
+      'Вы действительно хотите удалить этот актив?',
+      async () => {
+        const loadingToast = showToast.loading('Удаление актива...');
+        
+        try {
+          const res = await fetch(`http://10.0.1.225:8000/assets/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          
+          toast.dismiss(loadingToast);
+          
+          if (res.ok) {
+            setAssets(assets.filter(a => a.id !== id));
+            showToast.success('Актив успешно удален', { icon: '🗑️' });
+            fetchAssets();
+          } else {
+            showToast.error('Ошибка при удалении актива');
+          }
+        } catch (error) {
+          toast.dismiss(loadingToast);
+          showToast.error('Ошибка сети при удалении');
+          console.error(error);
+        }
+      }
+    );
+  };
+
   const startEditing = (assetId, field, currentValue) => {
     if (!user?.is_admin) return;
     setEditingCell({ assetId, field });
     setEditValue(currentValue == null ? '' : String(currentValue));
   };
+
   const handleEditChange = (e) => {
     setEditValue(e.target.value);
   };
+
   const saveEdit = async () => {
     const { assetId, field } = editingCell;
     if (assetId === null || field === null) return;
+    
     const assetToEdit = assets.find(a => a.id === assetId);
     if (!assetToEdit) return;
+    
     const currentValue = assetToEdit[field];
     const newValue = editValue;
+    
     if (currentValue == newValue || (currentValue === null && newValue === '')) {
       cancelEdit();
       return;
     }
+    
+    const loadingToast = showToast.loading('Сохранение...');
     const updatedAssetData = { ...assetToEdit };
+    
     if (newValue === '' && (typeof currentValue === 'string' || currentValue === null || field.includes('date'))) {
       updatedAssetData[field] = null;
     } else {
       updatedAssetData[field] = newValue;
     }
+    
     delete updatedAssetData.id;
     delete updatedAssetData.history;
+    
     try {
       const res = await fetch(`http://10.0.1.225:8000/assets/${assetId}`, {
         method: 'PUT',
@@ -1037,26 +1280,33 @@ const handlePrintSingleQRCode = (asset) => {
         },
         body: JSON.stringify(updatedAssetData)
       });
+      
+      toast.dismiss(loadingToast);
+      
       if (res.ok) {
         const updatedAssetFromServer = await res.json();
         setAssets(assets.map(a => a.id === updatedAssetFromServer.id ? updatedAssetFromServer : a));
         fetchAssets();
         cancelEdit();
+        showToast.success('Поле обновлено', { icon: '✏️', duration: 2000 });
       } else {
         const errorData = await res.json().catch(() => null);
-        alert(`Ошибка обновления: ${errorData?.detail || 'Неизвестная ошибка'}`);
+        showToast.error(`Ошибка обновления: ${errorData?.detail || 'Неизвестная ошибка'}`);
         cancelEdit();
       }
     } catch (err) {
-      alert('Ошибка сети при обновлении');
+      toast.dismiss(loadingToast);
+      showToast.error('Ошибка сети при обновлении');
       console.error(err);
       cancelEdit();
     }
   };
+
   const cancelEdit = () => {
     setEditingCell({ assetId: null, field: null });
     setEditValue('');
   };
+
   const handleEditKeyDown = (e) => {
     if (e.key === 'Enter') {
       saveEdit();
@@ -1064,8 +1314,7 @@ const handlePrintSingleQRCode = (asset) => {
       cancelEdit();
     }
   };
-  // -----------------------------
-  // --- Фильтрация + поиск ---
+
   const getFilteredAssets = () => {
     let result = [...assets];
     if (disposedFilter) {
@@ -1101,18 +1350,17 @@ const handlePrintSingleQRCode = (asset) => {
         })
       );
     }
-    // NEW: Фильтрация по выбранному пользователю
     result = result.filter(asset => !selectedUser || asset.user_name === selectedUser);
     return result;
   };
+
   const filteredAssets = getFilteredAssets();
   const totalPages = Math.ceil(filteredAssets.length / itemsPerPage);
   const paginatedAssets = filteredAssets.slice(
     (page - 1) * itemsPerPage,
     page * itemsPerPage
   );
-  // ------------------------
-  // --- Функции для управления пользователями ---
+
   const openUserModal = (userToEdit = null) => {
     if (userToEdit) {
       setIsEditingUser(true);
@@ -1134,6 +1382,7 @@ const handlePrintSingleQRCode = (asset) => {
     setShowUserModal(true);
     fetchUsers();
   };
+
   const handleUserChange = (e) => {
     const { name, value, type, checked } = e.target;
     setUserFormData(prev => ({
@@ -1141,24 +1390,31 @@ const handlePrintSingleQRCode = (asset) => {
       [name]: type === 'checkbox' ? checked : value
     }));
   };
+
   const handleUserSubmit = async (e) => {
     e.preventDefault();
+    
     if (!userFormData.username || !userFormData.username.trim()) {
-      alert("Пожалуйста, заполните имя пользователя");
+      showToast.error("Пожалуйста, заполните имя пользователя", { icon: '👤' });
       return;
     }
     if (!isEditingUser && (!userFormData.password || !userFormData.password.trim())) {
-      alert("Пожалуйста, заполните пароль");
+      showToast.error("Пожалуйста, заполните пароль", { icon: '🔑' });
       return;
     }
+
+    const loadingToast = showToast.loading(isEditingUser ? 'Обновление пользователя...' : 'Создание пользователя...');
+    
     const payload = { ...userFormData };
     if (isEditingUser && (!payload.password || !payload.password.trim())) {
       delete payload.password;
     }
+    
     const url = isEditingUser
       ? `http://10.0.1.225:8000/users/${editingUser.id}`
       : 'http://10.0.1.225:8000/users/';
     const method = isEditingUser ? 'PUT' : 'POST';
+    
     try {
       const res = await fetch(url, {
         method,
@@ -1168,14 +1424,17 @@ const handlePrintSingleQRCode = (asset) => {
         },
         body: JSON.stringify(payload)
       });
+      
+      toast.dismiss(loadingToast);
+      
       if (res.ok) {
         const updatedOrNewUser = await res.json();
         if (isEditingUser) {
           setUsers(users.map(u => u.id === updatedOrNewUser.id ? updatedOrNewUser : u));
-          alert("Пользователь обновлен");
+          showToast.success("Пользователь успешно обновлен", { icon: '👤' });
         } else {
           setUsers([...users, updatedOrNewUser]);
-          alert("Пользователь создан");
+          showToast.success("Пользователь успешно создан", { icon: '🆕' });
         }
         setShowUserModal(false);
         setIsEditingUser(false);
@@ -1183,38 +1442,50 @@ const handlePrintSingleQRCode = (asset) => {
         setUserFormData({ username: '', password: '', is_admin: false });
       } else {
         const errorData = await res.json();
-        alert(errorData.detail || `Ошибка ${isEditingUser ? 'обновления' : 'создания'} пользователя`);
+        showToast.error(errorData.detail || `Ошибка ${isEditingUser ? 'обновления' : 'создания'} пользователя`);
       }
     } catch (err) {
-      alert("Ошибка сети");
+      toast.dismiss(loadingToast);
+      showToast.error("Ошибка сети");
       console.error(err);
     }
   };
+
   const handleDeleteUser = async (userId) => {
-    if (!window.confirm('Вы уверены, что хотите удалить этого пользователя?')) return;
     if (userId === user.id) {
-      alert("Нельзя удалить самого себя!");
+      showToast.error("Нельзя удалить самого себя!", { icon: '🚫' });
       return;
     }
-    try {
-      const res = await fetch(`http://10.0.1.225:8000/users/${userId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        setUsers(users.filter(u => u.id !== userId));
-        alert("Пользователь удален");
-      } else {
-        const errorData = await res.json();
-        alert(errorData.detail || "Ошибка удаления пользователя");
+
+    showToast.deleteConfirm(
+      'Вы уверены, что хотите удалить этого пользователя?',
+      async () => {
+        const loadingToast = showToast.loading('Удаление пользователя...');
+        
+        try {
+          const res = await fetch(`http://10.0.1.225:8000/users/${userId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          
+          toast.dismiss(loadingToast);
+          
+          if (res.ok) {
+            setUsers(users.filter(u => u.id !== userId));
+            showToast.success("Пользователь удален", { icon: '👤' });
+          } else {
+            const errorData = await res.json();
+            showToast.error(errorData.detail || "Ошибка удаления пользователя");
+          }
+        } catch (err) {
+          toast.dismiss(loadingToast);
+          showToast.error("Ошибка сети");
+          console.error(err);
+        }
       }
-    } catch (err) {
-      alert("Ошибка сети");
-      console.error(err);
-    }
+    );
   };
-  // ---------------------------------------------
-  // --- Функции для управления ремонтами ---
+
   const fetchRepairsForAsset = async (assetId) => {
     if (!token) return;
     try {
@@ -1233,6 +1504,7 @@ const handlePrintSingleQRCode = (asset) => {
       setRepairsForAsset([]);
     }
   };
+
   const openRepairsModal = async (assetId) => {
     setCurrentAssetId(assetId);
     await fetchRepairsForAsset(assetId);
@@ -1245,13 +1517,18 @@ const handlePrintSingleQRCode = (asset) => {
     });
     setShowRepairsModal(true);
   };
+
   const handleRepairChange = (e) => {
     const { name, value } = e.target;
     setRepairFormData(prev => ({ ...prev, [name]: value }));
   };
+
   const handleCreateRepair = async (e) => {
     e.preventDefault();
     if (!currentAssetId || !token) return;
+    
+    const loadingToast = showToast.loading('Создание записи о ремонте...');
+    
     try {
       const res = await fetch(`http://10.0.1.225:8000/assets/${currentAssetId}/repairs/`, {
         method: 'POST',
@@ -1261,6 +1538,9 @@ const handlePrintSingleQRCode = (asset) => {
         },
         body: JSON.stringify(repairFormData)
       });
+      
+      toast.dismiss(loadingToast);
+      
       if (res.ok) {
         const newRepair = await res.json();
         setRepairsForAsset(prev => [...prev, newRepair]);
@@ -1270,16 +1550,18 @@ const handlePrintSingleQRCode = (asset) => {
           cost: '',
           performed_by: '',
         });
-        alert("Запись о ремонте добавлена");
+        showToast.success("Запись о ремонте добавлена", { icon: '🔧' });
       } else {
         const errorData = await res.json();
-        alert(`Ошибка создания записи: ${errorData.detail || 'Неизвестная ошибка'}`);
+        showToast.error(`Ошибка создания записи: ${errorData.detail || 'Неизвестная ошибка'}`);
       }
     } catch (err) {
-      alert("Ошибка сети при создании записи");
+      toast.dismiss(loadingToast);
+      showToast.error("Ошибка сети при создании записи");
       console.error(err);
     }
   };
+
   const handleEditRepair = (repair) => {
     setEditingRepairId(repair.id);
     setRepairFormData({
@@ -1289,9 +1571,13 @@ const handlePrintSingleQRCode = (asset) => {
       performed_by: repair.performed_by || '',
     });
   };
+
   const handleUpdateRepair = async (e) => {
     e.preventDefault();
     if (!editingRepairId || !token) return;
+    
+    const loadingToast = showToast.loading('Обновление записи о ремонте...');
+    
     try {
       const res = await fetch(`http://10.0.1.225:8000/repairs/${editingRepairId}`, {
         method: 'PUT',
@@ -1301,6 +1587,9 @@ const handlePrintSingleQRCode = (asset) => {
         },
         body: JSON.stringify(repairFormData)
       });
+      
+      toast.dismiss(loadingToast);
+      
       if (res.ok) {
         const updatedRepair = await res.json();
         setRepairsForAsset(prev => prev.map(r => r.id === updatedRepair.id ? updatedRepair : r));
@@ -1311,41 +1600,52 @@ const handlePrintSingleQRCode = (asset) => {
           cost: '',
           performed_by: '',
         });
-        alert("Запись о ремонте обновлена");
+        showToast.success("Запись о ремонте обновлена", { icon: '🔧' });
       } else {
         const errorData = await res.json();
-        alert(`Ошибка обновления записи: ${errorData.detail || 'Неизвестная ошибка'}`);
+        showToast.error(`Ошибка обновления записи: ${errorData.detail || 'Неизвестная ошибка'}`);
       }
     } catch (err) {
-      alert("Ошибка сети при обновлении записи");
+      toast.dismiss(loadingToast);
+      showToast.error("Ошибка сети при обновлении записи");
       console.error(err);
     }
   };
+
   const handleDeleteRepair = async (recordId) => {
-    if (!window.confirm("Вы уверены, что хотите удалить эту запись о ремонте?")) return;
-    if (!token) return;
-    try {
-      const res = await fetch(`http://10.0.1.225:8000/repairs/${recordId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
+    showToast.deleteConfirm(
+      "Вы уверены, что хотите удалить эту запись о ремонте?",
+      async () => {
+        if (!token) return;
+        
+        const loadingToast = showToast.loading('Удаление записи...');
+        
+        try {
+          const res = await fetch(`http://10.0.1.225:8000/repairs/${recordId}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          toast.dismiss(loadingToast);
+          
+          if (res.ok) {
+            setRepairsForAsset(prev => prev.filter(r => r.id !== recordId));
+            showToast.success("Запись о ремонте удалена", { icon: '🗑️' });
+          } else {
+            const errorData = await res.json();
+            showToast.error(`Ошибка удаления записи: ${errorData.detail || 'Неизвестная ошибка'}`);
+          }
+        } catch (err) {
+          toast.dismiss(loadingToast);
+          showToast.error("Ошибка сети при удалении записи");
+          console.error(err);
         }
-      });
-      if (res.ok) {
-        setRepairsForAsset(prev => prev.filter(r => r.id !== recordId));
-        alert("Запись о ремонте удалена");
-      } else {
-        const errorData = await res.json();
-        alert(`Ошибка удаления записи: ${errorData.detail || 'Неизвестная ошибка'}`);
       }
-    } catch (err) {
-      alert("Ошибка сети при удалении записи");
-      console.error(err);
-    }
+    );
   };
-  // ------------------------------------
-  
-  // --- Функция для рендеринга мобильного представления актива ---
+
   const renderMobileAssetDetails = (asset) => (
     <div className="mobile-view" key={asset.id}>
       <div><strong>ID:</strong> {asset.id}</div>
@@ -1382,7 +1682,6 @@ const handlePrintSingleQRCode = (asset) => {
                   setShowHistory(null);
                 } else {
                   setShowHistory(asset.id);
-                  // Сброс пагинации истории при открытии новой
                   setHistoryPage(1);
                 }
               }}
@@ -1396,7 +1695,7 @@ const handlePrintSingleQRCode = (asset) => {
             >
               <i className="fas fa-wrench"></i>
             </button>
-	    {(asset.type === 'Ноутбук' || asset.type === 'Компьютер') && (
+            {(asset.type === 'Ноутбук' || asset.type === 'Компьютер') && (
               <button
                 className="btn btn-sm btn-outline-info"
                 title="Информация о ПК"
@@ -1412,7 +1711,6 @@ const handlePrintSingleQRCode = (asset) => {
       {showHistory === asset.id && asset.history && asset.history.length > 0 && (
         <div className="mt-2 p-2 bg-light rounded">
           <strong>История изменений:</strong>
-          {/* Пагинация истории - мобильная версия */}
           <HistoryPagination 
             history={asset.history} 
             historyPage={historyPage} 
@@ -1422,7 +1720,7 @@ const handlePrintSingleQRCode = (asset) => {
           <ul className="mb-0 ps-3 small">
             {asset.history
               .slice()
-              .reverse() // Сортировка от свежих к старым
+              .reverse()
               .slice((historyPage - 1) * historyItemsPerPage, historyPage * historyItemsPerPage)
               .map((h, idx) => (
                 <li key={idx}>
@@ -1435,9 +1733,7 @@ const handlePrintSingleQRCode = (asset) => {
       )}
     </div>
   );
-  // ---------------------------------------------------------------
-  
-  // --- Функция для рендеринга пагинации истории ---
+
   const HistoryPagination = ({ history, historyPage, setHistoryPage, historyItemsPerPage }) => {
     const historyTotalPages = Math.ceil(history.length / historyItemsPerPage);
     
@@ -1465,7 +1761,6 @@ const handlePrintSingleQRCode = (asset) => {
       </div>
     );
   };
-  // ----------------------------------------------
 
   return (
     <div className="container mt-4">
@@ -1498,12 +1793,10 @@ const handlePrintSingleQRCode = (asset) => {
           </button>
         </form>
       )}
-      {/* Статистика (показываем только если есть токен) */}
+
       {token && (
         <div className="mb-4 p-3 rounded shadow-sm">
-          {/* Используем d-flex и flex-wrap для создания гибкой сетки */}
           <div className="d-flex flex-wrap justify-content-start gap-3">
-            {/* Группа 1: Общая сводка */}
             <div className="stat-card">
               <div className="stat-value text-primary">{stats.total}</div>
               <div className="stat-label">Всего активов</div>
@@ -1524,9 +1817,7 @@ const handlePrintSingleQRCode = (asset) => {
               <div className="stat-value text-muted">{stats.other}</div>
               <div className="stat-label">Прочее</div>
             </div>
-            {/* Разделитель или новая строка (визуально) */}
-            <div className="vr d-none d-md-block mx-2"></div> {/* Вертикальная линия на md+ */}
-            {/* Группа 2: Статусы */}
+            <div className="vr d-none d-md-block mx-2"></div>
             <div className="stat-card">
               <div className="stat-value text-dark">{stats.retired}</div>
               <div className="stat-label">Списано</div>
@@ -1546,6 +1837,7 @@ const handlePrintSingleQRCode = (asset) => {
           </div>
         </div>
       )}
+
       {token && (
         <div className="d-flex justify-content-between align-items-center mb-3">
           <span>Вы вошли как {user?.username || 'пользователь'}</span>
@@ -1563,6 +1855,7 @@ const handlePrintSingleQRCode = (asset) => {
           </div>
         </div>
       )}
+
       {token && user && (
         <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 p-2 bg-white border rounded">
           <div className="d-flex flex-wrap gap-1">
@@ -1631,11 +1924,11 @@ const handlePrintSingleQRCode = (asset) => {
               >
                 <i className="fas fa-history"></i> Журнал удалений
               </button>
-               
             </div>
           )}
         </div>
       )}
+
       {token && (
         <div className="d-flex flex-wrap align-items-center gap-2 mb-4">
           <div className="btn-group" role="group">
@@ -1744,7 +2037,6 @@ const handlePrintSingleQRCode = (asset) => {
               </button>
             )}
           </div>
-          {/* NEW: Выпадающий список с поиском по ФИО пользователя (react-select) */}
           <div className="me-2 align-self-center" style={{ minWidth: '200px' }}>
             <Select
               options={uniqueUsers}
@@ -1762,6 +2054,7 @@ const handlePrintSingleQRCode = (asset) => {
           </div>
         </div>
       )}
+
       {token && (
         <div className="input-group mb-3">
           <input
@@ -1784,9 +2077,8 @@ const handlePrintSingleQRCode = (asset) => {
           )}
         </div>
       )}
-      {/* Основной контейнер для таблицы и мобильного представления */}
+
       <React.Fragment>
-        {/* Десктопная таблица */}
         {token && activeTab === 'assets' && !isMobile && (
           <div className="table-container">
             <div className="table-responsive">
@@ -1810,10 +2102,7 @@ const handlePrintSingleQRCode = (asset) => {
                       <React.Fragment key={asset.id}>
                         <tr>
                           <td data-label="ID">{asset.id}</td>
-                          <td
-                            data-label="Инвентарный номер"
-                            onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'inventory_number', asset.inventory_number)}
-                          >
+                          <td data-label="Инвентарный номер" onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'inventory_number', asset.inventory_number)}>
                             {editingCell.assetId === asset.id && editingCell.field === 'inventory_number' ? (
                               <input
                                 type="text"
@@ -1828,10 +2117,7 @@ const handlePrintSingleQRCode = (asset) => {
                               <span className={user?.is_admin ? 'editable-cell' : ''}>{asset.inventory_number || '-'}</span>
                             )}
                           </td>
-                          <td
-                            data-label="Серийный номер"
-                            onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'serial_number', asset.serial_number)}
-                          >
+                          <td data-label="Серийный номер" onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'serial_number', asset.serial_number)}>
                             {editingCell.assetId === asset.id && editingCell.field === 'serial_number' ? (
                               <input
                                 type="text"
@@ -1846,10 +2132,7 @@ const handlePrintSingleQRCode = (asset) => {
                               <span className={user?.is_admin ? 'editable-cell' : ''}>{asset.serial_number || '-'}</span>
                             )}
                           </td>
-                          <td
-                            data-label="Статус"
-                            onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'status', asset.status)}
-                          >
+                          <td data-label="Статус" onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'status', asset.status)}>
                             {editingCell.assetId === asset.id && editingCell.field === 'status' ? (
                               <select
                                 className="form-select form-select-sm"
@@ -1866,10 +2149,7 @@ const handlePrintSingleQRCode = (asset) => {
                               <span className={user?.is_admin ? 'editable-cell' : ''}>{asset.status}</span>
                             )}
                           </td>
-                          <td
-                            data-label="Расположение"
-                            onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'location', asset.location)}
-                          >
+                          <td data-label="Расположение" onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'location', asset.location)}>
                             {editingCell.assetId === asset.id && editingCell.field === 'location' ? (
                               <input
                                 type="text"
@@ -1884,10 +2164,7 @@ const handlePrintSingleQRCode = (asset) => {
                               <span className={user?.is_admin ? 'editable-cell' : ''}>{asset.location}</span>
                             )}
                           </td>
-                          <td
-                            data-label="ФИО пользователя"
-                            onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'user_name', asset.user_name)}
-                          >
+                          <td data-label="ФИО пользователя" onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'user_name', asset.user_name)}>
                             {editingCell.assetId === asset.id && editingCell.field === 'user_name' ? (
                               <input
                                 type="text"
@@ -1902,10 +2179,7 @@ const handlePrintSingleQRCode = (asset) => {
                               <span className={user?.is_admin ? 'editable-cell' : ''}>{asset.user_name || '-'}</span>
                             )}
                           </td>
-                          <td
-                            data-label="Комментарий"
-                            onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'comment', asset.comment)}
-                          >
+                          <td data-label="Комментарий" onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'comment', asset.comment)}>
                             {editingCell.assetId === asset.id && editingCell.field === 'comment' ? (
                               <textarea
                                 className="form-control form-control-sm"
@@ -1946,7 +2220,6 @@ const handlePrintSingleQRCode = (asset) => {
                                     setShowHistory(null);
                                   } else {
                                     setShowHistory(asset.id);
-                                    // Сброс пагинации истории при открытии новой
                                     setHistoryPage(1);
                                   }
                                 }}
@@ -1954,7 +2227,7 @@ const handlePrintSingleQRCode = (asset) => {
                                 <i className={`fas ${showHistory === asset.id ? 'fa-eye-slash' : 'fa-history'}`}></i>
                               </button>
                               {(asset.type === 'Ноутбук' || asset.type === 'Компьютер') && (
-	                        <button
+                                <button
                                   className="btn btn-sm btn-outline-info"
                                   title="Информация о ПК"
                                   onClick={() => openAssetInfoModal(asset)}
@@ -1976,7 +2249,6 @@ const handlePrintSingleQRCode = (asset) => {
                           <tr>
                             <td colSpan={(user?.is_admin ? 8 : 7) + (warrantyFilter === 'active' ? 1 : 0)} className="bg-light small p-2" style={{ textAlign: 'left' }}>
                               <strong>История изменений:</strong>
-                              {/* Пагинация истории - десктопная версия */}
                               <HistoryPagination 
                                 history={asset.history} 
                                 historyPage={historyPage} 
@@ -1986,7 +2258,7 @@ const handlePrintSingleQRCode = (asset) => {
                               <ul className="mb-0 ps-3">
                                 {asset.history
                                   .slice()
-                                  .reverse() // Сортировка от свежих к старым
+                                  .reverse()
                                   .slice((historyPage - 1) * historyItemsPerPage, historyPage * historyItemsPerPage)
                                   .map((h, idx) => (
                                     <li key={idx}>
@@ -2010,7 +2282,7 @@ const handlePrintSingleQRCode = (asset) => {
             </div>
           </div>
         )}
-        {/* Мобильное представление */}
+
         {token && activeTab === 'assets' && isMobile && (
           <div className="mobile-container">
             {paginatedAssets.length > 0 ? (
@@ -2021,17 +2293,14 @@ const handlePrintSingleQRCode = (asset) => {
           </div>
         )}
       </React.Fragment>
-      {/* Конец контейнера для таблицы и мобильного представления */}
+
       {token && activeTab === 'assets' && assets.length > 0 && !isMobile && (
         <div className="pagination-container d-flex justify-content-center align-items-center mt-3 mb-4 flex-wrap gap-2">
-          {/* Информация о записях */}
           <div className="pagination-info text-muted me-auto">
             Показано {((page - 1) * itemsPerPage) + 1}-{Math.min(page * itemsPerPage, filteredAssets.length)} из {filteredAssets.length} записей
           </div>
 
-          {/* Навигация по страницам */}
           <div className="d-flex align-items-center gap-1">
-            {/* Кнопка "Первая" */}
             <button
               className="btn btn-outline-primary btn-sm"
               onClick={() => setPage(1)}
@@ -2042,7 +2311,6 @@ const handlePrintSingleQRCode = (asset) => {
               <span className="d-none d-sm-inline ms-1">Первая</span>
             </button>
 
-            {/* Кнопка "Предыдущая" */}
             <button
               className="btn btn-outline-primary btn-sm"
               onClick={() => setPage(p => Math.max(1, p - 1))}
@@ -2053,35 +2321,29 @@ const handlePrintSingleQRCode = (asset) => {
               <span className="d-none d-sm-inline ms-1">Назад</span>
             </button>
 
-            {/* Номера страниц (показываем умную пагинацию) */}
             {(() => {
               const totalPages = Math.ceil(filteredAssets.length / itemsPerPage);
-              const delta = 2; // Количество страниц по обе стороны от текущей
+              const delta = 2;
               const range = [];
-        
-              // Определяем диапазон страниц для отображения
+              
               for (let i = Math.max(2, page - delta); 
                    i <= Math.min(totalPages - 1, page + delta); 
                    i++) {
                 range.push(i);
               }
-        
-              // Добавляем многоточие если нужно
+              
               if (page - delta > 2) {
                 range.unshift('...');
               }
               if (page + delta < totalPages - 1) {
                 range.push('...');
               }
-        
-              // Всегда показываем первую страницу
+              
               range.unshift(1);
-        
-              // Добавляем последнюю страницу если она не первая
               if (totalPages !== 1) {
                 range.push(totalPages);
               }
-        
+              
               return range.map((pageNum, index) => (
                 <button
                   key={index}
@@ -2101,7 +2363,6 @@ const handlePrintSingleQRCode = (asset) => {
               ));
             })()}
 
-            {/* Кнопка "Следующая" */}
             <button
               className="btn btn-outline-primary btn-sm"
               onClick={() => setPage(p => Math.min(Math.ceil(filteredAssets.length / itemsPerPage), p + 1))}
@@ -2112,7 +2373,6 @@ const handlePrintSingleQRCode = (asset) => {
               <i className="fas fa-angle-right"></i>
             </button>
 
-            {/* Кнопка "Последняя" */}
             <button
               className="btn btn-outline-primary btn-sm"
               onClick={() => setPage(Math.ceil(filteredAssets.length / itemsPerPage))}
@@ -2124,7 +2384,6 @@ const handlePrintSingleQRCode = (asset) => {
             </button>
           </div>
 
-          {/* Прямой переход на страницу */}
           <div className="d-flex align-items-center gap-2 ms-auto">
             <span className="text-muted">Перейти:</span>
             <input
@@ -2152,10 +2411,6 @@ const handlePrintSingleQRCode = (asset) => {
         </div>
       )}
 
-
-
-
-
       {activeTab === 'reports' && token && (
         <div className="reports-section">
           <h4>Отчёт: Гарантия заканчивается</h4>
@@ -2172,7 +2427,7 @@ const handlePrintSingleQRCode = (asset) => {
             </thead>
             <tbody>
               {expiringWarranty.map((asset) => (
-                <tr key={asset.id} className="expiring-soon" >
+                <tr key={asset.id} className="expiring-soon">
                   <td data-label="Инвентарный номер">{asset.inventory_number}</td>
                   <td data-label="Модель">{asset.model}</td>
                   <td data-label="ФИО">{asset.user_name || '-'}</td>
@@ -2184,6 +2439,7 @@ const handlePrintSingleQRCode = (asset) => {
           </table>
         </div>
       )}
+
       {isModalOpen && (
         <div className="modal fade show" style={{ display: 'block' }} tabIndex="-1" role="dialog">
           <div className="modal-dialog modal-lg" role="document">
@@ -2192,11 +2448,7 @@ const handlePrintSingleQRCode = (asset) => {
                 <h5 className="modal-title">
                   {isEditing ? 'Редактировать актив' : 'Добавить актив'}
                 </h5>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={closeModal}
-                ></button>
+                <button type="button" className="btn-close" onClick={closeModal}></button>
               </div>
               <div className="modal-body">
                 <form onSubmit={handleSubmit} className="row g-3">
@@ -2384,18 +2636,10 @@ const handlePrintSingleQRCode = (asset) => {
                 </form>
               </div>
               <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={closeModal}
-                >
+                <button type="button" className="btn btn-secondary" onClick={closeModal}>
                   Отмена
                 </button>
-                <button
-                  type="button"
-                  className="btn btn-success"
-                  onClick={handleSubmit}
-                >
+                <button type="button" className="btn btn-success" onClick={handleSubmit}>
                   {isEditing ? 'Сохранить изменения' : 'Добавить актив'}
                 </button>
               </div>
@@ -2403,6 +2647,7 @@ const handlePrintSingleQRCode = (asset) => {
           </div>
         </div>
       )}
+
       {showUserModal && (
         <div className="modal fade show" style={{ display: 'block' }} tabIndex="-1" role="dialog">
           <div className="modal-dialog modal-lg" role="document">
@@ -2458,10 +2703,7 @@ const handlePrintSingleQRCode = (asset) => {
                     />
                     <label className="form-check-label">Администратор</label>
                   </div>
-                  <button
-                    type="submit"
-                    className="btn btn-success"
-                  >
+                  <button type="submit" className="btn btn-success">
                     {isEditingUser ? 'Сохранить изменения' : 'Создать'}
                   </button>
                 </form>
@@ -2533,7 +2775,7 @@ const handlePrintSingleQRCode = (asset) => {
           </div>
         </div>
       )}
-      {/* Модальное окно для ремонтов */}
+
       {showRepairsModal && (
         <div className="modal fade show" style={{ display: 'block' }} tabIndex="-1" role="dialog">
           <div className="modal-dialog modal-xl" role="document">
@@ -2542,14 +2784,9 @@ const handlePrintSingleQRCode = (asset) => {
                 <h5 className="modal-title">
                   История ремонтов (Актив ID: {currentAssetId})
                 </h5>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={() => setShowRepairsModal(false)}
-                ></button>
+                <button type="button" className="btn-close" onClick={() => setShowRepairsModal(false)}></button>
               </div>
               <div className="modal-body">
-                {/* Форма добавления/редактирования */}
                 <form onSubmit={editingRepairId ? handleUpdateRepair : handleCreateRepair} className="mb-4 p-3 border rounded">
                   <h6>{editingRepairId ? 'Редактировать запись' : 'Добавить новую запись'}</h6>
                   <div className="row g-2">
@@ -2613,16 +2850,12 @@ const handlePrintSingleQRCode = (asset) => {
                       >
                         Отмена
                       </button>
-                      <button
-                        type="submit"
-                        className="btn btn-sm btn-success"
-                      >
+                      <button type="submit" className="btn btn-sm btn-success">
                         {editingRepairId ? 'Сохранить изменения' : 'Добавить запись'}
                       </button>
                     </div>
                   </div>
                 </form>
-                {/* Список ремонтов */}
                 <h6>Список записей</h6>
                 {repairsForAsset.length > 0 ? (
                   <div className="table-responsive">
@@ -2671,11 +2904,7 @@ const handlePrintSingleQRCode = (asset) => {
                 )}
               </div>
               <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setShowRepairsModal(false)}
-                >
+                <button type="button" className="btn btn-secondary" onClick={() => setShowRepairsModal(false)}>
                   Закрыть
                 </button>
               </div>
@@ -2684,19 +2913,13 @@ const handlePrintSingleQRCode = (asset) => {
         </div>
       )}
 
-
-      {/* Модальное окно для журнала удалений */}
       {showDeletionLogModal && (
         <div className="modal fade show" style={{ display: 'block' }} tabIndex="-1" role="dialog">
-          <div className="modal-dialog modal-xl" role="document"> {/* Используем modal-xl для большего пространства */}
+          <div className="modal-dialog modal-xl" role="document">
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">Журнал удалений</h5>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={() => setShowDeletionLogModal(false)}
-                ></button>
+                <button type="button" className="btn-close" onClick={() => setShowDeletionLogModal(false)}></button>
               </div>
               <div className="modal-body">
                 {deletionLogLoading ? (
@@ -2714,7 +2937,7 @@ const handlePrintSingleQRCode = (asset) => {
                           <th>Тип</th>
                           <th>ID</th>
                           <th>Удалено пользователем</th>
-                          <th>Данные (кратко)</th> 
+                          <th>Данные (кратко)</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -2722,12 +2945,9 @@ const handlePrintSingleQRCode = (asset) => {
                           let shortData = '-';
                           if (log.entity_data) {
                             try {
-                              // Если entity_data - строка JSON
                               const dataObj = JSON.parse(log.entity_data);
-                              // Покажем, например, инвентарный номер или ID
                               shortData = dataObj.inventory_number || dataObj.id || 'Данные есть';
                             } catch (e) {
-                              // Если не JSON, покажем как есть или обрежем
                               shortData = log.entity_data.substring(0, 50) + (log.entity_data.length > 50 ? '...' : '');
                             }
                           }
@@ -2737,7 +2957,6 @@ const handlePrintSingleQRCode = (asset) => {
                               <td>{log.entity_type}</td>
                               <td>{log.entity_id}</td>
                               <td>{log.deleted_by}</td>
-                              {/* <td>{log.reason || '-'}</td> */}
                               <td>{shortData}</td>
                             </tr>
                           );
@@ -2750,20 +2969,10 @@ const handlePrintSingleQRCode = (asset) => {
                 )}
               </div>
               <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setShowDeletionLogModal(false)}
-                >
+                <button type="button" className="btn btn-secondary" onClick={() => setShowDeletionLogModal(false)}>
                   Закрыть
                 </button>
-                {/* Можно добавить кнопку обновления журнала */}
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={fetchDeletionLogs}
-                  disabled={deletionLogLoading}
-                >
+                <button type="button" className="btn btn-primary" onClick={fetchDeletionLogs} disabled={deletionLogLoading}>
                   {deletionLogLoading ? 'Обновление...' : 'Обновить'}
                 </button>
               </div>
@@ -2772,39 +2981,6 @@ const handlePrintSingleQRCode = (asset) => {
         </div>
       )}
 
-      {/* Фон затемнения для модального окна журнала */}
-      {showDeletionLogModal && (
-        <div
-          className="modal-backdrop fade show"
-          onClick={() => setShowDeletionLogModal(false)}
-        ></div>
-      )}
-
-
-
-
-      {/* Фон затемнения для модального окна ремонтов */}
-      {showRepairsModal && (
-        <div
-          className="modal-backdrop fade show"
-          onClick={() => setShowRepairsModal(false)}
-        ></div>
-      )}
-      {(isModalOpen || showUserModal) && (
-        <div
-          className="modal-backdrop fade show"
-          onClick={() => {
-            if (isModalOpen) closeModal();
-            if (showUserModal) {
-              setShowUserModal(false);
-              setIsEditingUser(false);
-              setEditingUser(null);
-              setUserFormData({ username: '', password: '', is_admin: false });
-            }
-          }}
-        ></div>
-      )}
-      
       {showAssetInfoModal && assetInfo && (
         <>
           <div className="modal fade show" style={{ display: 'block' }}>
@@ -2815,28 +2991,22 @@ const handlePrintSingleQRCode = (asset) => {
                   <button type="button" className="btn-close" onClick={closeAssetInfoModal}></button>
                 </div>
                 <div className="modal-body">
-		  {/* --- НАЧАЛО ДОБАВЛЕНИЯ QR-КОДА (react-qr-code) --- */}
-		  <div className="mb-3 d-flex flex-column align-items-center">
+                  <div className="mb-3 d-flex flex-column align-items-center">
                     <div style={{ height: "auto", margin: "0 auto", maxWidth: "160px", width: "100%" }}>
                       <div style={{ height: "160px", width: "160px", backgroundColor: "white", padding: "8px", borderRadius: "4px" }}>
-                      {/* Кодируем хэш URL, который будет обрабатываться приложением */}
-                        <QRCode
-                          size={256}
-                          style={{ height: "100%", width: "100%" }}
-                          value={`${window.location.origin}${window.location.pathname}#asset-info-${assetInfo.id}`}
-                          viewBox={`0 0 256 256`}
+                        <QRCode 
+                          size={256} 
+                          style={{ height: "100%", width: "100%" }} 
+                          value={`${window.location.origin}${window.location.pathname}#asset-info-${assetInfo.id}`} 
+                          viewBox={`0 0 256 256`} 
                         />
                       </div>
                     </div>
                     <p className="text-center text-muted small mt-2 mb-0">Отсканируйте QR-код на активе для быстрого доступа к информации</p>
-                    <button 
-                      className="btn btn-outline-primary btn-sm mt-2"
-                      onClick={() => handlePrintSingleQRCode(assetInfo)}
-                    >
+                    <button className="btn btn-outline-primary btn-sm mt-2" onClick={() => handlePrintSingleQRCode(assetInfo)}>
                       <i className="fas fa-print"></i> Печать QR-кода
                     </button>
                   </div>
-		   {/* --- КОНЕЦ ДОБАВЛЕНИЯ QR-КОДА --- */}
                   <table className="table table-bordered">
                     <tbody>
                       <tr><th>Материнская плата</th><td>{assetInfo.motherboard || '-'}</td></tr>
@@ -2845,8 +3015,8 @@ const handlePrintSingleQRCode = (asset) => {
                       <tr><th>Операционная система</th><td>{assetInfo.os_type || '-'}</td></tr>
                       <tr><th>Ключ Windows</th><td>{assetInfo.windows_key || '-'}</td></tr>
                     </tbody>
-                  </table>                  
-		</div>
+                  </table>
+                </div>
                 <div className="modal-footer">
                   <button className="btn btn-secondary" onClick={closeAssetInfoModal}>Закрыть</button>
                 </div>
@@ -2856,7 +3026,8 @@ const handlePrintSingleQRCode = (asset) => {
           <div className="modal-backdrop fade show"></div>
         </>
       )}
-{showAboutModal && (
+
+      {showAboutModal && (
         <div className="modal fade show" style={{ display: 'block' }} onClick={() => setShowAboutModal(false)}>
           <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
             <div className="modal-content">
@@ -2873,17 +3044,17 @@ const handlePrintSingleQRCode = (asset) => {
                   <li>Отслеживать историю изменений с указанием пользователя</li>
                   <li>Экспортировать и импортировать данные через Excel</li>
                   <li>Контролировать гарантийные сроки</li>
-		  <li>Узнавать историю ремонтов оборудования</li>
+                  <li>Узнавать историю ремонтов оборудования</li>
                 </ul>
                 <p>Разработано для повышения прозрачности и эффективности учёта оборудования.</p>
                 <p>
-                  <a
-                    href="https://gitlab.aspro.cloud/office/asset_tracker/"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <a 
+                    href="https://gitlab.aspro.cloud/office/asset_tracker/" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
                     className="btn btn-outline-primary btn-sm"
                   >
-                    <i className="fab fa-github"></i> Открыть репозиторий
+                    <i className="fab fa-gitlab"></i> Открыть репозиторий
                   </a>
                 </p>
               </div>
@@ -2897,8 +3068,74 @@ const handlePrintSingleQRCode = (asset) => {
         </div>
       )}
       {showAboutModal && <div className="modal-backdrop fade show"></div>}
+
+      {/* Фон затемнения для модальных окон */}
+      {showDeletionLogModal && (
+        <div className="modal-backdrop fade show" onClick={() => setShowDeletionLogModal(false)}></div>
+      )}
+      {showRepairsModal && (
+        <div className="modal-backdrop fade show" onClick={() => setShowRepairsModal(false)}></div>
+      )}
+      {(isModalOpen || showUserModal) && (
+        <div className="modal-backdrop fade show" onClick={() => {
+          if (isModalOpen) closeModal();
+          if (showUserModal) {
+            setShowUserModal(false);
+            setIsEditingUser(false);
+            setEditingUser(null);
+            setUserFormData({ username: '', password: '', is_admin: false });
+          }
+        }}></div>
+      )}
+
+      {/* Toast Container */}
+      <Toaster
+        position="top-right"
+        reverseOrder={false}
+        gutter={8}
+        containerClassName=""
+        containerStyle={{}}
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+            fontSize: '14px',
+            borderRadius: '8px',
+            padding: '12px 16px',
+          },
+          success: {
+            duration: 3000,
+            iconTheme: {
+              primary: '#4aed88',
+              secondary: '#fff',
+            },
+            style: {
+              background: '#10b981',
+              color: '#fff',
+            },
+          },
+          error: {
+            duration: 5000,
+            iconTheme: {
+              primary: '#ff6b6b',
+              secondary: '#fff',
+            },
+            style: {
+              background: '#ef4444',
+              color: '#fff',
+            },
+          },
+          loading: {
+            style: {
+              background: '#3b82f6',
+              color: '#fff',
+            },
+          },
+        }}
+      />
     </div>
   );
 }
-export default App;
 
+export default App;
