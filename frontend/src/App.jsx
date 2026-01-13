@@ -167,10 +167,6 @@ function App() {
         </div>
       ), { 
         duration: Infinity,
-        // Важно! Настройки анимации
-        style: {
-          animation: 'slideInRight 0.3s ease-out'
-        }
       });
     },
 
@@ -845,7 +841,8 @@ function App() {
           showToast.success('Файл успешно экспортирован', { icon: '📥' });
         } catch (err) {
           toast.dismiss(loadingToast);
-          showToast.error('Ошибка сети при экспорте');
+  
+        showToast.error('Ошибка сети при экспорте');
           console.error(err);
         }
       },
@@ -1720,7 +1717,7 @@ function App() {
           <ul className="mb-0 ps-3 small">
             {asset.history
               .slice()
-              .reverse()
+              .sort((a, b) => new Date(b.changed_at) - new Date(a.changed_at)) // Сортируем от новых к старым
               .slice((historyPage - 1) * historyItemsPerPage, historyPage * historyItemsPerPage)
               .map((h, idx) => (
                 <li key={idx}>
@@ -1729,38 +1726,144 @@ function App() {
                 </li>
               ))}
           </ul>
+
         </div>
       )}
     </div>
   );
 
+  
   const HistoryPagination = ({ history, historyPage, setHistoryPage, historyItemsPerPage }) => {
     const historyTotalPages = Math.ceil(history.length / historyItemsPerPage);
-    
+  
     if (historyTotalPages <= 1) return null;
-    
+  
     return (
-      <div className="d-flex justify-content-between align-items-center mb-2">
-        <button
-          className="btn btn-sm btn-outline-primary"
-          onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
-          disabled={historyPage === 1}
-        >
-          Назад
-        </button>
-        <span className="small">
+      <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-1">
+        {/* Информация о странице */}
+        <div className="small text-muted">
           Страница {historyPage} из {historyTotalPages}
-        </span>
-        <button
-          className="btn btn-sm btn-outline-primary"
-          onClick={() => setHistoryPage(p => Math.min(historyTotalPages, p + 1))}
-          disabled={historyPage === historyTotalPages}
-        >
-          Вперёд
-        </button>
+        </div>
+      
+        {/* Кнопки навигации */}
+        <div className="d-flex align-items-center gap-1">
+          {/* К первой странице */}
+          <button
+            className="btn btn-sm btn-outline-secondary"
+            onClick={() => setHistoryPage(1)}
+            disabled={historyPage === 1}
+            title="Первая страница"
+          >
+            <i className="fas fa-angle-double-left"></i>
+          </button>
+        
+          {/* Назад */}
+          <button
+            className="btn btn-sm btn-outline-primary"
+            onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+            disabled={historyPage === 1}
+            title="Предыдущая страница"
+          >
+            <i className="fas fa-angle-left"></i>
+          </button>
+
+          {/* Номера страниц (упрощенная версия для экономии места) */}
+          {historyTotalPages <= 5 ? (
+            // Если страниц мало, показываем все
+            Array.from({ length: historyTotalPages }, (_, i) => i + 1).map(pageNum => (
+              <button
+                key={pageNum}
+                className={`btn btn-sm ${
+                  pageNum === historyPage ? 'btn-primary' : 'btn-outline-secondary'
+                }`}
+                onClick={() => setHistoryPage(pageNum)}
+                style={{ minWidth: '30px' }}
+              >
+                {pageNum}
+              </button>
+            ))
+          ) : (
+            // Если страниц много, показываем текущую + соседние
+            <>
+              {historyPage > 1 && (
+                <button
+                  className="btn btn-sm btn-outline-secondary"
+                  onClick={() => setHistoryPage(historyPage - 1)}
+                  style={{ minWidth: '30px' }}
+                >
+                  {historyPage - 1}
+                </button>
+              )}
+            
+              <button
+                className="btn btn-sm btn-primary"
+                style={{ minWidth: '30px' }}
+              >
+                {historyPage}
+              </button>
+            
+              {historyPage < historyTotalPages && (
+                <button
+                  className="btn btn-sm btn-outline-secondary"
+                  onClick={() => setHistoryPage(historyPage + 1)}
+                  style={{ minWidth: '30px' }}
+                >
+                  {historyPage + 1}
+                </button>
+              )}
+            </>
+          )}
+        
+          {/* Вперёд */}
+          <button
+            className="btn btn-sm btn-outline-primary"
+            onClick={() => setHistoryPage(p => Math.min(historyTotalPages, p + 1))}
+            disabled={historyPage === historyTotalPages}
+            title="Следующая страница"
+          >
+            <i className="fas fa-angle-right"></i>
+          </button>
+        
+          {/* К последней странице */}
+          <button
+            className="btn btn-sm btn-outline-secondary"
+            onClick={() => setHistoryPage(historyTotalPages)}
+            disabled={historyPage === historyTotalPages}
+            title="Последняя страница"
+          >
+            <i className="fas fa-angle-double-right"></i>
+          </button>
+        </div>
+      
+        {/* Быстрый переход */}
+        <div className="d-flex align-items-center gap-2">
+          <span className="small text-muted">Перейти:</span>
+          <input
+            type="number"
+            min="1"
+            max={historyTotalPages}
+            value={historyPage}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value === '') {
+                setHistoryPage(1);
+                return;
+              }
+              const num = parseInt(value, 10);
+              if (num >= 1 && num <= historyTotalPages) {
+                setHistoryPage(num);
+              }
+            }}
+            className="form-control form-control-sm text-center"
+            style={{ width: '60px' }}
+            title="Введите номер страницы"
+          />
+          <span className="small text-muted">из {historyTotalPages}</span>
+        </div>
       </div>
     );
   };
+
 
   return (
     <div className="container mt-4">
@@ -2255,17 +2358,17 @@ function App() {
                                 setHistoryPage={setHistoryPage} 
                                 historyItemsPerPage={historyItemsPerPage}
                               />
-                              <ul className="mb-0 ps-3">
+		              <ul className="mb-0 ps-3">
                                 {asset.history
-                                  .slice()
-                                  .reverse()
-                                  .slice((historyPage - 1) * historyItemsPerPage, historyPage * historyItemsPerPage)
-                                  .map((h, idx) => (
-                                    <li key={idx}>
-                                      ({h.changed_at}) {h.changed_by ? `[${h.changed_by}] ` : ''}
-                                      {getHumanFieldName(h.field)}: "{h.old_value}" → "{h.new_value}"
-                                    </li>
-                                  ))}
+                                .slice()
+                                .sort((a, b) => new Date(b.changed_at) - new Date(a.changed_at)) // От новых к старым
+                                .slice((historyPage - 1) * historyItemsPerPage, historyPage * historyItemsPerPage)
+                                .map((h, idx) => (
+                                  <li key={idx}>
+                                    ({h.changed_at}) {h.changed_by ? `[${h.changed_by}] ` : ''}
+                                    {getHumanFieldName(h.field)}: "{h.old_value}" → "{h.new_value}"
+                                  </li>
+                                ))}
                               </ul>
                             </td>
                           </tr>
@@ -3132,6 +3235,9 @@ function App() {
               color: '#fff',
             },
           },
+          custom: {
+	    duration: Infinity,
+	  }
         }}
       />
     </div>

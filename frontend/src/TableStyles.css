@@ -388,49 +388,28 @@ td .form-control-sm {
 }
 
 /* === АНИМАЦИИ ДЛЯ TOAST === */
-
-/* Анимация появления toast справа */
-@keyframes slideInRight {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-/* Анимация исчезновения toast вправо */
-@keyframes slideOutRight {
-  from {
-    transform: translateX(0);
-    opacity: 1;
-  }
-  to {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-}
-
-/* Применяем анимации к toast элементам */
-[data-sonner-toast] {
-  animation: slideInRight 0.3s ease-out;
-}
-
-[data-sonner-toast][data-removed="true"] {
-  animation: slideOutRight 0.2s ease-in forwards;
-}
-
 /* Стили для кастомных toast */
 .toast-confirm {
-  animation: slideInRight 0.3s ease-out;
   transition: all 0.2s ease;
+  animation: slideInFromRight 0.3s ease-out;
 }
 
+/* Анимация появления справа */
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Hover эффект */
 .toast-confirm:hover {
-  transform: translateY(-2px) translateX(0);
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
 }
 
 /* Улучшенные кнопки в toast */
@@ -441,6 +420,12 @@ td .form-control-sm {
   font-weight: 500;
   transition: all 0.15s ease;
   border: none;
+  margin: 0 2px;
+}
+
+.toast-confirm .btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .toast-confirm .btn-primary {
@@ -450,7 +435,6 @@ td .form-control-sm {
 
 .toast-confirm .btn-primary:hover {
   background-color: #0b5ed7;
-  transform: translateY(-1px);
 }
 
 .toast-confirm .btn-secondary {
@@ -460,7 +444,6 @@ td .form-control-sm {
 
 .toast-confirm .btn-secondary:hover {
   background-color: #5c636a;
-  transform: translateY(-1px);
 }
 
 .toast-confirm .btn-danger {
@@ -470,8 +453,8 @@ td .form-control-sm {
 
 .toast-confirm .btn-danger:hover {
   background-color: #bb2d3b;
-  transform: translateY(-1px);
 }
+
 
 /* Адаптивность для мобильных устройств */
 @media (max-width: 768px) {
