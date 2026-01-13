@@ -1732,17 +1732,56 @@ function App() {
     </div>
   );
 
-  
   const HistoryPagination = ({ history, historyPage, setHistoryPage, historyItemsPerPage }) => {
     const historyTotalPages = Math.ceil(history.length / historyItemsPerPage);
+    const [inputValue, setInputValue] = useState(historyPage.toString());
+  
+    // Синхронизируем inputValue с historyPage при изменении извне
+    useEffect(() => {
+      setInputValue(historyPage.toString());
+    }, [historyPage]);
   
     if (historyTotalPages <= 1) return null;
   
+    const handleInputChange = (e) => {
+      const value = e.target.value;
+      setInputValue(value); // Всегда обновляем локальное состояние для плавного ввода
+    
+      // Валидируем и обновляем реальную страницу только если значение корректное
+      if (value === '') {
+        setHistoryPage(1);
+        return;
+      }
+    
+      const num = parseInt(value, 10);
+      if (!isNaN(num) && num >= 1 && num <= historyTotalPages) {
+        setHistoryPage(num);
+      }
+    };
+  
+    const handleInputBlur = () => {
+      // При потере фокуса принудительно валидируем и исправляем значение
+      const num = parseInt(inputValue, 10);
+      if (isNaN(num) || num < 1 || num > historyTotalPages) {
+        setInputValue(historyPage.toString()); // Возвращаем корректное значение
+      }
+    };
+  
+    const handleKeyPress = (e) => {
+      if (e.key === 'Enter') {
+        const num = parseInt(inputValue, 10);
+        if (!isNaN(num) && num >= 1 && num <= historyTotalPages) {
+          setHistoryPage(num);
+          e.target.blur(); // Убираем фокус после Enter
+        }
+      }
+    };
+  
     return (
-      <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-1">
+      <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
         {/* Информация о странице */}
         <div className="small text-muted">
-          Страница {historyPage} из {historyTotalPages}
+          Показано {((historyPage - 1) * historyItemsPerPage) + 1}—{Math.min(historyPage * historyItemsPerPage, history.length)} из {history.length} записей
         </div>
       
         {/* Кнопки навигации */}
@@ -1767,9 +1806,8 @@ function App() {
             <i className="fas fa-angle-left"></i>
           </button>
 
-          {/* Номера страниц (упрощенная версия для экономии места) */}
+          {/* Номера страниц */}
           {historyTotalPages <= 5 ? (
-            // Если страниц мало, показываем все
             Array.from({ length: historyTotalPages }, (_, i) => i + 1).map(pageNum => (
               <button
                 key={pageNum}
@@ -1783,7 +1821,6 @@ function App() {
               </button>
             ))
           ) : (
-            // Если страниц много, показываем текущую + соседние
             <>
               {historyPage > 1 && (
                 <button
@@ -1835,34 +1872,28 @@ function App() {
           </button>
         </div>
       
-        {/* Быстрый переход */}
+        {/* Быстрый переход - ИСПРАВЛЕННАЯ ВЕРСИЯ */}
         <div className="d-flex align-items-center gap-2">
           <span className="small text-muted">Перейти:</span>
           <input
             type="number"
             min="1"
             max={historyTotalPages}
-            value={historyPage}
-            onChange={(e) => {
-              const value = e.target.value;
-              if (value === '') {
-                setHistoryPage(1);
-                return;
-              }
-              const num = parseInt(value, 10);
-              if (num >= 1 && num <= historyTotalPages) {
-                setHistoryPage(num);
-              }
-            }}
+            value={inputValue} // Используем локальное состояние
+            onChange={handleInputChange} // Новый обработчик
+            onBlur={handleInputBlur} // Валидация при потере фокуса
+            onKeyPress={handleKeyPress} // Обработка Enter
             className="form-control form-control-sm text-center"
             style={{ width: '60px' }}
             title="Введите номер страницы"
+            placeholder={historyPage.toString()}
           />
           <span className="small text-muted">из {historyTotalPages}</span>
         </div>
       </div>
     );
   };
+
 
 
   return (
