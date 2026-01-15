@@ -85,6 +85,18 @@ function App() {
   const [uniqueUsers, setUniqueUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState('');
   const [expiringWarranty, setExpiringWarranty] = useState([]);
+  const [showWindowsReportModal, setShowWindowsReportModal] = useState(false);
+  const [windowsAssets, setWindowsAssets] = useState([]);
+  const getStatusColor = (status) => {
+    switch(status) {
+      case 'в эксплуатации': return 'success';
+      case 'на складе': return 'secondary';
+      case 'на ремонте': return 'warning';
+      case 'списано': return 'danger';
+      default: return 'secondary';
+    }
+  };
+
 
   // Toast helper functions
   const showToast = {
@@ -223,6 +235,42 @@ function App() {
     if (window.location.hash.startsWith('#asset-info-')) {
       console.log("Очистка URL-хэша");
       window.location.hash = '';
+    }
+  };
+
+  const refreshWindowsReport = async () => {
+    const loadingToast = showToast.loading('Обновление данных...');
+  
+    try {
+      // Получаем свежие данные напрямую с сервера
+      const res = await fetch('http://10.0.1.225:8000/assets/', { 
+        headers: { Authorization: `Bearer ${token}` } 
+      });
+    
+      if (!res.ok) {
+        throw new Error(`Ошибка ${res.status}`);
+      }
+    
+      const freshData = await res.json();
+    
+      // Обновляем глобальный стейт
+      setAssets(freshData);
+    
+      // Создаем отчет из свежих данных (не из стейта!)
+      const windowsFilter = freshData.filter(asset => 
+        asset.os_type && 
+        asset.os_type.toLowerCase().includes('windows') &&
+        asset.status !== 'списано'
+      );
+    
+      setWindowsAssets(windowsFilter);
+    
+      toast.dismiss(loadingToast);
+      showToast.success(`Данные обновлены. Найдено ${windowsFilter.length} Windows устройств`);
+    
+    } catch (error) {
+      toast.dismiss(loadingToast);
+      showToast.error('Ошибка при обновлении данных');
     }
   };
 
@@ -521,6 +569,48 @@ function App() {
     }
   };
 
+
+  // Функция для генерации отчета с ключами windows
+  const generateWindowsReport = () => {
+    // Фильтруем активы с Windows
+    const windowsFilter = assets.filter(asset => 
+      asset.os_type && 
+      asset.os_type.toLowerCase().includes('windows') &&
+      asset.status !== 'списано'
+    );
+  
+    setWindowsAssets(windowsFilter);
+    setShowWindowsReportModal(true);
+  };
+
+  const exportWindowsReport = () => {
+    // Подготавливаем данные для экспорта
+    const reportData = windowsAssets.map(asset => ({
+      'Инвентарный номер': asset.inventory_number || '',
+      'Модель': asset.model || '',
+      'Пользователь': asset.user_name || 'На складе',
+      'Версия Windows': asset.os_type || '',
+      'Ключ Windows': asset.windows_key || 'Не указан',
+      'Статус': asset.status,
+      'Расположение': asset.location || ''
+    }));
+
+    // Создаем CSV
+    const headers = Object.keys(reportData[0] || {});
+    const csvContent = [
+      headers.join(';'),
+      ...reportData.map(row => headers.map(header => `"${row[header]}"`).join(';'))
+    ].join('\n');
+
+    // Скачиваем файл
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `windows_licenses_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+  };
+
+
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash;
@@ -689,6 +779,9 @@ function App() {
         }
         if (showAssetInfoModal) {
           closeAssetInfoModal();
+        }
+        if (showWindowsReportModal) { // ДОБАВИТЬ ЭТУ СТРОКУ
+          setShowWindowsReportModal(false);
         }
       }
     };
@@ -2024,6 +2117,15 @@ function App() {
                 <button className="btn btn-info btn-sm" onClick={handlePrintAllQRCodes}>
                   <i className="fas fa-qrcode"></i> Печать всех QR-кодов
                 </button>
+    
+                <button 
+                  className="btn btn-warning btn-sm" 
+                  onClick={generateWindowsReport}
+                  title="Отчет по лицензиям Windows"
+                >
+                  <i className="fab fa-windows"></i> Windows отчет
+                </button>
+
               </>
             )}
           </div>
@@ -3271,6 +3373,181 @@ function App() {
 	  }
         }}
       />
+
+      {showWindowsReportModal && (
+        <div className="modal fade show" style={{ display: 'block' }} tabIndex="-1" role="dialog">
+          <div className="modal-dialog modal-lg" role="document">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">
+                  <i className="fab fa-windows me-2"></i>
+                  Отчет по лицензиям Windows
+                </h5>
+                <button 
+                  type="button" 
+                  className="btn-close" 
+                  onClick={() => setShowWindowsReportModal(false)}
+                ></button>
+              </div>
+              <div className="modal-body">
+          
+                {/* Сводная информация */}
+                <div className="row mb-4">
+                  <div className="col-md-3">
+                    <div className="card bg-primary text-white">
+                      <div className="card-body text-center">
+                        <h4>{windowsAssets.length}</h4>
+                        <small>Всего Windows устройств</small>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="col-md-3">
+                    <div className="card bg-success text-white">
+                     <div className="card-body text-center">
+                        <h4>{windowsAssets.filter(a => a.windows_key && a.windows_key.trim()).length}</h4>
+                        <small>С ключами</small>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="col-md-3">
+                    <div className="card bg-danger text-white">
+                      <div className="card-body text-center">
+                        <h4>{windowsAssets.filter(a => !a.windows_key || !a.windows_key.trim()).length}</h4>
+                        <small>Без ключей</small>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="col-md-3">
+                    <div className="card bg-info text-white">
+                      <div className="card-body text-center">
+                        <h4>{windowsAssets.filter(a => a.status === 'в эксплуатации').length}</h4>
+                        <small>В эксплуатации</small>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Кнопки действий */}
+                <div className="d-flex justify-content-between mb-3">
+                  <div>
+                    <button 
+                      className="btn btn-outline-primary btn-sm me-2"
+                      onClick={refreshWindowsReport} 
+                    >
+                      <i className="fas fa-sync"></i> Обновить данные
+                    </button>
+                  </div>
+                  <div>
+                    <button 
+                      className="btn btn-success btn-sm"
+                      onClick={exportWindowsReport}
+                      disabled={windowsAssets.length === 0}
+                    >
+                      <i className="fas fa-download"></i> Экспорт в CSV
+                    </button>
+                  </div>
+                </div>
+
+                {/* Таблица с данными */}
+                <div className="table-responsive">
+                  <table className="table table-striped table-hover">
+                    <thead>
+                      <tr>
+                        <th>Инвентарный номер</th>
+                        <th>Модель</th>
+                        <th>Пользователь</th>
+                        <th>Версия Windows</th>
+                        <th>Ключ Windows</th>
+                        <th>Статус</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {windowsAssets.length === 0 ? (
+                        <tr>
+                          <td colSpan="6" className="text-center text-muted">
+                            Активы с Windows не найдены
+                          </td>
+                        </tr>
+                      ) : (
+                        windowsAssets.map(asset => (
+                          <tr 
+                            key={asset.id}
+                            className={!asset.windows_key || !asset.windows_key.trim() ? 'table-warning' : ''}
+                          >
+                            <td>
+                              <strong>{asset.inventory_number}</strong>
+                            </td>
+                            <td>{asset.model || '-'}</td>
+                            <td>
+                              {asset.user_name || (
+                                <span className="text-muted">На складе</span>
+                              )}
+                            </td>
+                            <td>
+                              <span className="badge bg-info">
+                                {asset.os_type}
+                              </span>
+                            </td>
+                            <td>
+                              {asset.windows_key && asset.windows_key.trim() ? (
+                                <div className="d-flex align-items-center">
+                                  <code className="small me-2">{asset.windows_key}</code>
+                                  <button 
+                                    className="btn btn-sm btn-outline-secondary"
+                                    onClick={() => navigator.clipboard.writeText(asset.windows_key)}
+                                    title="Скопировать ключ"
+                                  >
+                                    <i className="fas fa-copy"></i>
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-danger">
+                                  <i className="fas fa-exclamation-triangle"></i> Не указан
+                                </span>
+                              )}
+                            </td>
+                            <td>
+                              <span className={`badge bg-${getStatusColor(asset.status)}`}>
+                                {asset.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {windowsAssets.length > 0 && (
+                  <div className="mt-3">
+                    <small className="text-muted">
+                      <i className="fas fa-info-circle"></i>
+                      Строки выделены желтым цветом для активов без ключей Windows.
+                      Нажмите на иконку копирования рядом с ключом, чтобы скопировать его в буфер обмена.
+                    </small>
+                  </div>
+                )}
+              </div>
+        
+              <div className="modal-footer">
+                <button 
+                  type="button" 
+                  className="btn btn-secondary" 
+                  onClick={() => setShowWindowsReportModal(false)}
+                >
+                  Закрыть
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Backdrop */}
+      {showWindowsReportModal && (
+        <div className="modal-backdrop fade show"></div>
+      )}
+
     </div>
   );
 }
