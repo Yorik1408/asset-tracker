@@ -27,6 +27,7 @@ function App() {
     issue_date: '',
     windows_key: '',
     os_type: '',
+    manual_age: '',
   });
   const [isEditing, setIsEditing] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -273,6 +274,61 @@ function App() {
       showToast.error('Ошибка при обновлении данных');
     }
   };
+
+
+  // Замените существующую функцию calculateAssetAge на эту:
+  const calculateAssetAge = (asset) => {
+    // Если есть ручной возраст - используем его
+    if (asset.manual_age && asset.manual_age.trim()) {
+      return asset.manual_age + ' (указан вручную)';
+    }
+  
+    // Если есть дата покупки - рассчитываем автоматически
+    if (asset.purchase_date) {
+      const purchase = new Date(asset.purchase_date);
+      const now = new Date();
+      const diffTime = Math.abs(now - purchase);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+      const years = Math.floor(diffDays / 365);
+      const months = Math.floor((diffDays % 365) / 30);
+    
+      if (years === 0 && months === 0) {
+        return 'Новый';
+      } else if (years === 0) {
+        return `${months} мес.`;
+      } else if (months === 0) {
+        return `${years} г.`;
+      } else {
+        return `${years} г. ${months} мес.`;
+      }
+    }
+  
+    // Если ничего нет
+    return 'Не указано';
+  };
+
+  // Обновите функцию для цветового кодирования
+  const getAgeClass = (asset) => {
+    let years = 0;
+  
+    // Определяем возраст в годах
+    if (asset.manual_age && asset.manual_age.trim()) {
+      // Пытаемся извлечь годы из ручного ввода (например "5 лет", "3 года")
+      const ageMatch = asset.manual_age.match(/(\d+)/);
+      years = ageMatch ? parseInt(ageMatch[1]) : 0;
+    } else if (asset.purchase_date) {
+      years = Math.floor(Math.abs(new Date() - new Date(asset.purchase_date)) / (1000 * 60 * 60 * 24 * 365));
+    }
+  
+    if (years >= 5) return 'text-danger fw-bold'; // Старше 5 лет
+    if (years >= 3) return 'text-warning'; // 3-5 лет  
+    if (years >= 1) return 'text-info'; // 1-3 года
+    return 'text-success'; // Новое оборудование
+  };
+
+
+
 
   useEffect(() => {
     setPage(1);
@@ -1141,6 +1197,7 @@ function App() {
         issue_date: asset.issue_date || '',
         windows_key: asset.windows_key || '',
         os_type: asset.os_type || '',
+        manual_age: asset.manual_age || '',
       });
       setIsEditing(true);
     } else {
@@ -1161,6 +1218,7 @@ function App() {
         issue_date: '',
         windows_key: '',
         os_type: '',
+        manual_age: '',
       });
       setIsEditing(false);
     }
@@ -1186,6 +1244,15 @@ function App() {
     if (!formData.type) {
       showToast.error("Пожалуйста, выберите тип оборудования из списка", { icon: '🔧' });
       return;
+    }
+    if (!formData.purchase_date && (!formData.manual_age || !formData.manual_age.trim())) {
+      const userConfirmed = window.confirm(
+        "Не указана дата покупки и возраст техники.\n\nРекомендуется указать хотя бы приблизительный возраст для учета амортизации.\n\nПродолжить без указания возраста?"
+      );
+      if (!userConfirmed) {
+        showToast.info("Добавление отменено. Укажите дату покупки или возраст техники", { icon: '⚠️' });
+        return;
+      }
     }
 
     const loadingToast = showToast.loading(isEditing ? 'Сохранение изменений...' : 'Создание актива...');
@@ -1744,6 +1811,7 @@ function App() {
       <div><strong>Статус:</strong> <span className={user?.is_admin ? 'editable-cell' : ''} onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'status', asset.status)}>{asset.status}</span></div>
       <div><strong>Расположение:</strong> <span className={user?.is_admin ? 'editable-cell' : ''} onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'location', asset.location)}>{asset.location}</span></div>
       <div><strong>ФИО пользователя:</strong> <span className={user?.is_admin ? 'editable-cell' : ''} onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'user_name', asset.user_name)}>{asset.user_name || '-'}</span></div>
+      <div><strong>Возраст:</strong> <span className={getAgeClass(asset)} title={asset.manual_age ? 'Возраст указан вручную' : (asset.purchase_date ? 'Возраст рассчитан автоматически' : 'Возраст не указан')}>{calculateAssetAge(asset)}</span>{asset.manual_age && <i className="fas fa-edit text-muted ms-1" title="Указан вручную" style={{ fontSize: '0.8em' }}></i>}</div>
       {warrantyFilter === 'active' && <div><strong>Гарантия до:</strong> {asset.warranty_until || '-'}</div>}
       <div><strong>Комментарий:</strong> <div className={user?.is_admin ? 'editable-cell comment-cell' : 'comment-cell'} onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'comment', asset.comment)}>{asset.comment || ''}</div></div>
       {user?.is_admin && (
@@ -2327,6 +2395,7 @@ function App() {
                     <th>Статус</th>
                     <th>Расположение</th>
                     <th>ФИО пользователя</th>
+		    <th>Возраст</th>
                     <th>Комментарий</th>
                     {warrantyFilter === 'active' && <th>Гарантия до</th>}
                     {user?.is_admin && <th>Действия</th>}
@@ -2415,6 +2484,18 @@ function App() {
                               <span className={user?.is_admin ? 'editable-cell' : ''}>{asset.user_name || '-'}</span>
                             )}
                           </td>
+
+                          <td 
+                            data-label="Возраст"
+                            className={getAgeClass(asset)}
+                            title={asset.manual_age ? 'Возраст указан вручную' : (asset.purchase_date ? 'Возраст рассчитан автоматически' : 'Возраст не указан')}
+                          >
+                            {calculateAssetAge(asset)}
+                            {asset.manual_age && (
+                              <i className="fas fa-edit text-muted ms-1" title="Указан вручную" style={{ fontSize: '0.8em' }}></i>
+                            )}
+                          </td>
+
                           <td data-label="Комментарий" onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'comment', asset.comment)}>
                             {editingCell.assetId === asset.id && editingCell.field === 'comment' ? (
                               <textarea
@@ -2483,7 +2564,7 @@ function App() {
                         </tr>
                         {showHistory === asset.id && asset.history && asset.history.length > 0 && (
                           <tr>
-                            <td colSpan={(user?.is_admin ? 8 : 7) + (warrantyFilter === 'active' ? 1 : 0)} className="bg-light small p-2" style={{ textAlign: 'left' }}>
+                            <td colSpan={(user?.is_admin ? 9 : 8) + (warrantyFilter === 'active' ? 1 : 0)} className="bg-light small p-2" style={{ textAlign: 'left' }}>
                               <strong>История изменений:</strong>
                               <HistoryPagination 
                                 history={asset.history} 
@@ -2510,7 +2591,7 @@ function App() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={(user?.is_admin ? 8 : 7) + (warrantyFilter === 'active' ? 1 : 0)} className="text-center">Нет данных</td>
+                      <td colSpan={(user?.is_admin ? 9 : 8) + (warrantyFilter === 'active' ? 1 : 0)} className="text-center">Нет данных</td>
                     </tr>
                   )}
                 </tbody>
@@ -2779,6 +2860,35 @@ function App() {
                       onChange={handleChange}
                     />
                   </div>
+
+                  {/* Поле возраста */}
+                  <div className="col-md-6">
+                    <label className="form-label">
+                      Возраст (если дата покупки неизвестна)
+                      <small className="text-muted d-block">Например: "5 лет", "около 3 лет"</small>
+                    </label>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      name="manual_age" 
+                      value={formData.manual_age || ''} 
+                      onChange={handleChange}
+                      placeholder="3 года, 5 лет, более 10 лет..."
+                    />
+                  </div>
+
+                  {/* Показываем какой возраст будет отображаться */}
+                  {(formData.purchase_date || formData.manual_age) && (
+                    <div className="col-12">
+                      <div className="alert alert-info">
+                        <strong>Возраст будет отображаться как:</strong> 
+                        <span className={getAgeClass(formData)}>
+                          {calculateAssetAge(formData)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="col-md-6">
                     <label className="form-label">Гарантия до</label>
                     <input
