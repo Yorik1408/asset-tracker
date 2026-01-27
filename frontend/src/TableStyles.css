@@ -699,3 +699,89 @@ td .form-control-sm {
     margin-bottom: 5px;
   }
 }
+
+/* Стили для расширенного Windows отчета */
+.modal-xl .modal-content {
+  height: 90vh; /* Занимает 90% высоты экрана */
+}
+
+.modal-xl .modal-body {
+  max-height: calc(90vh - 120px); /* Учитываем заголовок и footer */
+  overflow-y: auto; /* Прокрутка при необходимости */
+  padding: 1.5rem;
+}
+
+/* Улучшенные карточки статистики в Windows отчете */
+.windows-report-stats .card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border: none;
+  border-radius: 0.5rem;
+}
+
+.windows-report-stats .card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.windows-report-stats .card-body {
+  padding: 1.25rem;
+}
+
+.windows-report-stats h4 {
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.windows-report-stats small {
+  font-size: 0.85rem;
+  opacity: 0.9;
+  font-weight: 500;
+}
+
+/* Улучшенная таблица Windows отчета */
+.windows-report-table {
+  font-size: 0.9rem;
+}
+
+.windows-report-table .table {
+  margin-bottom: 0;
+}
+
+.windows-report-table th {
+  background-color: #0078d4 !important;
+  color: white !important;
+  border-color: #106ebe !important;
+  font-weight: 600;
+  padding: 0.75rem 0.5rem;
+  white-space: nowrap;
+}
+
+.windows-report-table td {
+  padding: 0.75rem 0.5rem;
+  vertical-align: middle;
+}
+
+.windows-report-table code {
+  background-color: #f8f9fa;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+}
+
+/* Адаптивность для больших экранов */
+@media (min-width: 1200px) {
+  .modal-xl {
+    max-width: 1400px; /* Еще шире на больших экранах */
+  }
+}
+
+/* Фиксированная высота для карточек статистики */
+.windows-report-stats .card-body {
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+}

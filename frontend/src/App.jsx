@@ -644,7 +644,8 @@ function App() {
     const reportData = windowsAssets.map(asset => ({
       'Инвентарный номер': asset.inventory_number || '',
       'Модель': asset.model || '',
-      'Пользователь': asset.user_name || 'На складе',
+      'Расположение': asset.location || 'Не указано',
+      'Пользователь': asset.user_name || '',
       'Версия Windows': asset.os_type || '',
       'Ключ Windows': asset.windows_key || 'Не указан',
       'Статус': asset.status,
@@ -836,14 +837,14 @@ function App() {
         if (showAssetInfoModal) {
           closeAssetInfoModal();
         }
-        if (showWindowsReportModal) { // ДОБАВИТЬ ЭТУ СТРОКУ
+        if (showWindowsReportModal) { 
           setShowWindowsReportModal(false);
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showAboutModal, isModalOpen, isEditing, showUserModal, showDeletionLogModal, showRepairsModal, showAssetInfoModal, token]);
+  }, [showAboutModal, isModalOpen, isEditing, showUserModal, showDeletionLogModal, showRepairsModal, showAssetInfoModal, showWindowsReportModal, token]);
 
   useEffect(() => {
     if (!token) {
@@ -3486,7 +3487,7 @@ function App() {
 
       {showWindowsReportModal && (
         <div className="modal fade show" style={{ display: 'block' }} tabIndex="-1" role="dialog">
-          <div className="modal-dialog modal-lg" role="document">
+          <div className="modal-dialog modal-xl" role="document">
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">
@@ -3502,40 +3503,52 @@ function App() {
               <div className="modal-body">
           
                 {/* Сводная информация */}
-                <div className="row mb-4">
-                  <div className="col-md-3">
-                    <div className="card bg-primary text-white">
-                      <div className="card-body text-center">
-                        <h4>{windowsAssets.length}</h4>
-                        <small>Всего Windows устройств</small>
+                <div className="windows-report-stats">
+                  <div className="row mb-4 g-3">
+                    <div className="col-xl-3 col-lg-6">
+                      <div className="card bg-primary text-white">
+                        <div className="card-body text-center">
+                          <h4>{windowsAssets.length}</h4>
+                          <small>Всего Windows устройств</small>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="col-xl-3 col-lg-6">
+                      <div className="card bg-success text-white">
+                       <div className="card-body text-center">
+                          <h4>{windowsAssets.filter(a => a.windows_key && a.windows_key.trim()).length}</h4>
+                          <small>С ключами</small>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="col-xl-3 col-lg-6">
+                      <div className="card bg-danger text-white">
+                        <div className="card-body text-center">
+                          <h4>{windowsAssets.filter(a => !a.windows_key || !a.windows_key.trim()).length}</h4>
+                          <small>Без ключей</small>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="col-xl-3 col-lg-6">
+                      <div className="card bg-info text-white">
+                        <div className="card-body text-center">
+                          <h4>{windowsAssets.filter(a => !a.user_name || !a.user_name.trim()).length}</h4>
+                          <small>Без пользователя</small>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="col-md-3">
+                      <div className="card bg-info text-white">
+                        <div className="card-body text-center">
+                          <h4>{windowsAssets.filter(a => a.status === 'в эксплуатации').length}</h4>
+                          <small>В эксплуатации</small>
+                        </div>
                       </div>
                     </div>
                   </div>
-                  <div className="col-md-3">
-                    <div className="card bg-success text-white">
-                     <div className="card-body text-center">
-                        <h4>{windowsAssets.filter(a => a.windows_key && a.windows_key.trim()).length}</h4>
-                        <small>С ключами</small>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="col-md-3">
-                    <div className="card bg-danger text-white">
-                      <div className="card-body text-center">
-                        <h4>{windowsAssets.filter(a => !a.windows_key || !a.windows_key.trim()).length}</h4>
-                        <small>Без ключей</small>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="col-md-3">
-                    <div className="card bg-info text-white">
-                      <div className="card-body text-center">
-                        <h4>{windowsAssets.filter(a => a.status === 'в эксплуатации').length}</h4>
-                        <small>В эксплуатации</small>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                </div> 
 
                 {/* Кнопки действий */}
                 <div className="d-flex justify-content-between mb-3">
@@ -3559,75 +3572,86 @@ function App() {
                 </div>
 
                 {/* Таблица с данными */}
-                <div className="table-responsive">
-                  <table className="table table-striped table-hover">
-                    <thead>
-                      <tr>
-                        <th>Инвентарный номер</th>
-                        <th>Модель</th>
-                        <th>Пользователь</th>
-                        <th>Версия Windows</th>
-                        <th>Ключ Windows</th>
-                        <th>Статус</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {windowsAssets.length === 0 ? (
+                <div className="windows-report-table">
+                  <div className="table-responsive">
+                    <table className="table table-striped table-hover">
+                      <thead>
                         <tr>
-                          <td colSpan="6" className="text-center text-muted">
-                            Активы с Windows не найдены
-                          </td>
+                          <th>Инвентарный номер</th>
+                          <th>Модель</th>
+                          <th>Расположение</th>
+                          <th>Пользователь</th>
+                          <th>Версия Windows</th>
+                          <th>Ключ Windows</th>
+                          <th>Статус</th>
                         </tr>
-                      ) : (
-                        windowsAssets.map(asset => (
-                          <tr 
-                            key={asset.id}
-                            className={!asset.windows_key || !asset.windows_key.trim() ? 'table-warning' : ''}
-                          >
-                            <td>
-                              <strong>{asset.inventory_number}</strong>
-                            </td>
-                            <td>{asset.model || '-'}</td>
-                            <td>
-                              {asset.user_name || (
-                                <span className="text-muted">На складе</span>
-                              )}
-                            </td>
-                            <td>
-                              <span className="badge bg-info">
-                                {asset.os_type}
-                              </span>
-                            </td>
-                            <td>
-                              {asset.windows_key && asset.windows_key.trim() ? (
-                                <div className="d-flex align-items-center">
-                                  <code className="small me-2">{asset.windows_key}</code>
-                                  <button 
-                                    className="btn btn-sm btn-outline-secondary"
-                                    onClick={() => navigator.clipboard.writeText(asset.windows_key)}
-                                    title="Скопировать ключ"
-                                  >
-                                    <i className="fas fa-copy"></i>
-                                  </button>
-                                </div>
-                              ) : (
-                                <span className="text-danger">
-                                  <i className="fas fa-exclamation-triangle"></i> Не указан
-                                </span>
-                              )}
-                            </td>
-                            <td>
-                              <span className={`badge bg-${getStatusColor(asset.status)}`}>
-                                {asset.status}
-                              </span>
+                      </thead>
+                      <tbody>
+                        {windowsAssets.length === 0 ? (
+                          <tr>
+                            <td colSpan="6" className="text-center text-muted">
+                              Активы с Windows не найдены
                             </td>
                           </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                        ) : (
+                          windowsAssets.map(asset => (
+                            <tr 
+                              key={asset.id}
+                              className={!asset.windows_key || !asset.windows_key.trim() ? 'table-warning' : ''}
+                            >
+                              <td>
+                                <strong>{asset.inventory_number}</strong>
+                              </td>
+                              <td>{asset.model || '-'}</td>
+                              <td>
+                                <span className="badge bg-secondary">
+                                  {asset.location || 'Не указано'}
+                                </span>
+                              </td>
 
+                              <td>
+                                {asset.user_name ? (
+                                  <span className="text-primary fw-bold">{asset.user_name}</span>
+                                ) : (
+                                  <span className="text-muted">—</span>
+                                )}
+                              </td>
+
+                              <td>
+                                <span className="badge bg-info">
+                                  {asset.os_type}
+                                </span>
+                              </td>
+                              <td>
+                                {asset.windows_key && asset.windows_key.trim() ? (
+                                  <div className="d-flex align-items-center">
+                                    <code className="small me-2">{asset.windows_key}</code>
+                                    <button 
+                                      className="btn btn-sm btn-outline-secondary"
+                                      onClick={() => navigator.clipboard.writeText(asset.windows_key)}
+                                      title="Скопировать ключ"
+                                    >
+                                      <i className="fas fa-copy"></i>
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span className="text-danger">
+                                    <i className="fas fa-exclamation-triangle"></i> Не указан
+                                  </span>
+                                )}
+                              </td>
+                              <td>
+                                <span className={`badge bg-${getStatusColor(asset.status)}`}>
+                                  {asset.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
                 {windowsAssets.length > 0 && (
                   <div className="mt-3">
                     <small className="text-muted">
