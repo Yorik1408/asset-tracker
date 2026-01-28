@@ -48,6 +48,7 @@ function App() {
   const [assetInfo, setAssetInfo] = useState(null);
   const [loginData, setLoginData] = useState({ username: '', password: '' });
   const [showAboutModal, setShowAboutModal] = useState(false);
+  const [ageRangeFilter, setAgeRangeFilter] = useState('all');
   const [stats, setStats] = useState({
     total: 0,
     laptops: 0,
@@ -327,12 +328,65 @@ function App() {
     return 'text-success'; // Новое оборудование
   };
 
+  // Добавьте эти функции после getAgeClass:
+  const getAssetAgeInDays = (asset) => {
+    // Если есть ручной возраст, пытаемся извлечь годы
+    if (asset.manual_age && asset.manual_age.trim()) {
+      const ageMatch = asset.manual_age.match(/(\d+)/);
+      if (ageMatch) {
+        const years = parseInt(ageMatch[1]);
+        return years * 365;
+      }
+      return 999999;
+    }
+  
+    // Если есть дата покупки
+    if (asset.purchase_date) {
+      const purchaseDate = new Date(asset.purchase_date);
+      const now = new Date();
+      const diffTime = now - purchaseDate;
+      return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    }
+  
+    return -1;
+  };
+
+  const getAssetAgeCategory = (asset) => {
+    const ageDays = getAssetAgeInDays(asset);
+  
+    if (ageDays === -1) return 'unknown';
+  
+    const ageYears = ageDays / 365;
+  
+    if (ageYears < 1) return 'new';
+    if (ageYears < 3) return 'fresh';
+    if (ageYears < 5) return 'medium';
+    return 'old';
+  };
+
+  const getAssetsByAgeCategory = () => {
+    const categories = {
+      all: assets.length,
+      new: 0,
+      fresh: 0,
+      medium: 0,
+      old: 0,
+      unknown: 0
+    };
+  
+    assets.forEach(asset => {
+      const category = getAssetAgeCategory(asset);
+      categories[category]++;
+    });
+  
+    return categories;
+  };
 
 
 
   useEffect(() => {
     setPage(1);
-  }, [searchQuery, filter, warrantyFilter, disposedFilter, selectedUser]);
+  }, [searchQuery, filter, warrantyFilter, disposedFilter, selectedUser, ageRangeFilter]);
 
   useEffect(() => {
     if (assets.length > 0) {
@@ -649,7 +703,6 @@ function App() {
       'Версия Windows': asset.os_type || '',
       'Ключ Windows': asset.windows_key || 'Не указан',
       'Статус': asset.status,
-      'Расположение': asset.location || ''
     }));
 
     // Создаем CSV
@@ -1509,6 +1562,14 @@ function App() {
       );
     }
     result = result.filter(asset => !selectedUser || asset.user_name === selectedUser);
+
+    if (ageRangeFilter && ageRangeFilter !== 'all') {
+      result = result.filter(asset => {
+        const category = getAssetAgeCategory(asset);
+        return category === ageRangeFilter;
+      });
+    }
+
     return result;
   };
 
@@ -2328,13 +2389,24 @@ function App() {
             {filter !== 'Все' && `Тип: ${filter}`}
             {disposedFilter && ` | Списано`}
             {warrantyFilter !== 'all' && !disposedFilter && ` | Гарантия: ${warrantyFilter === 'active' ? 'активна' : 'заканчивается'}`}
-            {(filter !== 'Все' || disposedFilter || warrantyFilter !== 'all') && (
+            {ageRangeFilter !== 'all' && ` | Возраст: ${(() => {
+              const labels = {
+                'new': 'новые',
+                'fresh': 'свежие', 
+                'medium': 'средние',
+                'old': 'старые',
+                'unknown': 'неизвестно'
+              };
+              return labels[ageRangeFilter];
+            })()}`}
+            {(filter !== 'Все' || disposedFilter || warrantyFilter !== 'all' || ageRangeFilter !== 'all') && (
               <button
                 className="btn btn-sm btn-outline-secondary ms-2"
                 onClick={() => {
                   setFilter('Все');
                   setDisposedFilter(false);
                   setWarrantyFilter('all');
+                  setAgeRangeFilter('all');
                   setPage(1);
                 }}
               >
@@ -2359,6 +2431,110 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* ВСТАВЬТЕ ЭТОТ БЛОК СРАЗУ ПОСЛЕ БЛОКА С КНОПКАМИ ФИЛЬТРОВ */}
+      {token && (
+        <div className="age-range-filter mb-4">
+          <div className="card">
+            <div className="card-body py-3">
+              <div className="row align-items-center">
+                <div className="col-md-2">
+                  <label className="form-label mb-0 fw-bold">
+                    <i className="fas fa-hourglass-half me-2"></i>
+                    Фильтр по возрасту:
+                  </label>
+                </div>
+                <div className="col-md-10">
+                  <div className="d-flex gap-2 flex-wrap">
+                    {(() => {
+                      const ageCounts = getAssetsByAgeCategory();
+                      const filterButtons = [
+                        {
+                          key: 'all',
+                          label: 'Все',
+                          icon: 'fas fa-list',
+                          color: 'secondary',
+                          count: ageCounts.all
+                        },
+                        {
+                          key: 'new',
+                          label: 'Новые',
+                          sublabel: 'до 1 года',
+                          icon: 'fas fa-star',
+                          color: 'success',
+                          count: ageCounts.new
+                        },
+                        {
+                          key: 'fresh',
+                          label: 'Свежие',
+                          sublabel: '1-3 года',
+                          icon: 'fas fa-clock',
+                          color: 'info',
+                          count: ageCounts.fresh
+                        },
+                        {
+                          key: 'medium',
+                          label: 'Средние',
+                          sublabel: '3-5 лет',
+                          icon: 'fas fa-exclamation-triangle',
+                          color: 'warning',
+                          count: ageCounts.medium
+                        },
+                        {
+                          key: 'old',
+                          label: 'Старые',
+                          sublabel: '5+ лет',
+                          icon: 'fas fa-calendar-times',
+                          color: 'danger',
+                          count: ageCounts.old
+                        },
+                        {
+                          key: 'unknown',
+                          label: 'Неизвестно',
+                          sublabel: 'без даты',
+                          icon: 'fas fa-question',
+                          color: 'dark',
+                          count: ageCounts.unknown
+                        }
+                      ];
+
+                      return filterButtons.map(button => (
+                        <button
+                          key={button.key}
+                          className={`btn btn-sm ${
+                            ageRangeFilter === button.key 
+                              ? `btn-${button.color}` 
+                              : `btn-outline-${button.color}`
+                          } age-filter-btn`}
+                          onClick={() => setAgeRangeFilter(button.key)}
+                          title={`Показать ${button.label.toLowerCase()} активы${button.sublabel ? ` (${button.sublabel})` : ''}`}
+                        >
+                          <div className="d-flex align-items-center">
+                            <i className={`${button.icon} me-2`}></i>
+                            <div>
+                              <div className="fw-bold">{button.label}</div>
+                              {button.sublabel && (
+                                <small className="d-block" style={{fontSize: '0.7em', marginTop: '-2px'}}>
+                                  {button.sublabel}
+                                </small>
+                              )}
+                            </div>
+                            <span className="badge bg-white text-dark ms-2 fw-bold">
+                              {button.count}
+                            </span>
+                          </div>
+                        </button>
+                      ));
+                    })()}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+
 
       {token && (
         <div className="input-group mb-3">

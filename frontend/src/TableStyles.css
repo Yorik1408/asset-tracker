@@ -785,3 +785,43 @@ td .form-control-sm {
   justify-content: center;
   text-align: center;
 }
+
+.age-range-filter .card {
+  border: 1px solid #e3f2fd;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+.age-filter-btn {
+  min-width: 120px;
+  transition: all 0.2s ease;
+  border-width: 2px;
+}
+
+.age-filter-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.age-filter-btn .badge {
+  font-size: 0.75em;
+  padding: 0.25em 0.5em;
+  border-radius: 50%;
+  min-width: 24px;
+}
+
+@media (max-width: 768px) {
+  .age-range-filter .row {
+    flex-direction: column;
+  }
+  
+  .age-filter-btn {
+    min-width: calc(50% - 4px);
+    font-size: 0.85em;
+  }
+}
+
+@media (max-width: 576px) {
+  .age-filter-btn {
+    min-width: 100%;
+  }
+}
