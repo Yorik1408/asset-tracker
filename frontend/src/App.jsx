@@ -236,7 +236,7 @@ function App() {
     setAssetInfo(null);
     if (window.location.hash.startsWith('#asset-info-')) {
       console.log("Очистка URL-хэша");
-      window.location.hash = '';
+      history.replaceState(null, null, window.location.pathname + window.location.search);
     }
   };
 
@@ -3592,24 +3592,46 @@ function App() {
                       <div style={{ height: "160px", width: "160px", backgroundColor: "white", padding: "8px", borderRadius: "4px" }}>
                         <QRCode 
                           size={256} 
-                          style={{ height: "100%", width: "100%" }} 
+                          style={{ height: "100%", width: "100%" }}
                           value={`${window.location.origin}${window.location.pathname}#asset-info-${assetInfo.id}`} 
                           viewBox={`0 0 256 256`} 
                         />
                       </div>
                     </div>
                     <p className="text-center text-muted small mt-2 mb-0">Отсканируйте QR-код на активе для быстрого доступа к информации</p>
-                    <button className="btn btn-outline-primary btn-sm mt-2" onClick={() => handlePrintSingleQRCode(assetInfo)}>
+                    <button 
+                      className="btn btn-outline-primary btn-sm mt-2" 
+                      onClick={() => handlePrintSingleQRCode(assetInfo)}
+                    >
                       <i className="fas fa-print"></i> Печать QR-кода
                     </button>
                   </div>
+            
                   <table className="table table-bordered">
                     <tbody>
-                      <tr><th>Материнская плата</th><td>{assetInfo.motherboard || '-'}</td></tr>
-                      <tr><th>Процессор</th><td>{assetInfo.processor || '-'}</td></tr>
+                      {/* ДЛЯ НОУТБУКОВ */}
+                      {assetInfo.type === 'Ноутбук' && (
+                        <>
+                          <tr><th>Модель</th><td>{assetInfo.model || '-'}</td></tr>
+                          <tr><th>Процессор</th><td>{assetInfo.processor || '-'}</td></tr>
+                        </>
+                      )}
+                
+                      {/* ДЛЯ КОМПЬЮТЕРОВ */}
+                      {assetInfo.type === 'Компьютер' && (
+                        <>
+                          <tr><th>Материнская плата</th><td>{assetInfo.motherboard || '-'}</td></tr>
+                          <tr><th>Процессор</th><td>{assetInfo.processor || '-'}</td></tr>
+                        </>
+                      )}
+                
+                      {/* ОБЩИЕ ПОЛЯ ДЛЯ ОБОИХ ТИПОВ */}
                       <tr><th>ОЗУ</th><td>{assetInfo.ram || '-'}</td></tr>
                       <tr><th>Операционная система</th><td>{assetInfo.os_type || '-'}</td></tr>
-                      <tr><th>Ключ Windows</th><td>{assetInfo.windows_key || '-'}</td></tr>
+                      {/* КЛЮЧ WINDOWS - ТОЛЬКО ЕСЛИ ОС СОДЕРЖИТ WINDOWS */}
+                      {assetInfo.os_type && assetInfo.os_type.toLowerCase().includes('windows') && (
+                        <tr><th>Ключ Windows</th><td>{assetInfo.windows_key || '-'}</td></tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
