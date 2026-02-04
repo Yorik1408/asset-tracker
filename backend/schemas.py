@@ -84,6 +84,7 @@ class AssetBase(BaseModel):
     comment: Optional[str] = None
     windows_key: Optional[str] = None
     os_type: Optional[str] = None
+    manual_age: Optional[str] = None  # ← ДОБАВИТЬ ЭТУ СТРОКУ
 
 # --- Схемы для записей о ремонте ---
 class RepairRecordBase(BaseModel):

@@ -41,6 +41,7 @@ class Asset(Base):
     comment = Column(Text, nullable=True)
     windows_key = Column(String, nullable=True) # Ключ Windows
     os_type = Column(String, nullable=True) # Тип ОС
+    manual_age = Column(String, nullable=True)  # ← ДОБАВИТЬ ЭТУ СТРОКУ
 
     # Связь с историей изменений
     history = relationship("AssetHistory", back_populates="asset", cascade="all, delete-orphan")
@@ -99,5 +100,4 @@ class DeletionLog(Base):
     deleted_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
     # Причина удаления (опционально, можно добавить в UI)
     reason = Column(String, nullable=True)
-
 

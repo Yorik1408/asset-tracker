@@ -281,7 +281,7 @@ function App() {
   const calculateAssetAge = (asset) => {
     // Если есть ручной возраст - используем его
     if (asset.manual_age && asset.manual_age.trim()) {
-      return asset.manual_age + ' (указан вручную)';
+      return asset.manual_age;
     }
   
     // Если есть дата покупки - рассчитываем автоматически
@@ -1298,6 +1298,7 @@ function App() {
       }
     }
 
+
     const url = isEditing 
       ? `http://10.0.1.225:8000/assets/${formData.id}` 
       : 'http://10.0.1.225:8000/assets/';
@@ -1393,7 +1394,10 @@ function App() {
         payload[key] = value;
       }
     }
-    
+  
+    console.log('Payload отправляемый на сервер:', payload);
+    console.log('manual_age в payload:', payload.manual_age);
+  
     const url = isEditing
       ? `http://10.0.1.225:8000/assets/${formData.id}`
       : 'http://10.0.1.225:8000/assets/';
@@ -1461,6 +1465,7 @@ function App() {
       issue_date: 'Дата выдачи',
       comment: 'Комментарий',
       created: 'Создание',
+      manual_age: 'Возраст'
     };
     return labels[field] || field;
   };
@@ -1946,7 +1951,7 @@ function App() {
       <div><strong>Статус:</strong> <span className={user?.is_admin ? 'editable-cell' : ''} onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'status', asset.status)}>{asset.status}</span></div>
       <div><strong>Расположение:</strong> <span className={user?.is_admin ? 'editable-cell' : ''} onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'location', asset.location)}>{asset.location}</span></div>
       <div><strong>ФИО пользователя:</strong> <span className={user?.is_admin ? 'editable-cell' : ''} onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'user_name', asset.user_name)}>{asset.user_name || '-'}</span></div>
-      <div><strong>Возраст:</strong> <span className={getAgeClass(asset)} title={asset.manual_age ? 'Возраст указан вручную' : (asset.purchase_date ? 'Возраст рассчитан автоматически' : 'Возраст не указан')}>{calculateAssetAge(asset)}</span>{asset.manual_age && <i className="fas fa-edit text-muted ms-1" title="Указан вручную" style={{ fontSize: '0.8em' }}></i>}</div>
+      <div><strong>Возраст:</strong> <span className={`${getAgeClass(asset)} ${user?.is_admin ? 'editable-cell' : ''}`} onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'manual_age', asset.manual_age)} title={asset.manual_age ? 'Возраст указан вручную' : (asset.purchase_date ? 'Возраст рассчитан автоматически' : 'Возраст не указан')}>{calculateAssetAge(asset)}</span>{asset.manual_age && <i className="fas fa-edit text-muted ms-1" title="Указан вручную" style={{ fontSize: '0.8em' }}></i>}</div>
       {warrantyFilter === 'active' && <div><strong>Гарантия до:</strong> {asset.warranty_until || '-'}</div>}
       <div><strong>Комментарий:</strong> <div className={user?.is_admin ? 'editable-cell comment-cell' : 'comment-cell'} onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'comment', asset.comment)}>{asset.comment || ''}</div></div>
       {user?.is_admin && (
@@ -2013,11 +2018,20 @@ function App() {
           <ul className="mb-0 ps-3 small">
             {asset.history
               .slice()
-              .sort((a, b) => new Date(b.changed_at) - new Date(a.changed_at)) // Сортируем от новых к старым
+              .sort((a, b) => {
+                const dateA = new Date(a.changed_at);
+                const dateB = new Date(b.changed_at);
+    
+                if (dateA.getTime() !== dateB.getTime()) {
+                  return dateB - dateA;
+                }
+    
+                return b.id - a.id; // ← ДОБАВЬТЕ ЭТУ СТРОКУ СОРТИРОВКИ ПО ID
+              })
               .slice((historyPage - 1) * historyItemsPerPage, historyPage * historyItemsPerPage)
               .map((h, idx) => (
                 <li key={idx}>
-                  ({h.changed_at}) {h.changed_by ? `[${h.changed_by}] ` : ''}
+                  ({h.changed_at}) {h.changed_by ? `[${h.changed_by}] ` : ''} 
                   {getHumanFieldName(h.field)}: "{h.old_value}" → "{h.new_value}"
                 </li>
               ))}
@@ -2735,14 +2749,28 @@ function App() {
                             )}
                           </td>
 
-                          <td 
-                            data-label="Возраст"
-                            className={getAgeClass(asset)}
-                            title={asset.manual_age ? 'Возраст указан вручную' : (asset.purchase_date ? 'Возраст рассчитан автоматически' : 'Возраст не указан')}
+                          <td data-label="Возраст" 
+                              className={getAgeClass(asset)}
+                              onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'manual_age', asset.manual_age)}
                           >
-                            {calculateAssetAge(asset)}
+                            {editingCell.assetId === asset.id && editingCell.field === 'manual_age' ? (
+                              <input 
+                                type="text" 
+                                className="form-control form-control-sm" 
+                                value={editValue} 
+                                onChange={handleEditChange}
+                                onKeyDown={handleEditKeyDown} 
+                                onBlur={saveEdit} 
+                                placeholder="Например: 5 лет" 
+                                autoFocus 
+                              />
+                            ) : (
+                              <span className={user?.is_admin ? 'editable-cell' : ''}>
+                                {calculateAssetAge(asset)}
+                              </span>
+                            )}
                             {asset.manual_age && (
-                              <i className="fas fa-edit text-muted ms-1" title="Указан вручную" style={{ fontSize: '0.8em' }}></i>
+                              <i className="fas fa-edit text-muted ms-1" title="Возраст указан вручную" style={{ fontSize: '0.8em' }}></i>
                             )}
                           </td>
 
@@ -2823,16 +2851,26 @@ function App() {
                                 historyItemsPerPage={historyItemsPerPage}
                               />
 		              <ul className="mb-0 ps-3">
-                                {asset.history
-                                .slice()
-                                .sort((a, b) => new Date(b.changed_at) - new Date(a.changed_at)) // От новых к старым
-                                .slice((historyPage - 1) * historyItemsPerPage, historyPage * historyItemsPerPage)
-                                .map((h, idx) => (
-                                  <li key={idx}>
-                                    ({h.changed_at}) {h.changed_by ? `[${h.changed_by}] ` : ''}
-                                    {getHumanFieldName(h.field)}: "{h.old_value}" → "{h.new_value}"
-                                  </li>
-                                ))}
+                                {asset.history 
+                                  .slice()
+                                  .sort((a, b) => {
+                                    // Сначала по дате, потом по ID в убывающем порядке  
+                                    const dateA = new Date(a.changed_at);
+                                    const dateB = new Date(b.changed_at);
+    
+                                    if (dateA.getTime() !== dateB.getTime()) {
+                                      return dateB - dateA; // Новые даты сверху
+                                    }
+    
+                                    return b.id - a.id; // При одинаковой дате - новые ID сверху
+                                  })
+                                  .slice((historyPage - 1) * historyItemsPerPage, historyPage * historyItemsPerPage)
+                                  .map((h, idx) => (
+                                    <li key={idx}>
+                                      ({h.changed_at}) {h.changed_by ? `[${h.changed_by}] ` : ''} 
+                                      {getHumanFieldName(h.field)}: "{h.old_value}" → "{h.new_value}"
+                                    </li>
+                                  ))}	
                               </ul>
                             </td>
                           </tr>

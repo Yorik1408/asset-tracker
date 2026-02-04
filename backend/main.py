@@ -248,7 +248,9 @@ def export_to_excel(
         'processor': 'Процессор',
         'ram': 'ОЗУ',
         'os_type': 'Тип ОС',
-        'windows_key': 'Ключ Windows'
+        'windows_key': 'Ключ Windows',
+        'manual_age': 'Возраст',
+        'calculated_age': 'Возраст (полный)'
     }
     # Формируем запрос с фильтрацией
     # Используем joinedload для предварительной загрузки связанных данных (repairs, history)
@@ -310,6 +312,29 @@ def export_to_excel(
     repair_data = [] # <-- НОВОЕ
 
     for asset in assets:
+        # Вычисляем возраст (аналогично frontend логике)
+        def calculate_age(asset):
+            if asset.manual_age and asset.manual_age.strip():
+                return f"{asset.manual_age} (указан вручную)"
+
+            if asset.purchase_date:
+                from datetime import date
+                today = date.today()
+                diff = today - asset.purchase_date
+                years = diff.days // 365
+                months = (diff.days % 365) // 30
+
+                if years == 0 and months == 0:
+                    return 'Новый'
+                elif years == 0:
+                    return f'{months} мес.'
+                elif months == 0:
+                    return f'{years} г.'
+                else:
+                    return f'{years} г. {months} мес.'
+
+            return 'Не указано'
+
         asset_data.append({
             "ID": asset.id,
             "Инвентарный номер": asset.inventory_number,
@@ -327,7 +352,9 @@ def export_to_excel(
             "ОЗУ": asset.ram,
             "Комментарий": asset.comment,
             "Ключ Windows": asset.windows_key,
-            "Тип ОС": asset.os_type
+            "Тип ОС": asset.os_type,
+            "Возраст (ручной)": asset.manual_age,  # ← ДОБАВИТЬ ЭТУ СТРОКУ
+            "Возраст (рассчитанный)": calculate_age(asset)  # ← ДОБАВЬТЕ ЭТУ СТРОКУ
         })
         # Добавляем историю изменений
         # Так как мы использовали joinedload, asset.history уже загружены
@@ -443,8 +470,9 @@ def import_from_excel(
                 "ram": clean_value(row.get("ОЗУ")),
                 "comment": clean_value(row.get("Комментарий")),
                 "windows_key": clean_value(row.get("Ключ Windows")),
-                "os_type": clean_value(row.get("Тип ОС"))
-            }
+                "os_type": clean_value(row.get("Тип ОС")),
+                "manual_age": clean_value(row.get("Возраст (ручной)"))  # ← ДОБАВИТЬ ЭТУ СТРОКУ
+	    }
             existing = db.query(models.Asset).filter(models.Asset.inventory_number == inv_num).first()
             if existing:
                 # Обновляем
@@ -541,5 +569,4 @@ def delete_repair(record_id: int, db: Session = Depends(get_db), current_user: m
         raise HTTPException(status_code=404, detail="Запись о ремонте не найдена")
     return {"detail": "Запись о ремонте удалена"}
 # ---------------------------------------
-
 

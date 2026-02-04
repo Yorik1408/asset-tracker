@@ -1,15 +1,9 @@
-# backend/alembic/env.py
 from logging.config import fileConfig
+
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
+
 from alembic import context
-# --- ИМПОРТЫ ИЗ ВАШЕГО ПРОЕКТА ---
-# Импортируем настройки и модели из вашего приложения
-# Предполагается, что database.py и models.py находятся в той же папке, что и env.py (т.е. backend/)
-from database import SQLALCHEMY_DATABASE_URL # Импортируем URL
-# Импортируем Base, чтобы Alembic знал о ваших моделях
-from models import Base # Убедитесь, что в models.py Base определен как declarative_base()
-# --------------------------------
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -24,9 +18,12 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
-# --- УСТАНОВКА target_metadata ---
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
+from models import Base
 target_metadata = Base.metadata
-# ---------------------------------
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -46,8 +43,7 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    # url = config.get_main_option("sqlalchemy.url") # Старая строка
-    url = SQLALCHEMY_DATABASE_URL # Используем URL из вашего database.py
+    url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -66,14 +62,11 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    # --- НАСТРОЙКА ДЛЯ ИСПОЛЬЗОВАНИЯ URL ИЗ database.py ---
-    # Получаем конфигурацию напрямую, используя ваш URL
     connectable = engine_from_config(
-        {"sqlalchemy.url": SQLALCHEMY_DATABASE_URL}, # Используем URL из вашего database.py
+        config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
-        poolclass=pool.NullPool, # Или используйте тот же пул, что и в database.py, если нужно
+        poolclass=pool.NullPool,
     )
-    # ----------------------------------------------------
 
     with connectable.connect() as connection:
         context.configure(
@@ -88,4 +81,3 @@ if context.is_offline_mode():
     run_migrations_offline()
 else:
     run_migrations_online()
-
