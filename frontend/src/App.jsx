@@ -277,7 +277,23 @@ function App() {
   };
 
 
-  // Замените существующую функцию calculateAssetAge на эту:
+  const getNounForm = (number, forms) => {
+    if (number % 100 >= 11 && number % 100 <= 14) {
+      return forms[2];
+    }
+  
+    const lastDigit = number % 10;
+  
+    if (lastDigit === 1) {
+      return forms[0];
+    } else if (lastDigit >= 2 && lastDigit <= 4) {
+      return forms[1];
+    } else {
+      return forms[2];
+    }
+  };
+
+
   const calculateAssetAge = (asset) => {
     // Если есть ручной возраст - используем его
     if (asset.manual_age && asset.manual_age.trim()) {
@@ -290,24 +306,27 @@ function App() {
       const now = new Date();
       const diffTime = Math.abs(now - purchase);
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
       const years = Math.floor(diffDays / 365);
       const months = Math.floor((diffDays % 365) / 30);
-    
+
       if (years === 0 && months === 0) {
         return 'Новый';
       } else if (years === 0) {
-        return `${months} мес.`;
+        const monthForm = getNounForm(months, ['месяц', 'месяца', 'месяцев']);
+        return `${months} ${monthForm}`;
       } else if (months === 0) {
-        return `${years} г.`;
+        const yearForm = getNounForm(years, ['год', 'года', 'лет']);
+        return `${years} ${yearForm}`;
       } else {
-        return `${years} г. ${months} мес.`;
+        const yearForm = getNounForm(years, ['год', 'года', 'лет']);
+        const monthForm = getNounForm(months, ['месяц', 'месяца', 'месяцев']);
+        return `${years} ${yearForm} ${months} ${monthForm}`;
       }
     }
   
-    // Если ничего нет
     return 'Не указано';
   };
+
 
   // Обновите функцию для цветового кодирования
   const getAgeClass = (asset) => {
@@ -2519,7 +2538,6 @@ function App() {
         </div>
       )}
 
-      {/* ВСТАВЬТЕ ЭТОТ БЛОК СРАЗУ ПОСЛЕ БЛОКА С КНОПКАМИ ФИЛЬТРОВ */}
       {token && (
         <div className="age-range-filter mb-4">
           <div className="card">

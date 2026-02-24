@@ -311,30 +311,49 @@ def export_to_excel(
     # Данные о ремонтах
     repair_data = [] # <-- НОВОЕ
 
+    # Вычисляем возраст (аналогично frontend логике)
+    def calculate_age(asset):
+        def get_noun_form(number, forms):
+            """Склонение существительных по числам"""
+            # 11-14 всегда используют форму множественного числа
+            if 11 <= number % 100 <= 14:
+                return forms[2]
+
+            last_digit = number % 10
+            if last_digit == 1:
+                return forms[0]  # 1, 21, 31... → год, месяц
+            elif 2 <= last_digit <= 4:
+                return forms[1]  # 2-4, 22-24... → года, месяца
+            else:
+                return forms[2]  # 5-9, 0, 10 → лет, месяцев
+
+        if asset.manual_age and asset.manual_age.strip():
+            return f"{asset.manual_age} (указан вручную)"
+
+        if asset.purchase_date:
+            from datetime import date
+            today = date.today()
+            diff = today - asset.purchase_date
+            years = diff.days // 365
+            months = (diff.days % 365) // 30
+
+            if years == 0 and months == 0:
+                return 'Новый'
+            elif years == 0:
+                month_form = get_noun_form(months, ['месяц', 'месяца', 'месяцев'])
+                return f'{months} {month_form}'
+            elif months == 0:
+                year_form = get_noun_form(years, ['год', 'года', 'лет'])
+                return f'{years} {year_form}'
+            else:
+                year_form = get_noun_form(years, ['год', 'года', 'лет'])
+                month_form = get_noun_form(months, ['месяц', 'месяца', 'месяцев'])
+                return f'{years} {year_form} {months} {month_form}'
+
+        return 'Не указано'
+
+
     for asset in assets:
-        # Вычисляем возраст (аналогично frontend логике)
-        def calculate_age(asset):
-            if asset.manual_age and asset.manual_age.strip():
-                return f"{asset.manual_age} (указан вручную)"
-
-            if asset.purchase_date:
-                from datetime import date
-                today = date.today()
-                diff = today - asset.purchase_date
-                years = diff.days // 365
-                months = (diff.days % 365) // 30
-
-                if years == 0 and months == 0:
-                    return 'Новый'
-                elif years == 0:
-                    return f'{months} мес.'
-                elif months == 0:
-                    return f'{years} г.'
-                else:
-                    return f'{years} г. {months} мес.'
-
-            return 'Не указано'
-
         asset_data.append({
             "ID": asset.id,
             "Инвентарный номер": asset.inventory_number,
