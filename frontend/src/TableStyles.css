@@ -112,7 +112,6 @@ td .form-control-sm {
 
 }
 
-
 .btn:hover i {
   transform: scale(1.1);
 }
@@ -172,8 +171,81 @@ td .form-control-sm {
   background-color: #5c636a;
 }
 
+/* ПРАВИЛЬНЫЕ СТИЛИ МОДАЛЬНЫХ ОКОН */
+/* Общие стили для всех размеров экрана */
+.modal-backdrop {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  z-index: 1040 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background-color: rgba(0, 0, 0, 0.5) !important;
+}
 
-/* Обёртка модального окна */
+.modal {
+  z-index: 1050 !important;
+}
+
+/* Фиксация прокрутки при открытом модальном окне */
+body.modal-open {
+  overflow: hidden !important;
+  padding-right: 0 !important;
+}
+
+/* ДЕСКТОПНЫЕ МОДАЛЬНЫЕ ОКНА (768px и выше) */
+@media (min-width: 768px) {
+  .modal-dialog {
+    margin: 1.75rem auto !important;
+    max-width: 500px !important;
+    position: relative;
+  }
+  
+  .modal-lg {
+    max-width: 800px !important;
+  }
+  
+  .modal-xl {
+    max-width: 1140px !important;
+  }
+  
+  .modal-content {
+    border-radius: 0.375rem !important;
+  }
+}
+
+/* МОБИЛЬНЫЕ МОДАЛЬНЫЕ ОКНА (767px и ниже) */
+@media (max-width: 767px) {
+  .modal-dialog {
+    margin: 0.5rem !important;
+    max-width: calc(100vw - 1rem) !important;
+    max-height: calc(100vh - 1rem) !important;
+  }
+  
+  .modal-content {
+    border-radius: 0.5rem !important;
+    max-height: calc(100vh - 1rem) !important;
+    overflow-y: auto !important;
+  }
+  
+  .modal-header {
+    padding: 0.75rem 1rem !important;
+    flex-shrink: 0;
+  }
+  
+  .modal-body {
+    padding: 1rem !important;
+    overflow-y: auto !important;
+    flex-grow: 1;
+  }
+  
+  .modal-footer {
+    padding: 0.75rem 1rem !important;
+    flex-shrink: 0;
+  }
+}
+
+/* Анимации модальных окон */
 .modal.fade {
   opacity: 0;
   visibility: hidden;
@@ -185,7 +257,6 @@ td .form-control-sm {
   visibility: visible;
 }
 
-/* Анимация содержимого модального окна */
 .modal-dialog {
   transform: translateY(-10px);
   transition: transform 0.3s ease;
@@ -195,7 +266,6 @@ td .form-control-sm {
   transform: translateY(0);
 }
 
-/* Плавное затемнение фона */
 .modal-backdrop {
   opacity: 0;
   transition: opacity 0.3s ease;
@@ -280,7 +350,6 @@ td .form-control-sm {
     padding: 5px 10px; /* Уменьшаем отступы */ 
   }
 }
-
 
 /* --- Фикс ширины таблицы на всю страницу --- */
 .table {
@@ -454,7 +523,6 @@ td .form-control-sm {
 .toast-confirm .btn-danger:hover {
   background-color: #bb2d3b;
 }
-
 
 /* Адаптивность для мобильных устройств */
 @media (max-width: 768px) {
@@ -697,6 +765,64 @@ td .form-control-sm {
     font-size: 0.8em;
     color: #6c757d;
     margin-bottom: 5px;
+  }
+}
+
+/* МОБИЛЬНЫЕ КАРТОЧКИ АКТИВОВ (БЕЗ ДУБЛИРОВАНИЯ) */
+.mobile-asset-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.mobile-asset-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+}
+
+.info-block {
+  min-height: 45px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.info-label {
+  margin-bottom: 4px;
+}
+
+.info-value {
+  font-size: 0.9em;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+/* Редактируемые поля на мобильном */
+.editable-mobile {
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.editable-mobile:hover {
+  background-color: #fff3cd !important;
+  border: 1px dashed #ffc107;
+}
+
+/* Контейнер для мобильных активов */
+.mobile-assets-container {
+  padding: 0;
+  overflow-x: hidden;
+}
+
+/* Адаптивность для маленьких экранов */
+@media (max-width: 400px) {
+  .mobile-info-grid {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .mobile-asset-card {
+    margin: 0 -8px 16px -8px !important;
+    border-radius: 8px !important;
   }
 }
 

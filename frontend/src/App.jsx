@@ -1962,104 +1962,253 @@ function App() {
     );
   };
 
-  const renderMobileAssetDetails = (asset) => (
-    <div className="mobile-view" key={asset.id}>
-      <div><strong>ID:</strong> {asset.id}</div>
-      <div><strong>Инвентарный номер:</strong> <span className={user?.is_admin ? 'editable-cell' : ''} onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'inventory_number', asset.inventory_number)}>{asset.inventory_number || '-'}</span></div>
-      <div><strong>Серийный номер:</strong> <span className={user?.is_admin ? 'editable-cell' : ''} onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'serial_number', asset.serial_number)}>{asset.serial_number || '-'}</span></div>
-      <div><strong>Статус:</strong> <span className={user?.is_admin ? 'editable-cell' : ''} onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'status', asset.status)}>{asset.status}</span></div>
-      <div><strong>Расположение:</strong> <span className={user?.is_admin ? 'editable-cell' : ''} onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'location', asset.location)}>{asset.location}</span></div>
-      <div><strong>ФИО пользователя:</strong> <span className={user?.is_admin ? 'editable-cell' : ''} onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'user_name', asset.user_name)}>{asset.user_name || '-'}</span></div>
-      <div><strong>Возраст:</strong> <span className={`${getAgeClass(asset)} ${user?.is_admin ? 'editable-cell' : ''}`} onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'manual_age', asset.manual_age)} title={asset.manual_age ? 'Возраст указан вручную' : (asset.purchase_date ? 'Возраст рассчитан автоматически' : 'Возраст не указан')}>{calculateAssetAge(asset)}</span>{asset.manual_age && <i className="fas fa-edit text-muted ms-1" title="Указан вручную" style={{ fontSize: '0.8em' }}></i>}</div>
-      {warrantyFilter === 'active' && <div><strong>Гарантия до:</strong> {asset.warranty_until || '-'}</div>}
-      <div><strong>Комментарий:</strong> <div className={user?.is_admin ? 'editable-cell comment-cell' : 'comment-cell'} onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'comment', asset.comment)}>{asset.comment || ''}</div></div>
-      {user?.is_admin && (
-        <div className="mt-2">
-          <strong>Действия:</strong>
-          <div className="d-flex gap-1 flex-wrap mt-1">
-            <button
-              className="btn btn-sm btn-outline-primary"
-              title="Редактировать"
-              onClick={() => handleEdit(asset)}
-            >
-              <i className="fas fa-edit"></i>
-            </button>
-            <button
-              className="btn btn-sm btn-outline-danger"
-              title="Удалить"
-              onClick={() => handleDelete(asset.id)}
-            >
-              <i className="fas fa-trash"></i>
-            </button>
-            <button
-              className="btn btn-sm btn-outline-secondary"
-              title={showHistory === asset.id ? "Скрыть историю" : "Показать историю"}
-              onClick={() => {
-                if (showHistory === asset.id) {
-                  setShowHistory(null);
-                } else {
-                  setShowHistory(asset.id);
-                  setHistoryPage(1);
-                }
-              }}
-            >
-              <i className={`fas ${showHistory === asset.id ? 'fa-eye-slash' : 'fa-history'}`}></i>
-            </button>
-            <button
-              className="btn btn-sm btn-outline-info"
-              title="Показать ремонты"
-              onClick={() => openRepairsModal(asset.id)}
-            >
-              <i className="fas fa-wrench"></i>
-            </button>
-            {(asset.type === 'Ноутбук' || asset.type === 'Компьютер') && (
-              <button
-                className="btn btn-sm btn-outline-info"
-                title="Информация о ПК"
-                onClick={() => openAssetInfoModal(asset)}
-              >
-                <i className="fas fa-info-circle"></i>
-              </button>
+  <div className="d-block d-md-none">
+    <div className="mobile-assets-container">
+      {paginatedAssets.map((asset, index) => (
+        <div 
+          key={asset.id} 
+          className="mobile-asset-card mb-3"
+          style={{
+            backgroundColor: '#ffffff',
+            border: '2px solid #e9ecef',
+            borderRadius: '12px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            padding: '16px',
+            position: 'relative'
+          }}
+        >
+          {/* Заголовок карточки */}
+          <div className="card-header-mobile mb-3" style={{
+            borderBottom: '2px solid #f8f9fa',
+            paddingBottom: '12px'
+          }}>
+            <div className="d-flex justify-content-between align-items-center">
+              <h6 className="mb-0 fw-bold text-primary">
+                {asset.inventory_number}
+              </h6>
+              <span className={`badge bg-${getStatusColor(asset.status)} fs-6`}>
+                {asset.status}
+              </span>
+            </div>
+            {asset.model && (
+              <small className="text-muted">{asset.model}</small>
             )}
           </div>
-        </div>
-      )}
 
-      {showHistory === asset.id && asset.history && asset.history.length > 0 && (
-        <div className="mt-2 p-2 bg-light rounded">
-          <strong>История изменений:</strong>
-          <HistoryPagination 
-            history={asset.history} 
-            historyPage={historyPage} 
-            setHistoryPage={setHistoryPage} 
-            historyItemsPerPage={historyItemsPerPage}
-          />
-          <ul className="mb-0 ps-3 small">
-            {asset.history
-              .slice()
-              .sort((a, b) => {
-                const dateA = new Date(a.changed_at);
-                const dateB = new Date(b.changed_at);
-    
-                if (dateA.getTime() !== dateB.getTime()) {
-                  return dateB - dateA;
-                }
-    
-                return b.id - a.id; // ← ДОБАВЬТЕ ЭТУ СТРОКУ СОРТИРОВКИ ПО ID
-              })
-              .slice((historyPage - 1) * historyItemsPerPage, historyPage * historyItemsPerPage)
-              .map((h, idx) => (
-                <li key={idx}>
-                  ({h.changed_at}) {h.changed_by ? `[${h.changed_by}] ` : ''} 
-                  {getHumanFieldName(h.field)}: "{h.old_value}" → "{h.new_value}"
-                </li>
-              ))}
-          </ul>
+          {/* Основная информация */}
+          <div className="mobile-info-grid" style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '12px',
+            marginBottom: '12px'
+          }}>
+            <div className="info-block">
+              <div className="info-label">
+                <i className="fas fa-tag me-1"></i>
+                <small className="text-muted fw-semibold">Тип</small>
+              </div>
+              <div className="info-value fw-medium">{asset.type}</div>
+            </div>
 
+            <div className="info-block">
+              <div className="info-label">
+                <i className="fas fa-map-marker-alt me-1"></i>
+                <small className="text-muted fw-semibold">Расположение</small>
+              </div>
+              <div className="info-value fw-medium">{asset.location}</div>
+            </div>
+
+            <div className="info-block">
+              <div className="info-label">
+                <i className="fas fa-clock me-1"></i>
+                <small className="text-muted fw-semibold">Возраст</small>
+              </div>
+              <div 
+                className={`info-value fw-medium ${getAgeClass(asset)} ${user?.is_admin ? 'editable-mobile' : ''}`}
+                onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'manual_age', asset.manual_age)}
+              >
+                {editingCell.assetId === asset.id && editingCell.field === 'manual_age' ? (
+                  <input 
+                    type="text" 
+                    className="form-control form-control-sm" 
+                    value={editValue} 
+                    onChange={handleEditChange}
+                    onKeyDown={handleEditKeyDown} 
+                    onBlur={saveEdit} 
+                    placeholder="Например: 5 лет" 
+                    autoFocus 
+                    style={{ fontSize: '0.9em' }}
+                  />
+                ) : (
+                  <>
+                    {calculateAssetAge(asset)}
+                    {asset.manual_age && (
+                      <i className="fas fa-edit text-muted ms-1" style={{ fontSize: '0.7em' }}></i>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="info-block">
+              <div className="info-label">
+                <i className="fas fa-barcode me-1"></i>
+                <small className="text-muted fw-semibold">Серийный №</small>
+              </div>
+              <div className="info-value fw-medium" style={{ fontSize: '0.85em' }}>
+                {asset.serial_number || 'Не указан'}
+              </div>
+            </div>
+          </div>
+
+          {/* Пользователь (если есть) */}
+          {asset.user_name && (
+            <div className="user-info mb-3" style={{
+              backgroundColor: '#f8f9fa',
+              padding: '8px 12px',
+              borderRadius: '6px'
+            }}>
+              <div className="d-flex align-items-center">
+                <i className="fas fa-user text-primary me-2"></i>
+                <div>
+                  <small className="text-muted d-block">Пользователь</small>
+                  <strong>{asset.user_name}</strong>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Ключ Windows (если есть) */}
+          {asset.windows_key && (
+            <div className="windows-key-info mb-3">
+              <small className="text-muted">
+                <i className="fab fa-windows me-1"></i>Ключ Windows:
+              </small>
+              <div 
+                className={`windows-key-value ${user?.is_admin ? 'editable-mobile' : ''}`}
+                style={{ 
+                  fontFamily: 'monospace', 
+                  fontSize: '0.8em',
+                  backgroundColor: '#f8f9fa',
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  wordBreak: 'break-all',
+                  marginTop: '4px'
+                }}
+                onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'windows_key', asset.windows_key)}
+              >
+                {editingCell.assetId === asset.id && editingCell.field === 'windows_key' ? (
+                  <input 
+                    type="text" 
+                    className="form-control form-control-sm" 
+                    value={editValue} 
+                    onChange={handleEditChange}
+                    onKeyDown={handleEditKeyDown} 
+                    onBlur={saveEdit} 
+                    placeholder="Введите ключ Windows" 
+                    autoFocus 
+                    style={{ fontFamily: 'monospace', fontSize: '0.8em' }}
+                  />
+                ) : (
+                  asset.windows_key
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Действия */}
+          <div className="mobile-actions" style={{
+            borderTop: '1px solid #e9ecef',
+            paddingTop: '12px'
+          }}>
+            <div className="d-flex flex-wrap gap-2">
+              {user?.is_admin && (
+                <>
+                  <button 
+                    className="btn btn-primary btn-sm flex-fill"
+                    onClick={() => handleEdit(asset)}
+                    style={{ minWidth: '80px' }}
+                  >
+                    <i className="fas fa-edit me-1"></i>Изменить
+                  </button>
+                  <button 
+                    className="btn btn-danger btn-sm"
+                    onClick={() => handleDelete(asset.id)}
+                    style={{ minWidth: '40px' }}
+                  >
+                    <i className="fas fa-trash"></i>
+                  </button>
+                </>
+              )}
+              <button 
+                className="btn btn-info btn-sm"
+                onClick={() => setShowHistory(showHistory === asset.id ? null : asset.id)}
+              >
+                <i className="fas fa-history"></i>
+              </button>
+              <button 
+                className="btn btn-secondary btn-sm"
+                onClick={() => openAssetInfoModal(asset)}
+              >
+                <i className="fas fa-qrcode"></i>
+              </button>
+            </div>
+          </div>
+
+          {/* История (если развернута) */}
+          {showHistory === asset.id && (
+            <div className="mobile-history mt-3" style={{
+              padding: '12px',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '8px',
+              border: '1px solid #e9ecef'
+            }}>
+              <h6 className="mb-2" style={{ fontSize: '0.9em' }}>
+                <i className="fas fa-history me-2"></i>История изменений
+              </h6>
+              <div className="history-list" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                {asset.history && asset.history.length > 0 ? (
+                  asset.history
+                    .slice()
+                    .sort((a, b) => {
+                      const dateA = new Date(a.changed_at);
+                      const dateB = new Date(b.changed_at);
+                      if (dateA.getTime() !== dateB.getTime()) {
+                        return dateB - dateA;
+                      }
+                      return b.id - a.id;
+                    })
+                    .slice(0, 5)
+                    .map((h, idx) => (
+                      <div key={idx} className="history-item mb-2" style={{
+                        fontSize: '0.8em',
+                        padding: '6px 8px',
+                        backgroundColor: 'white',
+                        borderRadius: '4px',
+                        border: '1px solid #e9ecef'
+                      }}>
+                        <div className="history-date text-muted mb-1">
+                          {h.changed_at} {h.changed_by ? `[${h.changed_by}]` : ''}
+                        </div>
+                        <div>
+                          <strong>{getHumanFieldName(h.field)}:</strong> "{h.old_value}" → "{h.new_value}"
+                        </div>
+                      </div>
+                    ))
+                ) : (
+                  <p className="text-muted mb-0" style={{ fontSize: '0.85em' }}>
+                    История изменений отсутствует
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      ))}
     </div>
-  );
+  </div>
+
+
 
   const HistoryPagination = ({ history, historyPage, setHistoryPage, historyItemsPerPage }) => {
     const historyTotalPages = Math.ceil(history.length / historyItemsPerPage);
@@ -2909,12 +3058,271 @@ function App() {
         {token && activeTab === 'assets' && isMobile && (
           <div className="mobile-container">
             {paginatedAssets.length > 0 ? (
-              paginatedAssets.map(asset => renderMobileAssetDetails(asset))
+              <div className="mobile-assets-container">
+                {paginatedAssets.map((asset, index) => (
+                  <div 
+                    key={asset.id} 
+                    className="mobile-asset-card mb-3"
+                    style={{
+                      backgroundColor: '#ffffff',
+                      border: '2px solid #e9ecef',
+                      borderRadius: '12px',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                      padding: '16px',
+                      position: 'relative'
+                    }}
+                  >
+                    {/* Заголовок карточки */}
+                    <div className="card-header-mobile mb-3" style={{
+                      borderBottom: '2px solid #f8f9fa',
+                      paddingBottom: '12px'
+                    }}>
+                      <div className="d-flex justify-content-between align-items-center">
+                        <h6 className="mb-0 fw-bold text-primary">
+                          {asset.inventory_number}
+                        </h6>
+                        <span className={`badge bg-${getStatusColor(asset.status)} fs-6`}>
+                          {asset.status}
+                        </span>
+                      </div>
+                      {asset.model && (
+                        <small className="text-muted">{asset.model}</small>
+                      )}
+                    </div>
+
+                    {/* Основная информация */}
+                    <div className="mobile-info-grid" style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: '12px',
+                      marginBottom: '12px'
+                    }}>
+                      <div className="info-block">
+                        <div className="info-label">
+                          <i className="fas fa-tag me-1"></i>
+                          <small className="text-muted fw-semibold">Тип</small>
+                        </div>
+                        <div className="info-value fw-medium">{asset.type}</div>
+                      </div>
+
+                      <div className="info-block">
+                        <div className="info-label">
+                          <i className="fas fa-map-marker-alt me-1"></i>
+                          <small className="text-muted fw-semibold">Расположение</small>
+                        </div>
+                        <div className="info-value fw-medium">{asset.location}</div>
+                      </div>
+
+                      <div className="info-block">
+                        <div className="info-label">
+                          <i className="fas fa-clock me-1"></i>
+                          <small className="text-muted fw-semibold">Возраст</small>
+                        </div>
+                        <div 
+                          className={`info-value fw-medium ${getAgeClass(asset)} ${user?.is_admin ? 'editable-mobile' : ''}`}
+                          onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'manual_age', asset.manual_age)}
+                        >
+                          {editingCell.assetId === asset.id && editingCell.field === 'manual_age' ? (
+                            <input 
+                              type="text" 
+                              className="form-control form-control-sm" 
+                              value={editValue} 
+                              onChange={handleEditChange}
+                              onKeyDown={handleEditKeyDown} 
+                              onBlur={saveEdit} 
+                              placeholder="Например: 5 лет" 
+                              autoFocus 
+                              style={{ fontSize: '0.9em' }}
+                            />
+                          ) : (
+                            <>
+                              {calculateAssetAge(asset)}
+                              {asset.manual_age && (
+                                <i className="fas fa-edit text-muted ms-1" style={{ fontSize: '0.7em' }}></i>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="info-block">
+                        <div className="info-label">
+                          <i className="fas fa-barcode me-1"></i>
+                          <small className="text-muted fw-semibold">Серийный №</small>
+                        </div>
+                        <div className="info-value fw-medium" style={{ fontSize: '0.85em' }}>
+                          {asset.serial_number || 'Не указан'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Пользователь (если есть) */}
+                    {asset.user_name && (
+                      <div className="user-info mb-3" style={{
+                        backgroundColor: '#f8f9fa',
+                        padding: '8px 12px',
+                        borderRadius: '6px'
+                      }}>
+                        <div className="d-flex align-items-center">
+                          <i className="fas fa-user text-primary me-2"></i>
+                          <div>
+                            <small className="text-muted d-block">Пользователь</small>
+                            <strong>{asset.user_name}</strong>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Ключ Windows (если есть) */}
+                    {asset.windows_key && (
+                      <div className="windows-key-info mb-3">
+                        <small className="text-muted">
+                          <i className="fab fa-windows me-1"></i>Ключ Windows:
+                        </small>
+                        <div 
+                          className={`windows-key-value ${user?.is_admin ? 'editable-mobile' : ''}`}
+                          style={{ 
+                            fontFamily: 'monospace', 
+                            fontSize: '0.8em',
+                            backgroundColor: '#f8f9fa',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            wordBreak: 'break-all',
+                            marginTop: '4px'
+                          }}
+                          onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'windows_key', asset.windows_key)}
+                        >
+                          {editingCell.assetId === asset.id && editingCell.field === 'windows_key' ? (
+                            <input 
+                              type="text" 
+                              className="form-control form-control-sm" 
+                              value={editValue} 
+                              onChange={handleEditChange}
+                              onKeyDown={handleEditKeyDown} 
+                              onBlur={saveEdit} 
+                              placeholder="Введите ключ Windows" 
+                              autoFocus 
+                              style={{ fontFamily: 'monospace', fontSize: '0.8em' }}
+                            />
+                          ) : (
+                            asset.windows_key
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Действия */}
+                    <div className="mobile-actions" style={{
+                      borderTop: '1px solid #e9ecef',
+                      paddingTop: '12px'
+                    }}>
+                      <div className="d-flex flex-wrap gap-2">
+                        {user?.is_admin && (
+                          <>
+                            <button 
+                              className="btn btn-primary btn-sm flex-fill"
+                              onClick={() => handleEdit(asset)}
+                              style={{ minWidth: '80px' }}
+                            >
+                              <i className="fas fa-edit me-1"></i>Изменить
+                            </button>
+                            <button 
+                              className="btn btn-danger btn-sm"
+                              onClick={() => handleDelete(asset.id)}
+                              style={{ minWidth: '40px' }}
+                            >
+                              <i className="fas fa-trash"></i>
+                            </button>
+                          </>
+                        )}
+                        <button 
+                          className="btn btn-info btn-sm"
+                          onClick={() => setShowHistory(showHistory === asset.id ? null : asset.id)}
+                        >
+                          <i className="fas fa-history"></i>
+                        </button>
+                        <button 
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => openAssetInfoModal(asset)}
+                        >
+                          <i className="fas fa-qrcode"></i>
+                        </button>
+                        {user?.is_admin && (
+                          <button 
+                            className="btn btn-warning btn-sm"
+                            onClick={() => openRepairsModal(asset.id)}
+                          >
+                            <i className="fas fa-tools"></i>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* История (если развернута) */}
+                    {showHistory === asset.id && (
+                      <div className="mobile-history mt-3" style={{
+                        padding: '12px',
+                        backgroundColor: '#f8f9fa',
+                        borderRadius: '8px',
+                        border: '1px solid #e9ecef'
+                      }}>
+                        <h6 className="mb-2" style={{ fontSize: '0.9em' }}>
+                          <i className="fas fa-history me-2"></i>История изменений
+                        </h6>
+                        <div className="history-list" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                          {asset.history && asset.history.length > 0 ? (
+                            asset.history
+                              .slice()
+                              .sort((a, b) => {
+                                const dateA = new Date(a.changed_at);
+                                const dateB = new Date(b.changed_at);
+                                if (dateA.getTime() !== dateB.getTime()) {
+                                  return dateB - dateA;
+                                }
+                                return b.id - a.id;
+                              })
+                              .slice(0, 5)
+                              .map((h, idx) => (
+                                <div key={idx} className="history-item mb-2" style={{
+                                  fontSize: '0.8em',
+                                  padding: '6px 8px',
+                                  backgroundColor: 'white',
+                                  borderRadius: '4px',
+                                  border: '1px solid #e9ecef'
+                                }}>
+                                  <div className="history-date text-muted mb-1">
+                                    {h.changed_at} {h.changed_by ? `[${h.changed_by}]` : ''}
+                                  </div>
+                                  <div>
+                                    <strong>{getHumanFieldName(h.field)}:</strong> "{h.old_value}" → "{h.new_value}"
+                                  </div>
+                                </div>
+                              ))
+                          ) : (
+                            <p className="text-muted mb-0" style={{ fontSize: '0.85em' }}>
+                              История изменений отсутствует
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             ) : (
               <div className="text-center p-3">Нет данных</div>
             )}
           </div>
         )}
+
+
+
+
+
+
+
+
+
       </React.Fragment>
 
       {token && activeTab === 'assets' && assets.length > 0 && !isMobile && (
