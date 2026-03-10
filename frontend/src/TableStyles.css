@@ -951,3 +951,31 @@ body.modal-open {
     min-width: 100%;
   }
 }
+
+/* Стили для пагинации истории в мобильной версии */
+.history-pagination .btn {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.4rem;
+  border-radius: 4px;
+}
+
+.history-pagination .btn:disabled {
+  opacity: 0.4;
+}
+
+.history-pagination .btn:not(:disabled):hover {
+  transform: scale(1.05);
+  transition: transform 0.1s ease;
+}
+
+@media (max-width: 576px) {
+  .history-pagination .btn {
+    min-width: 28px;
+    padding: 0.2rem 0.3rem;
+    font-size: 0.7rem;
+  }
+  
+  .history-pagination span {
+    font-size: 0.7rem !important;
+  }
+}

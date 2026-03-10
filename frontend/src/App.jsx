@@ -84,6 +84,16 @@ function App() {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [historyPage, setHistoryPage] = useState(1);
   const historyItemsPerPage = 5;
+  const resetHistoryPagination = () => {
+    setHistoryPage(1);
+  };
+  const handleHistoryPageChange = (assetId, newPage) => {
+    setHistoryPage(newPage);
+  };
+  // Обновите useEffect для сброса пагинации при изменении показа истории
+  useEffect(() => {
+    resetHistoryPagination();
+  }, [showHistory]);
   const [uniqueUsers, setUniqueUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState('');
   const [expiringWarranty, setExpiringWarranty] = useState([]);
@@ -3258,7 +3268,7 @@ function App() {
                       </div>
                     </div>
 
-                    {/* История (если развернута) */}
+                    {/* История (если развернута) - УЛУЧШЕННАЯ ВЕРСИЯ С ПАГИНАЦИЕЙ */}
                     {showHistory === asset.id && (
                       <div className="mobile-history mt-3" style={{
                         padding: '12px',
@@ -3268,36 +3278,78 @@ function App() {
                       }}>
                         <h6 className="mb-2" style={{ fontSize: '0.9em' }}>
                           <i className="fas fa-history me-2"></i>История изменений
+                          {asset.history && asset.history.length > 0 && (
+                            <small className="text-muted ms-2">({asset.history.length} записей)</small>
+                          )}
                         </h6>
+    
                         <div className="history-list" style={{ maxHeight: '200px', overflowY: 'auto' }}>
                           {asset.history && asset.history.length > 0 ? (
-                            asset.history
-                              .slice()
-                              .sort((a, b) => {
-                                const dateA = new Date(a.changed_at);
-                                const dateB = new Date(b.changed_at);
-                                if (dateA.getTime() !== dateB.getTime()) {
-                                  return dateB - dateA;
-                                }
-                                return b.id - a.id;
-                              })
-                              .slice(0, 5)
-                              .map((h, idx) => (
-                                <div key={idx} className="history-item mb-2" style={{
-                                  fontSize: '0.8em',
-                                  padding: '6px 8px',
-                                  backgroundColor: 'white',
-                                  borderRadius: '4px',
-                                  border: '1px solid #e9ecef'
-                                }}>
-                                  <div className="history-date text-muted mb-1">
-                                    {h.changed_at} {h.changed_by ? `[${h.changed_by}]` : ''}
-                                  </div>
-                                  <div>
-                                    <strong>{getHumanFieldName(h.field)}:</strong> "{h.old_value}" → "{h.new_value}"
-                                  </div>
-                                </div>
-                              ))
+                            (() => {
+                              const sortedHistory = asset.history
+                                .slice()
+                                .sort((a, b) => {
+                                  const dateA = new Date(a.changed_at);
+                                  const dateB = new Date(b.changed_at);
+                                  if (dateA.getTime() !== dateB.getTime()) {
+                                    return dateB - dateA;
+                                  }
+                                  return b.id - a.id;
+                                });
+          
+                              const totalPages = Math.ceil(sortedHistory.length / historyItemsPerPage);
+                              const startIndex = (historyPage - 1) * historyItemsPerPage;
+                              const endIndex = startIndex + historyItemsPerPage;
+                              const currentHistory = sortedHistory.slice(startIndex, endIndex);
+          
+                              return (
+                                <>
+                                  {currentHistory.map((h, idx) => (
+                                    <div key={`${h.id}-${idx}`} className="history-item mb-2" style={{
+                                      fontSize: '0.8em',
+                                      padding: '6px 8px',
+                                      backgroundColor: 'white',
+                                      borderRadius: '4px',
+                                      border: '1px solid #e9ecef'
+                                    }}>
+                                      <div className="history-date text-muted mb-1">
+                                        {h.changed_at} {h.changed_by ? `[${h.changed_by}]` : ''}
+                                      </div>
+                                      <div>
+                                        <strong>{getHumanFieldName(h.field)}:</strong> "{h.old_value}" → "{h.new_value}"
+                                      </div>
+                                    </div>
+                                  ))}
+              
+                                  {/* Пагинация истории */}
+                                  {totalPages > 1 && (
+                                    <div className="history-pagination mt-2 d-flex justify-content-center align-items-center gap-2">
+                                      <button 
+                                        className="btn btn-outline-secondary btn-sm"
+                                        onClick={() => handleHistoryPageChange(asset.id, Math.max(1, historyPage - 1))}
+                                        disabled={historyPage === 1}
+                                        style={{ minWidth: '30px', fontSize: '0.7em' }}
+                                      >
+                                        <i className="fas fa-chevron-left"></i>
+                                      </button>
+                  
+                                      <span className="small text-muted" style={{ fontSize: '0.75em' }}>
+                                        {historyPage} / {totalPages}
+                                      </span>
+                  
+                                      <button 
+                                        className="btn btn-outline-secondary btn-sm"
+                                        onClick={() => handleHistoryPageChange(asset.id, Math.min(totalPages, historyPage + 1))}
+                                        disabled={historyPage === totalPages}
+                                        style={{ minWidth: '30px', fontSize: '0.7em' }}
+                                      >
+                                        <i className="fas fa-chevron-right"></i>
+                                      </button>
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()
                           ) : (
                             <p className="text-muted mb-0" style={{ fontSize: '0.85em' }}>
                               История изменений отсутствует
@@ -3306,6 +3358,8 @@ function App() {
                         </div>
                       </div>
                     )}
+
+
                   </div>
                 ))}
               </div>
@@ -3325,7 +3379,7 @@ function App() {
 
       </React.Fragment>
 
-      {token && activeTab === 'assets' && assets.length > 0 && !isMobile && (
+      {token && activeTab === 'assets' && assets.length > 0 && (
         <div className="pagination-container d-flex justify-content-center align-items-center mt-3 mb-4 flex-wrap gap-2">
           <div className="pagination-info text-muted me-auto">
             Показано {((page - 1) * itemsPerPage) + 1}-{Math.min(page * itemsPerPage, filteredAssets.length)} из {filteredAssets.length} записей
