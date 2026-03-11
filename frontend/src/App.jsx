@@ -99,6 +99,8 @@ function App() {
   const [expiringWarranty, setExpiringWarranty] = useState([]);
   const [showWindowsReportModal, setShowWindowsReportModal] = useState(false);
   const [windowsAssets, setWindowsAssets] = useState([]);
+  const [showMobileStats, setShowMobileStats] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const getStatusColor = (status) => {
     switch(status) {
       case 'в эксплуатации': return 'success';
@@ -2416,49 +2418,100 @@ function App() {
         </form>
       )}
 
-      {token && (
-        <div className="mb-4 p-3 rounded shadow-sm">
-          <div className="d-flex flex-wrap justify-content-start gap-3">
-            <div className="stat-card">
-              <div className="stat-value text-primary">{stats.total}</div>
-              <div className="stat-label">Всего активов</div>
+      {/* КОМПАКТНАЯ СТАТИСТИКА ДЛЯ МОБИЛЬНЫХ */}
+      {token && isMobile && (
+        <div className="mobile-stats-section mb-3">
+          <div className="d-flex justify-content-between align-items-center mb-2">
+            <h6 className="mb-0 text-muted">
+              <i className="fas fa-chart-pie me-1"></i>Статистика
+            </h6>
+            <button 
+              className="btn btn-sm btn-outline-secondary"
+              onClick={() => setShowMobileStats(!showMobileStats)}
+            >
+              <i className={`fas fa-chevron-${showMobileStats ? 'up' : 'down'}`}></i>
+            </button>
+          </div>
+    
+          {showMobileStats && (
+            <div className="mobile-stats-grid" style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: '8px',
+              marginBottom: '12px'
+            }}>
+              <div className="mini-stat-card">
+                <div className="stat-value text-primary">{stats.total}</div>
+                <div className="stat-label">Всего</div>
+              </div>
+              <div className="mini-stat-card">
+                <div className="stat-value text-info">{stats.laptops}</div>
+                <div className="stat-label">Ноутбуки</div>
+              </div>
+              <div className="mini-stat-card">
+                <div className="stat-value text-success">{stats.computers}</div>
+                <div className="stat-label">ПК</div>
+              </div>
+              <div className="mini-stat-card">
+                <div className="stat-value text-warning">{stats.monitors}</div>
+                <div className="stat-label">Мониторы</div>
+              </div>
+              <div className="mini-stat-card">
+                <div className="stat-value text-danger">{stats.retired}</div>
+                <div className="stat-label">Списано</div>
+              </div>
+              <div className="mini-stat-card">
+                <div className="stat-value text-secondary">{stats.inRepair}</div>
+                <div className="stat-label">Ремонт</div>
+              </div>
             </div>
-            <div className="stat-card">
-              <div className="stat-value text-success">{stats.laptops}</div>
-              <div className="stat-label">Ноутбуков</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-value text-info">{stats.monitors}</div>
-              <div className="stat-label">Мониторов</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-value text-secondary">{stats.computers}</div>
-              <div className="stat-label">Компьютеров</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-value text-muted">{stats.other}</div>
-              <div className="stat-label">Прочее</div>
-            </div>
-            <div className="vr d-none d-md-block mx-2"></div>
-            <div className="stat-card">
-              <div className="stat-value text-dark">{stats.retired}</div>
-              <div className="stat-label">Списано</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-value text-danger">{stats.inRepair}</div>
-              <div className="stat-label">В ремонте</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-value text-primary">{stats.underWarranty}</div>
-              <div className="stat-label">На гарантии</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-value text-warning">{stats.expiringWarranty}</div>
-              <div className="stat-label">Гарантия истекает</div>
-            </div>
+          )}
+        </div>
+      )}
+
+      {/* ПОЛНАЯ СТАТИСТИКА ДЛЯ ДЕСКТОПА */}
+      {token && !isMobile && (
+        <div className="d-flex flex-wrap justify-content-center gap-3 mb-4">
+          <div className="stat-card text-center">
+            <div className="stat-value text-primary">{stats.total}</div>
+            <div className="stat-label">Всего активов</div>
+          </div>
+          <div className="stat-card text-center">
+            <div className="stat-value text-info">{stats.laptops}</div>
+            <div className="stat-label">Ноутбуки</div>
+          </div>
+          <div className="stat-card text-center">
+            <div className="stat-value text-success">{stats.computers}</div>
+            <div className="stat-label">Компьютеры</div>
+          </div>
+          <div className="stat-card text-center">
+            <div className="stat-value text-warning">{stats.monitors}</div>
+            <div className="stat-label">Мониторы</div>
+          </div>
+          <div className="stat-card text-center">
+            <div className="stat-value text-secondary">{stats.other}</div>
+            <div className="stat-label">Прочее</div>
+          </div>
+          <div className="stat-card text-center">
+            <div className="stat-value text-danger">{stats.retired}</div>
+            <div className="stat-label">Списано</div>
+          </div>
+          <div className="stat-card text-center">
+            <div className="stat-value text-purple">{stats.underWarranty}</div>
+            <div className="stat-label">На гарантии</div>
+          </div>
+          <div className="stat-card text-center">
+            <div className="stat-value text-orange">{stats.expiringWarranty}</div>
+            <div className="stat-label">Гарантия истекает</div>
+          </div>
+          <div className="stat-card text-center">
+            <div className="stat-value text-secondary">{stats.inRepair}</div>
+            <div className="stat-label">В ремонте</div>
           </div>
         </div>
       )}
+
+
 
       {token && (
         <div className="d-flex justify-content-between align-items-center mb-3">
@@ -2562,58 +2615,48 @@ function App() {
 
       {token && (
         <div className="d-flex flex-wrap align-items-center gap-2 mb-4">
-          <div className="btn-group" role="group">
-            <button
-              className={`btn btn-outline-primary ${filter === 'Все' ? 'active' : ''}`}
-              onClick={() => {
-                setFilter('Все');
-                setDisposedFilter(false);
-                setPage(1);
-              }}
-            >
-              Все типы
-            </button>
-            <button
-              className={`btn btn-outline-primary ${filter === 'Монитор' ? 'active' : ''}`}
-              onClick={() => {
-                setFilter('Монитор');
-                setDisposedFilter(false);
-                setPage(1);
-              }}
-            >
-              Мониторы
-            </button>
-            <button
-              className={`btn btn-outline-primary ${filter === 'Компьютер' ? 'active' : ''}`}
-              onClick={() => {
-                setFilter('Компьютер');
-                setDisposedFilter(false);
-                setPage(1);
-              }}
-            >
-              Компьютеры
-            </button>
-            <button
-              className={`btn btn-outline-primary ${filter === 'Ноутбук' ? 'active' : ''}`}
-              onClick={() => {
-                setFilter('Ноутбук');
-                setDisposedFilter(false);
-                setPage(1);
-              }}
-            >
-              Ноутбуки
-            </button>
-            <button
-              className={`btn btn-outline-primary ${filter === 'Прочее' ? 'active' : ''}`}
-              onClick={() => {
-                setFilter('Прочее');
-                setDisposedFilter(false);
-                setPage(1);
-              }}
-            >
-              Прочее
-            </button>
-          </div>
+          {/* АДАПТИВНЫЙ ФИЛЬТР ПО ТИПУ */}
+          {isMobile ? (
+            /* Мобильная версия - выпадающий список */
+            <div className="mobile-type-filter">
+              <select 
+                className="form-select form-select-sm" 
+                value={filter} 
+                onChange={(e) => {
+                  setFilter(e.target.value);
+                  setDisposedFilter(false);
+                  setPage(1);
+                }}
+                style={{ minWidth: '150px' }}
+              >
+                <option value="Все">Все типы ({stats.total})</option>
+                <option value="Монитор">Мониторы ({stats.monitors})</option>
+                <option value="Компьютер">Компьютеры ({stats.computers})</option>
+                <option value="Ноутбук">Ноутбуки ({stats.laptops})</option>
+                <option value="Прочее">Прочее ({stats.other})</option>
+              </select>
+            </div>
+          ) : (
+            /* Десктопная версия */
+            <div className="btn-group" role="group">
+              <button className={`btn btn-outline-primary ${filter === 'Все' ? 'active' : ''}`} onClick={() => { setFilter('Все'); setDisposedFilter(false); setPage(1); }}>
+                Все типы
+              </button>
+              <button className={`btn btn-outline-primary ${filter === 'Монитор' ? 'active' : ''}`} onClick={() => { setFilter('Монитор'); setDisposedFilter(false); setPage(1); }}>
+                Мониторы
+              </button>
+              <button className={`btn btn-outline-primary ${filter === 'Компьютер' ? 'active' : ''}`} onClick={() => { setFilter('Компьютер'); setDisposedFilter(false); setPage(1); }}>
+                Компьютеры
+              </button>
+              <button className={`btn btn-outline-primary ${filter === 'Ноутбук' ? 'active' : ''}`} onClick={() => { setFilter('Ноутбук'); setDisposedFilter(false); setPage(1); }}>
+                Ноутбуки
+              </button>
+              <button className={`btn btn-outline-primary ${filter === 'Прочее' ? 'active' : ''}`} onClick={() => { setFilter('Прочее'); setDisposedFilter(false); setPage(1); }}>
+                Прочее
+              </button>
+            </div>
+          )}
+
           <div className="btn-group" role="group">
             <button
               className={`btn btn-outline-dark ${disposedFilter ? 'active' : ''}`}
