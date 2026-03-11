@@ -2456,6 +2456,10 @@ function App() {
                 <div className="stat-value text-warning">{stats.monitors}</div>
                 <div className="stat-label">Мониторы</div>
               </div>
+	      <div className="mini-stat-card">
+                <div className="stat-value text-muted">{stats.other}</div>
+                <div className="stat-label">Прочее</div>
+              </div>
               <div className="mini-stat-card">
                 <div className="stat-value text-danger">{stats.retired}</div>
                 <div className="stat-label">Списано</div>
@@ -2463,6 +2467,14 @@ function App() {
               <div className="mini-stat-card">
                 <div className="stat-value text-secondary">{stats.inRepair}</div>
                 <div className="stat-label">Ремонт</div>
+              </div>
+	      <div className="mini-stat-card">
+                <div className="stat-value text-purple">{stats.underWarranty}</div>
+                <div className="stat-label">На гарантии</div>
+              </div>
+              <div className="mini-stat-card">
+                <div className="stat-value text-orange">{stats.expiringWarranty}</div>
+                <div className="stat-label">Гарантия истекает</div>
               </div>
             </div>
           )}
