@@ -1,11 +1,42 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru">
   <head>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <meta charset="UTF-8" />
     <link rel="icon" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- PWA манифест -->
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- Цвет темы для браузера -->
+    <meta name="theme-color" content="#007bff">
+    
+    <!-- iOS специфичные мета-теги -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Asset Tracker">
+    <link rel="apple-touch-icon" href="/asset-logo.png">
+    
+    <!-- Стили -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnP4iKD/css/all.min.css" crossorigin="anonymous" />
+    
     <title>Asset Tracker - Учет техники</title>
+    
+    <!-- Дополнительные стили для мобильных -->
+    <style>
+      html {
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      
+      /* Скрыть системные элементы в PWA режиме */
+      @media (display-mode: standalone) {
+        body {
+          padding-top: env(safe-area-inset-top);
+        }
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

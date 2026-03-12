@@ -112,6 +112,20 @@ function App() {
   };
 
 
+  // Регистрация Service Worker для PWA
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then((registration) => {
+          console.log('SW registered successfully:', registration);
+        })
+        .catch((error) => {
+          console.log('SW registration failed:', error);
+        });
+    }
+  }, []);
+
+
   // Toast helper functions
   const showToast = {
     success: (message, options = {}) => {
@@ -2530,7 +2544,7 @@ function App() {
           <span>Вы вошли как {user?.username || 'пользователь'}</span>
           <div className="d-flex align-items-center gap-2">
             <img
-              src="/asset-logo.png"
+              src="/asset-logo-blur.png"
               alt="Логотип"
               style={{
                 height: '80px',
@@ -3378,28 +3392,55 @@ function App() {
               
                                   {/* Пагинация истории */}
                                   {totalPages > 1 && (
-                                    <div className="history-pagination mt-2 d-flex justify-content-center align-items-center gap-2">
-                                      <button 
-                                        className="btn btn-outline-secondary btn-sm"
-                                        onClick={() => handleHistoryPageChange(asset.id, Math.max(1, historyPage - 1))}
-                                        disabled={historyPage === 1}
-                                        style={{ minWidth: '30px', fontSize: '0.7em' }}
-                                      >
-                                        <i className="fas fa-chevron-left"></i>
-                                      </button>
-                  
-                                      <span className="small text-muted" style={{ fontSize: '0.75em' }}>
-                                        {historyPage} / {totalPages}
-                                      </span>
-                  
-                                      <button 
-                                        className="btn btn-outline-secondary btn-sm"
-                                        onClick={() => handleHistoryPageChange(asset.id, Math.min(totalPages, historyPage + 1))}
-                                        disabled={historyPage === totalPages}
-                                        style={{ minWidth: '30px', fontSize: '0.7em' }}
-                                      >
-                                        <i className="fas fa-chevron-right"></i>
-                                      </button>
+                                    <div className="history-pagination mt-2">
+                                      {/* Основная навигация */}
+                                      <div className="d-flex justify-content-center align-items-center gap-2 mb-2">
+                                        <button 
+                                          className="btn btn-outline-secondary btn-sm"
+                                          onClick={() => handleHistoryPageChange(asset.id, Math.max(1, historyPage - 1))}
+                                          disabled={historyPage === 1}
+                                          style={{ minWidth: '30px', fontSize: '0.7em' }}
+                                        >
+                                          <i className="fas fa-chevron-left"></i>
+                                        </button>
+
+                                        <span className="small text-muted" style={{ fontSize: '0.75em' }}>
+                                          {historyPage} / {totalPages}
+                                        </span>
+
+                                        <button 
+                                          className="btn btn-outline-secondary btn-sm"
+                                          onClick={() => handleHistoryPageChange(asset.id, Math.min(totalPages, historyPage + 1))}
+                                          disabled={historyPage === totalPages}
+                                          style={{ minWidth: '30px', fontSize: '0.7em' }}
+                                        >
+                                          <i className="fas fa-chevron-right"></i>
+                                        </button>
+                                      </div>
+
+                                      {/* Быстрая навигация */}
+                                      {totalPages > 3 && (
+                                        <div className="d-flex justify-content-center align-items-center gap-1">
+                                          <span style={{ fontSize: '0.7em', color: '#6c757d' }}>Перейти:</span>
+                                          <select 
+                                            className="form-select form-select-sm"
+                                            value={historyPage}
+                                            onChange={(e) => handleHistoryPageChange(asset.id, parseInt(e.target.value))}
+                                            style={{ 
+                                              width: 'auto', 
+                                              minWidth: '60px',
+                                              fontSize: '0.7em',
+                                              padding: '2px 6px'
+                                            }}
+                                          >
+                                            {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
+                                              <option key={pageNum} value={pageNum}>
+                                                {pageNum}
+                                              </option>
+                                            ))}
+                                          </select>
+                                        </div>
+                                      )}
                                     </div>
                                   )}
                                 </>
