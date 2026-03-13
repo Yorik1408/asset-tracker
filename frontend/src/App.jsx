@@ -3592,32 +3592,89 @@ function App() {
         </div>
       )}
 
+
       {activeTab === 'reports' && token && (
         <div className="reports-section">
           <h4>Отчёт: Гарантия заканчивается</h4>
           <p>Активы, у которых гарантия заканчивается в ближайшие 30 дней</p>
-          <table className="custom-table">
-            <thead>
-              <tr>
-                <th>Инвентарный номер</th>
-                <th>Модель</th>
-                <th>ФИО пользователя</th>
-                <th>Гарантия до</th>
-                <th>Статус</th>
-              </tr>
-            </thead>
-            <tbody>
-              {expiringWarranty.map((asset) => (
-                <tr key={asset.id} className="expiring-soon">
-                  <td data-label="Инвентарный номер">{asset.inventory_number}</td>
-                  <td data-label="Модель">{asset.model}</td>
-                  <td data-label="ФИО">{asset.user_name || '-'}</td>
-                  <td data-label="Гарантия до">{asset.warranty_until}</td>
-                  <td data-label="Статус">{asset.status}</td>
+          
+          {/* ДЕСКТОПНАЯ ТАБЛИЦА */}
+          {!isMobile && (
+            <table className="custom-table">
+              <thead>
+                <tr>
+                  <th>Инвентарный номер</th>
+                  <th>Модель</th>
+                  <th>ФИО пользователя</th>
+                  <th>Гарантия до</th>
+                  <th>Статус</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {expiringWarranty.map((asset) => (
+                  <tr key={asset.id} className="expiring-soon">
+                    <td data-label="Инвентарный номер">{asset.inventory_number}</td>
+                    <td data-label="Модель">{asset.model}</td>
+                    <td data-label="ФИО">{asset.user_name || '-'}</td>
+                    <td data-label="Гарантия до">{asset.warranty_until}</td>
+                    <td data-label="Статус">{asset.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+
+          {/* МОБИЛЬНЫЕ КАРТОЧКИ */}
+          {isMobile && (
+            <div className="mobile-reports-container">
+              {expiringWarranty.length > 0 ? (
+                expiringWarranty.map((asset) => (
+                  <div key={asset.id} className="mobile-asset-card mb-3 border-warning" style={{
+                    backgroundColor: '#fff3cd', 
+                    border: '2px solid #ffeaa7',
+                    borderRadius: '12px', 
+                    padding: '16px'
+                  }}>
+                    <div className="d-flex justify-content-between align-items-center mb-2">
+                      <h6 className="mb-0 fw-bold text-warning">
+                        {asset.inventory_number}
+                      </h6>
+                      <span className="badge bg-warning text-dark">
+                        Гарантия истекает
+                      </span>
+                    </div>
+                    
+                    {asset.model && (
+                      <div className="mb-2">
+                        <strong>Модель:</strong> {asset.model}
+                      </div>
+                    )}
+                    
+                    {asset.user_name && (
+                      <div className="mb-2">
+                        <strong>Пользователь:</strong> {asset.user_name}
+                      </div>
+                    )}
+                    
+                    <div className="mb-2">
+                      <strong>Гарантия до:</strong> 
+                      <span className="text-danger fw-bold ms-1">{asset.warranty_until}</span>
+                    </div>
+                    
+                    <div>
+                      <span className={`badge bg-${getStatusColor(asset.status)}`}>
+                        {asset.status}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center p-4 text-muted">
+                  Нет активов с истекающей гарантией
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
