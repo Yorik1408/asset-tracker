@@ -3324,7 +3324,7 @@ function App() {
                           className="btn btn-secondary btn-sm"
                           onClick={() => openAssetInfoModal(asset)}
                         >
-                          <i className="fas fa-qrcode"></i>
+                          <i className="fas fa-info-circle"></i>
                         </button>
                         {user?.is_admin && (
                           <button 
@@ -4307,7 +4307,23 @@ function App() {
                   </table>
                 </div>
                 <div className="modal-footer">
-                  <button className="btn btn-secondary" onClick={closeAssetInfoModal}>Закрыть</button>
+                  <button className="btn btn-secondary" onClick={closeAssetInfoModal}>
+                    Закрыть
+                  </button>
+                  
+                  {/* КНОПКА РЕДАКТИРОВАНИЯ - только для админов */}
+                  {user?.is_admin && (
+                    <button 
+                      className="btn btn-primary" 
+                      onClick={() => {
+                        closeAssetInfoModal(); // Закрываем информационную модалку
+                        handleEdit(assetInfo);  // Открываем модалку редактирования
+                      }}
+                    >
+                      <i className="fas fa-edit me-2"></i>
+                      Редактировать актив
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
