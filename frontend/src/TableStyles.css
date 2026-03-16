@@ -991,3 +991,48 @@ body {
   background-color: #5c4a1f !important;
   color: #fff3cd !important;
 }
+/* === УЛУЧШЕНИЕ INLINE РЕДАКТИРОВАНИЯ === */
+
+/* Увеличиваем область клика для редактируемых ячеек */
+.editable-cell {
+  cursor: pointer;
+  min-height: 40px; /* Минимальная высота */
+  padding: 8px 12px !important; /* Увеличенный отступ */
+  display: flex;
+  align-items: center;
+  transition: background-color 0.2s ease;
+}
+
+.editable-cell:hover {
+  background-color: rgba(13, 110, 253, 0.1) !important;
+  border-radius: 4px;
+}
+
+/* Для мобильных editable элементов */
+.editable-mobile {
+  cursor: pointer;
+  min-height: 36px;
+  padding: 6px 10px !important;
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.editable-mobile:hover {
+  background-color: rgba(13, 110, 253, 0.1) !important;
+}
+
+/* Темная тема */
+.dark-theme .editable-cell:hover,
+.dark-theme .editable-mobile:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Прочерки и пустые значения - делаем их более заметными */
+.editable-cell:empty::after,
+.editable-mobile:empty::after {
+  content: "—";
+  color: #6c757d;
+  font-style: italic;
+}

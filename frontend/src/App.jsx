@@ -2673,7 +2673,7 @@ function App() {
                   className="btn btn-outline-primary btn-sm mb-0 d-flex align-items-center"
                   title="Импорт из Excel"
                 >
-                  <i className="fas fa-file-import"></i> Импорт
+                  <i className="fas fa-file-import me-1"></i> Импорт
                   <input
                     type="file"
                     accept=".xlsx"
