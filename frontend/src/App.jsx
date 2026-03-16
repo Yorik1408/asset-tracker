@@ -140,6 +140,48 @@ function App() {
     }
   }, [isDarkMode]);
 
+  
+    const handleCopyAssetInfo = async (asset) => {
+    const assetType = asset.type || 'Актив';
+    const assetModel = asset.model || '';
+    const assetTitle = assetModel ? `${assetType} ${assetModel}` : assetType;
+    
+    const assetInfo = `Актив: ${assetTitle}
+Инв. №: ${asset.inventory_number || 'Не указан'}
+Пользователь: ${asset.user_name || 'Не назначен'}
+Расположение: ${asset.location || 'Не указано'}
+Статус: ${asset.status || 'Не указан'}`;
+
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(assetInfo);
+        showToast.success('Информация скопирована в буфер обмена', { icon: '📋' });
+      } else {
+        // Fallback для старых браузеров
+        const textArea = document.createElement('textarea');
+        textArea.value = assetInfo;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        if (successful) {
+          showToast.success('Информация скопирована в буфер обмена', { icon: '📋' });
+        } else {
+          showToast.error('Не удалось скопировать информацию');
+        }
+      }
+    } catch (err) {
+      console.error('Ошибка копирования:', err);
+      showToast.error('Ошибка при копировании в буфер обмена');
+    }
+  };
+
 
 
   // Регистрация Service Worker для PWA
@@ -3113,7 +3155,16 @@ function App() {
                               >
                                 <i className="fas fa-info-circle"></i>
                               </button>
-                              
+
+                              <button 
+                                className="btn btn-sm btn-outline-secondary" 
+                                title="Копировать информацию" 
+                                onClick={() => handleCopyAssetInfo(asset)}
+                              >
+                                <i className="fas fa-copy"></i>
+                              </button>
+
+
                               {/* Кнопки только для админов */}
                               {user?.is_admin && (
                                 <>
@@ -3382,6 +3433,13 @@ function App() {
                           onClick={() => openAssetInfoModal(asset)}
                         >
                           <i className="fas fa-info-circle"></i>
+                        </button>
+                        <button
+                          className="btn btn-sm btn-secondary"
+                          title="Копировать информацию"
+                          onClick={() => handleCopyAssetInfo(asset)}
+                        >
+                          <i className="fas fa-copy"></i>
                         </button>
                         {user?.is_admin && (
                           <button 
