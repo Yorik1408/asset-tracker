@@ -111,6 +111,36 @@ function App() {
     }
   };
 
+  // Темная тема
+  const [isDarkMode, setIsDarkMode] = useState(
+    localStorage.getItem('darkMode') === 'true'
+  );
+  const toggleTheme = () => {
+    const newTheme = !isDarkMode;
+    setIsDarkMode(newTheme);
+    localStorage.setItem('darkMode', newTheme.toString());
+  
+    // Применяем тему к body
+    if (newTheme) {
+      document.body.classList.add('dark-theme');
+      document.body.classList.remove('light-theme');
+    } else {
+      document.body.classList.add('light-theme');
+      document.body.classList.remove('dark-theme');
+    }
+  };
+  // Применение темы при загрузке
+  useEffect(() => {
+    if (isDarkMode) {
+      document.body.classList.add('dark-theme');
+      document.body.classList.remove('light-theme');
+    } else {
+      document.body.classList.add('light-theme');
+      document.body.classList.remove('dark-theme');
+    }
+  }, [isDarkMode]);
+
+
 
   // Регистрация Service Worker для PWA
   useEffect(() => {
@@ -427,7 +457,16 @@ function App() {
     return categories;
   };
 
-
+  // Единая функция проверки наличия Windows ключа
+  const isWindowsKeyMissing = (asset) => {
+    return !asset.windows_key || 
+           !asset.windows_key.trim() || 
+           asset.windows_key === 'Не указан' ||
+           asset.windows_key === '-' ||
+           asset.windows_key === '' ||
+           asset.windows_key === null ||
+           asset.windows_key === undefined;
+  };
 
   useEffect(() => {
     setPage(1);
@@ -2538,7 +2577,6 @@ function App() {
       )}
 
 
-
       {token && (
         <div className="d-flex justify-content-between align-items-center mb-3">
           <span>Вы вошли как {user?.username || 'пользователь'}</span>
@@ -2552,10 +2590,23 @@ function App() {
                 filter: 'grayscale(100%)'
               }}
             />
+            
+            {/* Переключатель темы */}
+            <button 
+              className={`btn btn-outline-${isDarkMode ? 'light' : 'dark'} btn-sm`}
+              onClick={toggleTheme}
+              title={`Переключить на ${isDarkMode ? 'светлую' : 'темную'} тему`}
+              style={{ minWidth: '45px' }}
+            >
+              <i className={`fas fa-${isDarkMode ? 'sun' : 'moon'}`}></i>
+            </button>
+            
             <button className="btn btn-outline-danger" onClick={handleLogout}>Выйти</button>
           </div>
         </div>
       )}
+
+
 
       {token && user && (
         <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 p-2 bg-white border rounded">
@@ -2908,7 +2959,7 @@ function App() {
 		    <th>Возраст</th>
                     <th>Комментарий</th>
                     {warrantyFilter === 'active' && <th>Гарантия до</th>}
-                    {user?.is_admin && <th>Действия</th>}
+                    <th>Действия</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -3037,24 +3088,11 @@ function App() {
                             )}
                           </td>
                           {warrantyFilter === 'active' && <td data-label="Гарантия до">{asset.warranty_until || '-'}</td>}
-                          {user?.is_admin && (
-                            <td className="text-center">
+                          <td className="text-center desktop-actions">
+                            <div className="d-flex justify-content-center flex-wrap gap-1">
+                              {/* Кнопки для всех пользователей */}
                               <button
-                                className="btn btn-sm btn-outline-primary me-1"
-                                title="Редактировать"
-                                onClick={() => handleEdit(asset)}
-                              >
-                                <i className="fas fa-edit"></i>
-                              </button>
-                              <button
-                                className="btn btn-sm btn-outline-danger me-1"
-                                title="Удалить"
-                                onClick={() => handleDelete(asset.id)}
-                              >
-                                <i className="fas fa-trash"></i>
-                              </button>
-                              <button
-                                className="btn btn-sm btn-outline-secondary me-1"
+                                className="btn btn-sm btn-outline-secondary"
                                 title={showHistory === asset.id ? "Скрыть историю" : "Показать историю"}
                                 onClick={() => {
                                   if (showHistory === asset.id) {
@@ -3067,24 +3105,43 @@ function App() {
                               >
                                 <i className={`fas ${showHistory === asset.id ? 'fa-eye-slash' : 'fa-history'}`}></i>
                               </button>
-                              {(asset.type === 'Ноутбук' || asset.type === 'Компьютер') && (
-                                <button
-                                  className="btn btn-sm btn-outline-info"
-                                  title="Информация о ПК"
-                                  onClick={() => openAssetInfoModal(asset)}
-                                >
-                                  <i className="fas fa-info-circle"></i>
-                                </button>
-                              )}
+                              
                               <button
                                 className="btn btn-sm btn-outline-info"
-                                title="Показать ремонты"
-                                onClick={() => openRepairsModal(asset.id)}
+                                title="Информация о активе"
+                                onClick={() => openAssetInfoModal(asset)}
                               >
-                                <i className="fas fa-wrench"></i>
+                                <i className="fas fa-info-circle"></i>
                               </button>
-                            </td>
-                          )}
+                              
+                              {/* Кнопки только для админов */}
+                              {user?.is_admin && (
+                                <>
+                                  <button
+                                    className="btn btn-sm btn-outline-primary"
+                                    title="Редактировать"
+                                    onClick={() => handleEdit(asset)}
+                                  >
+                                    <i className="fas fa-edit"></i>
+                                  </button>
+                                  <button
+                                    className="btn btn-sm btn-outline-danger"
+                                    title="Удалить"
+                                    onClick={() => handleDelete(asset.id)}
+                                  >
+                                    <i className="fas fa-trash"></i>
+                                  </button>
+                                  <button
+                                    className="btn btn-sm btn-outline-warning"
+                                    title="Показать ремонты"
+                                    onClick={() => openRepairsModal(asset.id)}
+                                  >
+                                    <i className="fas fa-wrench"></i>
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </td>
                         </tr>
                         {showHistory === asset.id && asset.history && asset.history.length > 0 && (
                           <tr>
@@ -4474,7 +4531,7 @@ function App() {
                     <div className="col-xl-3 col-lg-6">
                       <div className="card bg-success text-white">
                        <div className="card-body text-center">
-                          <h4>{windowsAssets.filter(a => a.windows_key && a.windows_key.trim()).length}</h4>
+                          <h4>{windowsAssets.filter(a => !isWindowsKeyMissing(a)).length}</h4>
                           <small>С ключами</small>
                         </div>
                       </div>
@@ -4482,7 +4539,7 @@ function App() {
                     <div className="col-xl-3 col-lg-6">
                       <div className="card bg-danger text-white">
                         <div className="card-body text-center">
-                          <h4>{windowsAssets.filter(a => !a.windows_key || !a.windows_key.trim()).length}</h4>
+                          <h4>{windowsAssets.filter(isWindowsKeyMissing).length}</h4>
                           <small>Без ключей</small>
                         </div>
                       </div>
@@ -4555,7 +4612,7 @@ function App() {
                           windowsAssets.map(asset => (
                             <tr 
                               key={asset.id}
-                              className={!asset.windows_key || !asset.windows_key.trim() ? 'table-warning' : ''}
+			      className={isWindowsKeyMissing(asset) ? 'windows-no-key-row' : ''}
                             >
                               <td>
                                 <strong>{asset.inventory_number}</strong>
@@ -4581,7 +4638,7 @@ function App() {
                                 </span>
                               </td>
                               <td>
-                                {asset.windows_key && asset.windows_key.trim() ? (
+                                {!isWindowsKeyMissing(asset) ? (
                                   <div className="d-flex align-items-center">
                                     <code className="small me-2">{asset.windows_key}</code>
                                     <button 
