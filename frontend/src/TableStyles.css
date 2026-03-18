@@ -1036,3 +1036,81 @@ body {
   color: #6c757d;
   font-style: italic;
 }
+/* === ФИКС ДЛИННЫХ СЕРИЙНЫХ НОМЕРОВ === */
+
+/* Серийные номера - специальная обработка */
+.custom-table tbody td[data-label="Серийный номер"] {
+  max-width: 140px; /* Ограничиваем ширину */
+  word-break: break-all; /* Принудительный перенос */
+  overflow-wrap: anywhere; /* Современный перенос */
+  font-family: 'Courier New', monospace; /* Моноширинный шрифт */
+  font-size: 0.85em; /* Чуть мельче */
+  line-height: 1.2;
+  padding: 8px 6px !important; /* Компактнее */
+}
+
+/* Эллипсис для очень длинных номеров */
+.custom-table tbody td[data-label="Серийный номер"] span {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Hover для показа полного номера */
+.custom-table tbody td[data-label="Серийный номер"]:hover span {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  background-color: #f8f9fa;
+  padding: 4px 6px;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  position: relative;
+  z-index: 10;
+}
+
+/* Фиксированные ширины ключевых колонок */
+.custom-table th:nth-child(1), 
+.custom-table td:nth-child(1) { 
+  width: 60px; /* ID */
+  min-width: 60px;
+}
+
+.custom-table th:nth-child(2), 
+.custom-table td:nth-child(2) { 
+  width: 130px; /* Инвентарный номер */
+  min-width: 130px;
+}
+
+.custom-table th:nth-child(3), 
+.custom-table td:nth-child(3) { 
+  width: 140px; /* Серийный номер */
+  min-width: 140px;
+}
+
+.custom-table th:nth-child(4), 
+.custom-table td:nth-child(4) { 
+  width: 120px; /* Статус */
+  min-width: 120px;
+}
+
+/* Темная тема */
+.dark-theme .custom-table tbody td[data-label="Серийный номер"]:hover span {
+  background-color: #2d3748;
+  color: #e2e8f0;
+}
+
+/* Мобильная версия */
+@media (max-width: 768px) {
+  .mobile-asset-card .info-value {
+    word-break: break-all;
+    overflow-wrap: anywhere;
+    font-family: 'Courier New', monospace;
+  }
+  
+  .mobile-asset-card .info-value[style*="fontSize: '0.85em'"] {
+    line-height: 1.3;
+  }
+}

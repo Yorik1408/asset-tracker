@@ -3037,7 +3037,12 @@ function App() {
                                 autoFocus
                               />
                             ) : (
-                              <span className={user?.is_admin ? 'editable-cell' : ''}>{asset.serial_number || '-'}</span>
+                              <span 
+			        className={user?.is_admin ? 'editable-cell' : ''} 
+                                title={asset.serial_number || '-'}
+                              >
+                                {asset.serial_number || '-'}
+                              </span>
                             )}
                           </td>
                           <td data-label="Статус" onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'status', asset.status)}>
