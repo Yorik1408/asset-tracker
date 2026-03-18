@@ -2623,14 +2623,15 @@ function App() {
         <div className="d-flex justify-content-between align-items-center mb-3">
           <span>Вы вошли как {user?.username || 'пользователь'}</span>
           <div className="d-flex align-items-center gap-2">
-            <img
-              src="/asset-logo-blur.png"
-              alt="Логотип"
-              style={{
-                height: '80px',
-                opacity: 0.9,
-                filter: 'grayscale(100%)'
-              }}
+            <img 
+              src={isDarkMode ? "/asset-logo-blur.png" : "/enhanced_asset-logo2.png"} 
+              alt="Логотип" 
+              style={{ 
+                height: '80px', 
+                opacity: 0.9, 
+                filter: 'grayscale(100%)',
+                transition: 'all 0.3s ease' /* Плавная смена */
+              }} 
             />
             
             {/* Переключатель темы */}
