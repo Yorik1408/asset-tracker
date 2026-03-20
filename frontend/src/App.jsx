@@ -90,7 +90,7 @@ function App() {
   const handleHistoryPageChange = (assetId, newPage) => {
     setHistoryPage(newPage);
   };
-  // Обновите useEffect для сброса пагинации при изменении показа истории
+  // Обновляем useEffect для сброса пагинации при изменении показа истории
   useEffect(() => {
     resetHistoryPagination();
   }, [showHistory]);
@@ -101,6 +101,8 @@ function App() {
   const [windowsAssets, setWindowsAssets] = useState([]);
   const [showMobileStats, setShowMobileStats] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [editingWindowsCell, setEditingWindowsCell] = useState({ assetId: null, field: null });
+  const [editingWindowsValue, setEditingWindowsValue] = useState('');
   const getStatusColor = (status) => {
     switch(status) {
       case 'в эксплуатации': return 'success';
@@ -426,7 +428,7 @@ function App() {
   };
 
 
-  // Обновите функцию для цветового кодирования
+  // Функция для цветового кодирования
   const getAgeClass = (asset) => {
     let years = 0;
   
@@ -445,7 +447,6 @@ function App() {
     return 'text-success'; // Новое оборудование
   };
 
-  // Добавьте эти функции после getAgeClass:
   const getAssetAgeInDays = (asset) => {
     // Если есть ручной возраст, пытаемся извлечь годы
     if (asset.manual_age && asset.manual_age.trim()) {
@@ -1721,6 +1722,93 @@ function App() {
     setEditingCell({ assetId: null, field: null });
     setEditValue('');
   };
+
+  const startEditingWindows = (assetId, field, currentValue) => {
+    if (!user?.is_admin) return;
+    setEditingWindowsCell({ assetId, field });
+    setEditingWindowsValue(currentValue == null ? '' : String(currentValue));
+  };
+
+  const handleEditWindowsChange = (e) => {
+    setEditingWindowsValue(e.target.value);
+  };
+
+  const saveEditWindows = async () => {
+    const { assetId, field } = editingWindowsCell;
+    if (assetId === null || field === null) return;
+    
+    const assetToEdit = assets.find(a => a.id === assetId);
+    if (!assetToEdit) return;
+    
+    const currentValue = assetToEdit[field];
+    const newValue = editingWindowsValue;
+    
+    if (currentValue == newValue || (currentValue === null && newValue === '')) {
+      cancelEditWindows();
+      return;
+    }
+    
+    const loadingToast = showToast.loading('Сохранение...');
+    const updatedAssetData = { ...assetToEdit };
+    
+    if (newValue === '' && (typeof currentValue === 'string' || currentValue === null)) {
+      updatedAssetData[field] = null;
+    } else {
+      updatedAssetData[field] = newValue;
+    }
+    
+    delete updatedAssetData.id;
+    delete updatedAssetData.history;
+    
+    try {
+      const res = await fetch(`http://10.0.1.225:8000/assets/${assetId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(updatedAssetData)
+      });
+      
+      toast.dismiss(loadingToast);
+      
+      if (res.ok) {
+        const updatedAsset = await res.json();
+        
+        // Обновляем основную таблицу активов
+        setAssets(assets.map(a => a.id === updatedAsset.id ? updatedAsset : a));
+        
+        // Обновляем Windows отчет
+        setWindowsAssets(windowsAssets.map(a => a.id === updatedAsset.id ? updatedAsset : a));
+        
+        cancelEditWindows();
+        showToast.success('Ключ Windows обновлен', { icon: '🔑', duration: 2000 });
+      } else {
+        const errorData = await res.json().catch(() => null);
+        showToast.error(`Ошибка обновления: ${errorData?.detail || 'Неизвестная ошибка'}`);
+        cancelEditWindows();
+      }
+    } catch (err) {
+      toast.dismiss(loadingToast);
+      showToast.error('Ошибка сети при обновлении');
+      console.error(err);
+      cancelEditWindows();
+    }
+  };
+
+  const cancelEditWindows = () => {
+    setEditingWindowsCell({ assetId: null, field: null });
+    setEditingWindowsValue('');
+  };
+
+  const handleEditWindowsKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      saveEditWindows();
+    } else if (e.key === 'Escape') {
+      cancelEditWindows();
+    }
+  };
+
 
   const handleEditKeyDown = (e) => {
     if (e.key === 'Enter') {
@@ -4701,24 +4789,47 @@ function App() {
                                   {asset.os_type}
                                 </span>
                               </td>
-                              <td>
-                                {!isWindowsKeyMissing(asset) ? (
-                                  <div className="d-flex align-items-center">
-                                    <code className="small me-2">{asset.windows_key}</code>
-                                    <button 
-                                      className="btn btn-sm btn-outline-secondary"
-                                      onClick={() => navigator.clipboard.writeText(asset.windows_key)}
-                                      title="Скопировать ключ"
-                                    >
-                                      <i className="fas fa-copy"></i>
-                                    </button>
-                                  </div>
+                              <td onDoubleClick={() => user?.is_admin && startEditingWindows(asset.id, 'windows_key', asset.windows_key)}>
+                                {editingWindowsCell.assetId === asset.id && editingWindowsCell.field === 'windows_key' ? (
+                                  <input
+                                    type="text"
+                                    className="form-control form-control-sm"
+                                    value={editingWindowsValue}
+                                    onChange={handleEditWindowsChange}
+                                    onKeyDown={handleEditWindowsKeyDown}
+                                    onBlur={saveEditWindows}
+                                    placeholder="Введите ключ Windows"
+                                    autoFocus
+                                    style={{ fontFamily: 'monospace', fontSize: '0.9em' }}
+                                  />
                                 ) : (
-                                  <span className="text-danger">
-                                    <i className="fas fa-exclamation-triangle"></i> Не указан
-                                  </span>
+                                  !isWindowsKeyMissing(asset) ? (
+                                    <div className="d-flex align-items-center">
+                                      <code 
+                                        className={`small me-2 ${user?.is_admin ? 'editable-cell' : ''}`}
+                                        style={{ cursor: user?.is_admin ? 'pointer' : 'default' }}
+                                      >
+                                        {asset.windows_key}
+                                      </code>
+                                      <button 
+                                        className="btn btn-sm btn-outline-secondary" 
+                                        onClick={() => navigator.clipboard.writeText(asset.windows_key)} 
+                                        title="Скопировать ключ"
+                                      >
+                                        <i className="fas fa-copy"></i>
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <span 
+                                      className={`text-danger ${user?.is_admin ? 'editable-cell' : ''}`}
+                                      style={{ cursor: user?.is_admin ? 'pointer' : 'default' }}
+                                    >
+                                      <i className="fas fa-exclamation-triangle"></i> Не указан
+                                    </span>
+                                  )
                                 )}
                               </td>
+
                               <td>
                                 <span className={`badge bg-${getStatusColor(asset.status)}`}>
                                   {asset.status}
