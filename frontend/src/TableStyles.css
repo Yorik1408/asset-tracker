@@ -1184,3 +1184,186 @@ body {
 .windows-report-table .windows-no-key-row .editable-cell:hover {
   background-color: rgba(220, 53, 69, 0.1) !important;
 }
+/* === ОБЯЗАТЕЛЬНЫЕ ПОЛЯ - ИСПРАВЛЕННЫЕ СТИЛИ === */
+
+/* Светлая тема - обязательные поля */
+.required-field {
+  border: 2px solid #fd7e14 !important; /* Оранжевая рамка */
+  background-color: #fff8f0 !important; /* Легкий оранжевый фон */
+  box-shadow: 0 0 0 0.2rem rgba(253, 126, 20, 0.15) !important;
+}
+
+.required-field:focus {
+  border-color: #fd7e14 !important;
+  background-color: #fff !important;
+  box-shadow: 0 0 0 0.2rem rgba(253, 126, 20, 0.25) !important;
+}
+
+/* Темная тема - обязательные поля */
+.dark-theme .required-field {
+  border: 2px solid #fd7e14 !important; /* Яркая оранжевая рамка */
+  background-color: rgba(253, 126, 20, 0.1) !important; /* Полупрозрачный оранжевый */
+  color: #e2e8f0 !important;
+  box-shadow: 0 0 0 0.2rem rgba(253, 126, 20, 0.2) !important;
+}
+
+.dark-theme .required-field:focus {
+  border-color: #fd7e14 !important;
+  background-color: #2d3748 !important;
+  color: #e2e8f0 !important;
+  box-shadow: 0 0 0 0.2rem rgba(253, 126, 20, 0.3) !important;
+}
+
+/* Placeholder для темной темы */
+.dark-theme .required-field::placeholder {
+  color: #a0aec0 !important;
+}
+
+/* Дополнительное выделение - метка обязательности */
+.required-field + .field-required-indicator::after {
+  content: " *";
+  color: #dc3545;
+  font-weight: bold;
+}
+
+/* Анимация привлечения внимания для пустых обязательных полей */
+.required-field:invalid,
+.required-field[value=""] {
+  animation: required-field-pulse 2s ease-in-out infinite;
+}
+
+@keyframes required-field-pulse {
+  0%, 100% { 
+    border-color: #fd7e14;
+    box-shadow: 0 0 0 0.2rem rgba(253, 126, 20, 0.15);
+  }
+  50% { 
+    border-color: #dc3545;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+  }
+}
+
+.dark-theme .required-field:invalid,
+.dark-theme .required-field[value=""] {
+  animation: required-field-pulse-dark 2s ease-in-out infinite;
+}
+
+@keyframes required-field-pulse-dark {
+  0%, 100% { 
+    border-color: #fd7e14;
+    box-shadow: 0 0 0 0.2rem rgba(253, 126, 20, 0.2);
+  }
+  50% { 
+    border-color: #ff6b6b;
+    box-shadow: 0 0 0 0.2rem rgba(255, 107, 107, 0.3);
+  }
+}
+
+/* Убираем анимацию когда поле заполнено */
+.required-field:valid {
+  animation: none;
+  border-color: #28a745 !important; /* Зеленая рамка для заполненных */
+}
+
+.dark-theme .required-field:valid {
+  border-color: #20c997 !important;
+}
+/* === ФИКС SELECT СТРЕЛКИ В МОДАЛЬНЫХ ОКНАХ === */
+
+/* Стрелка для всех select'ов в модальных окнах */
+.modal .form-select {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 12px center !important;
+  background-size: 16px 12px !important;
+  padding-right: 40px !important;
+}
+
+/* Темная тема - светлая стрелка */
+.dark-theme .modal .form-select {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23adb5bd' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e") !important;
+  background-color: #2d3748 !important;
+  border-color: #4a5568 !important;
+  color: #e2e8f0 !important;
+}
+
+.dark-theme .modal .form-select option {
+  background-color: #2d3748 !important;
+  color: #e2e8f0 !important;
+}
+/* === ФИКС ТАБЛИЦЫ ОТЧЕТА ГАРАНТИЙ === */
+
+/* Отчет гарантий - фиксированные ширины столбцов */
+.reports-section .custom-table {
+  table-layout: fixed; /* Принудительная фиксация ширин */
+  width: 100%;
+}
+
+.reports-section .custom-table th:nth-child(1), 
+.reports-section .custom-table td:nth-child(1) { 
+  width: 20%; /* Инвентарный номер */
+  min-width: 140px;
+}
+
+.reports-section .custom-table th:nth-child(2), 
+.reports-section .custom-table td:nth-child(2) { 
+  width: 25%; /* Модель */
+  min-width: 180px;
+}
+
+.reports-section .custom-table th:nth-child(3), 
+.reports-section .custom-table td:nth-child(3) { 
+  width: 25%; /* ФИО пользователя */
+  min-width: 160px;
+}
+
+.reports-section .custom-table th:nth-child(4), 
+.reports-section .custom-table td:nth-child(4) { 
+  width: 15%; /* Гарантия до */
+  min-width: 120px;
+}
+
+.reports-section .custom-table th:nth-child(5), 
+.reports-section .custom-table td:nth-child(5) { 
+  width: 15%; /* Статус */
+  min-width: 100px;
+}
+
+/* Перенос слов в ячейках отчета */
+.reports-section .custom-table td {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  padding: 12px 8px !important; /* Больше вертикального отступа */
+}
+
+/* Компактный вид для коротких записей */
+.reports-section .custom-table td[data-label="Инвентарный номер"],
+.reports-section .custom-table td[data-label="Модель"] {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Hover для показа полного текста */
+.reports-section .custom-table td[data-label="Модель"]:hover {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  background-color: rgba(13, 110, 253, 0.1);
+  position: relative;
+  z-index: 10;
+}
+
+.dark-theme .reports-section .custom-table td[data-label="Модель"]:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Responsive для мобильных */
+@media (max-width: 768px) {
+  .reports-section .custom-table th,
+  .reports-section .custom-table td {
+    min-width: unset;
+    width: auto;
+  }
+}

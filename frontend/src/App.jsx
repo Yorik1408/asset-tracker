@@ -4039,18 +4039,23 @@ function App() {
                       onChange={handleChange}
                     />
                   </div>
+                  {/* Материнская плата - только для компьютеров */}
                   {formData.type === 'Компьютер' && (
+                    <div className="col-md-4">
+                      <label className="form-label">Мат. плата</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        name="motherboard"
+                        value={formData.motherboard || ''}
+                        onChange={handleChange}
+                      />
+                    </div>
+                  )}
+
+                  {/* Процессор и ОЗУ - для компьютеров И ноутбуков */}
+                  {(formData.type === 'Компьютер' || formData.type === 'Ноутбук') && (
                     <>
-                      <div className="col-md-4">
-                        <label className="form-label">Мат. плата</label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          name="motherboard"
-                          value={formData.motherboard || ''}
-                          onChange={handleChange}
-                        />
-                      </div>
                       <div className="col-md-4">
                         <label className="form-label">Процессор</label>
                         <input
