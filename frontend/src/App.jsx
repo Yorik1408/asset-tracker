@@ -1475,10 +1475,10 @@ function App() {
   };
 
 
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // --- Валидация ---
     if (!formData.inventory_number || !formData.inventory_number.trim()) {
       showToast.error("Инвентарный номер обязателен для заполнения", { icon: '📝' });
       return;
@@ -1491,85 +1491,25 @@ function App() {
       showToast.error("Пожалуйста, выберите тип оборудования из списка", { icon: '🔧' });
       return;
     }
-    if (!formData.purchase_date && (!formData.manual_age || !formData.manual_age.trim())) {
+
+    // --- Логика подтверждения ---
+    if (!isEditing && !formData.purchase_date && (!formData.manual_age || !formData.manual_age.trim())) {
       showToast.confirm(
         "Не указана дата покупки и возраст техники. Рекомендуется указать хотя бы приблизительный возраст для учета амортизации. Продолжить без указания возраста?",
-        async () => {
-          // Если пользователь нажал "Да" - продолжаем сохранение
-          await submitAsset(); // Вынесем логику сохранения в отдельную функцию
+        () => {
+          // Если пользователь нажал "Да" - вызываем submitAsset ОДИН РАЗ
+          submitAsset(); 
         },
         () => {
-          // Если пользователь нажал "Отмена"  
+          // Если пользователь нажал "Отмена"
           showToast.info("Добавление отменено. Укажите дату покупки или возраст техники", {
             icon: '⚠️'
           });
         }
       );
-      return; // Останавливаем выполнение, ждем ответа пользователя
-    }
-
-    await submitAsset();
-
-    const loadingToast = showToast.loading(isEditing ? 'Сохранение изменений...' : 'Создание актива...');
-    
-    const payload = {};
-    for (const key in formData) {
-      const value = formData[key];
-      if (['purchase_date', 'warranty_until', 'issue_date'].includes(key)) {
-        payload[key] = value ? value : null;
-      } else if (value !== null && value !== undefined) {
-        payload[key] = value;
-      }
-    }
-  
-    console.log('Payload отправляемый на сервер:', payload);
-    console.log('manual_age в payload:', payload.manual_age);
-  
-    const url = isEditing
-      ? `http://10.0.1.225:8000/assets/${formData.id}`
-      : 'http://10.0.1.225:8000/assets/';
-    const method = isEditing ? 'PUT' : 'POST';
-    
-    try {
-      const res = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-      });
-      
-      toast.dismiss(loadingToast);
-      
-      if (res.ok) {
-        const updated = await res.json();
-        if (isEditing) {
-          setAssets(assets.map(a => a.id === updated.id ? updated : a));
-          showToast.success('Актив успешно обновлен', { icon: '✏️' });
-        } else {
-          setAssets([...assets, updated]);
-          showToast.success('Актив успешно создан', { icon: '🆕' });
-        }
-        closeModal();
-        fetchAssets();
-      } else {
-        const errorData = await res.json().catch(() => null);
-        if (errorData?.detail) {
-          if (Array.isArray(errorData.detail)) {
-            const messages = errorData.detail.map(err => `${err.loc?.[1]}: ${err.msg}`).join('; ');
-            showToast.error(`Ошибка валидации: ${messages}`);
-          } else {
-            showToast.error(errorData.detail);
-          }
-        } else {
-          showToast.error('Ошибка сохранения актива');
-        }
-      }
-    } catch (err) {
-      toast.dismiss(loadingToast);
-      showToast.error('Ошибка сети');
-      console.error(err);
+    } else {
+      // Если дата указана или это редактирование - вызываем submitAsset ОДИН РАЗ
+      submitAsset();
     }
   };
 
