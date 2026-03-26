@@ -4431,31 +4431,99 @@ function App() {
                       <i className="fas fa-print"></i> Печать QR-кода
                     </button>
                   </div>
-            
                   <table className="table table-bordered">
                     <tbody>
                       {/* ДЛЯ НОУТБУКОВ */}
                       {assetInfo.type === 'Ноутбук' && (
                         <>
+                          <tr><th>Серийный номер</th><td>{assetInfo.serial_number || '-'}</td></tr>
                           <tr><th>Модель</th><td>{assetInfo.model || '-'}</td></tr>
                           <tr><th>Процессор</th><td>{assetInfo.processor || '-'}</td></tr>
+                          <tr><th>ОЗУ</th><td>{assetInfo.ram || '-'}</td></tr>
+                          <tr><th>Операционная система</th><td>{assetInfo.os_type || '-'}</td></tr>
+                          {/* КЛЮЧ WINDOWS - ТОЛЬКО ЕСЛИ ОС СОДЕРЖИТ WINDOWS */}
+                          {assetInfo.os_type && assetInfo.os_type.toLowerCase().includes('windows') && (
+                            <tr><th>Ключ Windows</th><td>{assetInfo.windows_key || '-'}</td></tr>
+                          )}
+                          {assetInfo.purchase_date && (
+                            <tr><th>Дата покупки</th><td>{new Date(assetInfo.purchase_date).toLocaleDateString()}</td></tr>
+                          )}
+                          {assetInfo.warranty_until && (
+                            <tr><th>Гарантия до</th><td>{new Date(assetInfo.warranty_until).toLocaleDateString()}</td></tr>
+                          )}
+                          {assetInfo.issue_date && (
+                            <tr><th>Дата выдачи</th><td>{new Date(assetInfo.issue_date).toLocaleDateString()}</td></tr>
+                          )}
                         </>
                       )}
-                
+                      
                       {/* ДЛЯ КОМПЬЮТЕРОВ */}
                       {assetInfo.type === 'Компьютер' && (
                         <>
+                          <tr><th>Серийный номер</th><td>{assetInfo.serial_number || '-'}</td></tr>
+                          <tr><th>Модель</th><td>{assetInfo.model || '-'}</td></tr>
                           <tr><th>Материнская плата</th><td>{assetInfo.motherboard || '-'}</td></tr>
                           <tr><th>Процессор</th><td>{assetInfo.processor || '-'}</td></tr>
+                          <tr><th>ОЗУ</th><td>{assetInfo.ram || '-'}</td></tr>
+                          <tr><th>Операционная система</th><td>{assetInfo.os_type || '-'}</td></tr>
+                          {/* КЛЮЧ WINDOWS - ТОЛЬКО ЕСЛИ ОС СОДЕРЖИТ WINDOWS */}
+                          {assetInfo.os_type && assetInfo.os_type.toLowerCase().includes('windows') && (
+                            <tr><th>Ключ Windows</th><td>{assetInfo.windows_key || '-'}</td></tr>
+                          )}
+                          {assetInfo.purchase_date && (
+                            <tr><th>Дата покупки</th><td>{new Date(assetInfo.purchase_date).toLocaleDateString()}</td></tr>
+                          )}
+                          {assetInfo.warranty_until && (
+                            <tr><th>Гарантия до</th><td>{new Date(assetInfo.warranty_until).toLocaleDateString()}</td></tr>
+                          )}
                         </>
                       )}
-                
-                      {/* ОБЩИЕ ПОЛЯ ДЛЯ ОБОИХ ТИПОВ */}
-                      <tr><th>ОЗУ</th><td>{assetInfo.ram || '-'}</td></tr>
-                      <tr><th>Операционная система</th><td>{assetInfo.os_type || '-'}</td></tr>
-                      {/* КЛЮЧ WINDOWS - ТОЛЬКО ЕСЛИ ОС СОДЕРЖИТ WINDOWS */}
-                      {assetInfo.os_type && assetInfo.os_type.toLowerCase().includes('windows') && (
-                        <tr><th>Ключ Windows</th><td>{assetInfo.windows_key || '-'}</td></tr>
+
+                      {/* ДЛЯ МОНИТОРОВ */}
+                      {assetInfo.type === 'Монитор' && (
+                        <>
+                          <tr><th>Серийный номер</th><td>{assetInfo.serial_number || '-'}</td></tr>
+                          <tr><th>Модель</th><td>{assetInfo.model || '-'}</td></tr>
+                          {assetInfo.purchase_date && (
+                            <tr><th>Дата покупки</th><td>{new Date(assetInfo.purchase_date).toLocaleDateString()}</td></tr>
+                          )}
+                          {assetInfo.warranty_until && (
+                            <tr><th>Гарантия до</th><td>{new Date(assetInfo.warranty_until).toLocaleDateString()}</td></tr>
+                          )}
+                          {assetInfo.comment && (
+                            <tr><th>Характеристики</th><td>{assetInfo.comment}</td></tr>
+                          )}
+                          <tr><th>Возраст</th><td>{calculateAssetAge(assetInfo)}</td></tr>
+                        </>
+                      )}
+
+                      {/* ДЛЯ ПРОЧЕГО */}
+                      {assetInfo.type === 'Прочее' && (
+                        <>
+                          <tr><th>Серийный номер</th><td>{assetInfo.serial_number || '-'}</td></tr>
+                          <tr><th>Модель</th><td>{assetInfo.model || '-'}</td></tr>
+                          {assetInfo.purchase_date && (
+                            <tr><th>Дата покупки</th><td>{new Date(assetInfo.purchase_date).toLocaleDateString()}</td></tr>
+                          )}
+                          {assetInfo.warranty_until && (
+                            <tr><th>Гарантия до</th><td>{new Date(assetInfo.warranty_until).toLocaleDateString()}</td></tr>
+                          )}
+                          {assetInfo.comment && (
+                            <tr><th>Описание</th><td>{assetInfo.comment}</td></tr>
+                          )}
+                          <tr><th>Возраст</th><td>{calculateAssetAge(assetInfo)}</td></tr>
+                        </>
+                      )}
+
+                      {/* ОБЩАЯ ИНФОРМАЦИЯ ДЛЯ ВСЕХ ТИПОВ */}
+                      <tr><th>Расположение</th><td>{assetInfo.location || '-'}</td></tr>
+                      <tr><th>Статус</th><td>
+                        <span className={`badge bg-${getStatusColor(assetInfo.status)}`}>
+                          {assetInfo.status}
+                        </span>
+                      </td></tr>
+                      {assetInfo.user_name && (
+                        <tr><th>Пользователь</th><td>{assetInfo.user_name}</td></tr>
                       )}
                     </tbody>
                   </table>
