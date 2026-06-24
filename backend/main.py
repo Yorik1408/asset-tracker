@@ -51,6 +51,7 @@ app.add_middleware(
 
 # Схема OAuth2 для токена
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/token")
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/token", auto_error=False)
 
 # Контекст для хэширования паролей
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -123,15 +124,31 @@ def read_users(
     return users
 
 @app.post("/users/", response_model=UserResponse, status_code=201)
-def create_new_user(user: UserCreate, db: Session = Depends(get_db)):
-    # Проверим, существует ли уже пользователь с таким именем
+def create_new_user(
+    user: UserCreate,
+    db: Session = Depends(get_db),
+    token: Optional[str] = Depends(oauth2_scheme_optional),
+):
+    existing_users = get_users(db, skip=0, limit=1)
+    if existing_users:
+        # Пользователи уже есть — нужен токен администратора
+        if not token:
+            raise HTTPException(status_code=401, detail="Требуется авторизация")
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            username = payload.get("sub")
+            if not username:
+                raise HTTPException(status_code=401, detail="Неверный токен")
+        except JWTError:
+            raise HTTPException(status_code=401, detail="Неверный токен или срок действия истёк")
+        current = get_user_by_username(db, username)
+        if not current or not current.is_admin:
+            raise HTTPException(status_code=403, detail="Только администратор может создавать пользователей")
+
     db_user = get_user_by_username(db, username=user.username)
     if db_user:
         raise HTTPException(status_code=400, detail="Пользователь с таким именем уже существует")
-    # Создаем пользователя через crud
-    created_user = create_user(db=db, user=user)
-    # Возвращаем созданного пользователя (без пароля!)
-    return created_user
+    return create_user(db=db, user=user)
 
 @app.put("/users/{user_id}", response_model=UserResponse)
 def update_existing_user(
