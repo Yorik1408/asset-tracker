@@ -414,76 +414,49 @@ body {
   border-color: var(--border-hover) !important;
 }
 
-/* Списано */
-.btn-outline-secondary:not(.app-toolbar *) {
-  border-radius: 20px !important;
-  font-size: 12px !important;
-  font-weight: 500 !important;
-  padding: 4px 13px !important;
-  height: 28px !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 4px !important;
-  border: 1px solid var(--border-color) !important;
-  background: transparent !important;
-  color: var(--text-secondary) !important;
-  transition: all 0.12s ease !important;
-}
+/* === WARRANTY FILTER BUTTONS (scoped to .btn-group) === */
 
-/* На гарантии */
-.btn-outline-success:not(.app-toolbar *) {
-  border-radius: 20px !important;
-  font-size: 12px !important;
-  padding: 4px 13px !important;
-  height: 28px !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 4px !important;
+.btn-group .btn-outline-success {
   background: rgba(16, 185, 129, 0.08) !important;
-  border: 1px solid rgba(16, 185, 129, 0.3) !important;
+  border-color: rgba(16, 185, 129, 0.3) !important;
   color: #059669 !important;
 }
 
-.dark-theme .btn-outline-success:not(.app-toolbar *) {
+.dark-theme .btn-group .btn-outline-success {
   background: rgba(16, 185, 129, 0.1) !important;
   color: #34d399 !important;
   border-color: rgba(16, 185, 129, 0.3) !important;
 }
 
-/* Гарантия заканчивается */
-.btn-outline-warning:not(.app-toolbar *) {
-  border-radius: 20px !important;
-  font-size: 12px !important;
-  padding: 4px 13px !important;
-  height: 28px !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 4px !important;
+.btn-group .btn-outline-warning {
   background: rgba(245, 158, 11, 0.08) !important;
-  border: 1px solid rgba(245, 158, 11, 0.3) !important;
+  border-color: rgba(245, 158, 11, 0.3) !important;
   color: #d97706 !important;
 }
 
-.dark-theme .btn-outline-warning:not(.app-toolbar *) {
+.dark-theme .btn-group .btn-outline-warning {
   color: #fbbf24 !important;
   background: rgba(245, 158, 11, 0.1) !important;
 }
 
-/* Фильтр по пользователю */
-.btn-outline-primary:not(.app-toolbar *) {
+/* === AGE FILTER BUTTONS (scoped to .age-range-filter) === */
+
+.age-filter-btn {
   border-radius: 20px !important;
-  font-size: 12px !important;
-  padding: 4px 13px !important;
-  height: 28px !important;
-  background: transparent !important;
-  border: 1px solid var(--border-color) !important;
-  color: var(--text-secondary) !important;
 }
 
-/* Age filter chips */
-.age-filter-btn,
-.btn-outline-dark.active {
-  border-radius: 20px !important;
+.age-range-filter .card {
+  background: var(--card-bg) !important;
+  border-color: var(--border-color) !important;
+}
+
+.age-range-filter .card-body {
+  color: var(--text-primary) !important;
+}
+
+.age-range-filter .form-label {
+  color: var(--text-secondary) !important;
+  font-size: 12px !important;
 }
 
 /* === SEARCH === */
@@ -531,7 +504,7 @@ body {
   background-color: var(--bg-raised);
   color: var(--text-secondary);
   padding: 10px 12px;
-  text-align: left;
+  text-align: center;
   font-weight: 600;
   font-size: 11px;
   text-transform: uppercase;
@@ -562,6 +535,7 @@ body {
 .custom-table tbody td {
   padding: 11px 12px;
   vertical-align: middle;
+  text-align: center;
   border-color: var(--border-color);
   color: var(--text-primary);
   font-size: 13px;
@@ -696,6 +670,7 @@ body {
   gap: 3px !important;
   flex-wrap: wrap !important;
   justify-content: center !important;
+  width: 100% !important;
 }
 
 .desktop-actions .btn-sm {
@@ -707,53 +682,67 @@ body {
   align-items: center !important;
   justify-content: center !important;
   font-size: 12px !important;
-  border: 1px solid var(--border-color) !important;
-  background: transparent !important;
-  color: var(--text-secondary) !important;
   transition: all 0.12s ease !important;
   box-shadow: none !important;
 }
 
-.desktop-actions .btn-sm:hover {
-  transform: none !important;
-  box-shadow: var(--shadow-sm) !important;
-  border-color: var(--border-hover) !important;
-  color: var(--text-primary) !important;
-  background: var(--bg-raised) !important;
+/* History & Copy — нейтральные */
+.desktop-actions .btn-outline-secondary {
+  background: transparent !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-muted) !important;
 }
-
-/* History */
 .desktop-actions .btn-outline-secondary:hover {
   background: var(--bg-raised) !important;
+  border-color: var(--border-hover) !important;
   color: var(--text-primary) !important;
 }
 
-/* Info */
-.desktop-actions .btn-outline-info:hover {
-  background: rgba(6, 182, 212, 0.1) !important;
-  border-color: rgba(6, 182, 212, 0.4) !important;
+/* Info — голубой */
+.desktop-actions .btn-outline-info {
+  background: rgba(6, 182, 212, 0.08) !important;
+  border: 1px solid rgba(6, 182, 212, 0.25) !important;
   color: #06b6d4 !important;
 }
+.desktop-actions .btn-outline-info:hover {
+  background: rgba(6, 182, 212, 0.16) !important;
+  border-color: rgba(6, 182, 212, 0.5) !important;
+}
 
-/* Edit */
-.desktop-actions .btn-outline-primary:hover {
+/* Edit — фиолетовый */
+.desktop-actions .btn-outline-primary {
   background: var(--accent-light) !important;
-  border-color: var(--accent) !important;
+  border: 1px solid rgba(99, 102, 241, 0.25) !important;
   color: var(--accent) !important;
 }
-
-/* Delete */
-.desktop-actions .btn-outline-danger:hover {
-  background: rgba(239, 68, 68, 0.08) !important;
-  border-color: rgba(239, 68, 68, 0.4) !important;
-  color: #ef4444 !important;
+.desktop-actions .btn-outline-primary:hover {
+  background: rgba(99, 102, 241, 0.18) !important;
+  border-color: var(--accent) !important;
 }
 
-/* Repairs */
-.desktop-actions .btn-outline-warning:hover {
-  background: rgba(245, 158, 11, 0.1) !important;
-  border-color: rgba(245, 158, 11, 0.4) !important;
+/* Delete — красный */
+.desktop-actions .btn-outline-danger {
+  background: rgba(239, 68, 68, 0.08) !important;
+  border: 1px solid rgba(239, 68, 68, 0.22) !important;
+  color: #ef4444 !important;
+}
+.dark-theme .desktop-actions .btn-outline-danger {
+  color: #f87171 !important;
+}
+.desktop-actions .btn-outline-danger:hover {
+  background: rgba(239, 68, 68, 0.16) !important;
+  border-color: rgba(239, 68, 68, 0.5) !important;
+}
+
+/* Repair — янтарный */
+.desktop-actions .btn-outline-warning {
+  background: rgba(245, 158, 11, 0.08) !important;
+  border: 1px solid rgba(245, 158, 11, 0.22) !important;
   color: #f59e0b !important;
+}
+.desktop-actions .btn-outline-warning:hover {
+  background: rgba(245, 158, 11, 0.16) !important;
+  border-color: rgba(245, 158, 11, 0.5) !important;
 }
 
 /* === MOBILE ASSET CARDS === */
@@ -1252,6 +1241,7 @@ body {
   white-space: pre-wrap;
   font-size: 12px;
   color: var(--text-secondary);
+  text-align: left !important;
 }
 
 .history-list {
