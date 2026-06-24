@@ -7,6 +7,22 @@ import packageInfo from '../package.json';
 import Select from 'react-select';
 import toast, { Toaster } from 'react-hot-toast';
 
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://10.0.1.225:8000';
+
+async function apiFetch(url, options = {}) {
+  const token = localStorage.getItem('token');
+  const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(url, { ...options, headers });
+  if (res.status === 401) {
+    localStorage.removeItem('token');
+    localStorage.removeItem('username');
+    window.location.reload();
+  }
+  return res;
+}
+
 function App() {
   const [assets, setAssets] = useState([]);
   const [showHistory, setShowHistory] = useState(null);
@@ -345,7 +361,7 @@ function App() {
   
     try {
       // Получаем свежие данные напрямую с сервера
-      const res = await fetch('http://10.0.1.225:8000/assets/', { 
+      const res = await apiFetch(`${API_BASE}/assets/`, { 
         headers: { Authorization: `Bearer ${token}` } 
       });
     
@@ -527,7 +543,7 @@ function App() {
     if (!token || !user?.is_admin) return;
     setDeletionLogLoading(true);
     try {
-      const res = await fetch(`http://10.0.1.225:8000/admin/deletion-log/?limit=100`, {
+      const res = await apiFetch(`${API_BASE}/admin/deletion-log/?limit=100`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -914,7 +930,7 @@ function App() {
       return;
     }
     try {
-      const res = await fetch('http://10.0.1.225:8000/assets/', {
+      const res = await apiFetch(`${API_BASE}/assets/`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -982,7 +998,7 @@ function App() {
   const fetchUsers = async () => {
     if (!user || !user.is_admin || !token) return;
     try {
-      const res = await fetch('http://10.0.1.225:8000/users/', {
+      const res = await apiFetch(`${API_BASE}/users/`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -1032,7 +1048,7 @@ function App() {
       setUsers([]);
       return;
     }
-    fetch('http://10.0.1.225:8000/users/me', {
+    apiFetch(`${API_BASE}/users/me`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => {
@@ -1054,7 +1070,7 @@ function App() {
     const loadingToast = showToast.loading('Выполняется вход...');
     
     try {
-      const res = await fetch('http://10.0.1.225:8000/token', {
+      const res = await fetch(`${API_BASE}/token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams(loginData).toString()
@@ -1098,6 +1114,7 @@ function App() {
   };
 
   const handleExport = async () => {
+    const ageLabels = { new: 'до 1 года', fresh: '1–3 года', medium: '3–5 лет', old: 'старше 5 лет' };
     let filterText = "всех активов";
     if (filter !== 'Все') {
       filterText = `активов типа "${filter}"`;
@@ -1113,6 +1130,9 @@ function App() {
             filterText += ` и ${warrantyText}`;
         }
     }
+    if (ageRangeFilter !== 'all') {
+      filterText += ` (возраст: ${ageLabels[ageRangeFilter] || ageRangeFilter})`;
+    }
     if (searchQuery) {
       filterText += ` с поиском по "${searchQuery}"`;
     }
@@ -1124,27 +1144,40 @@ function App() {
       `Экспорт будет выполнен согласно выбранному фильтру ${filterText}. Продолжить?`,
       async () => {
         const loadingToast = showToast.loading('Подготовка экспорта...');
-        
+
         try {
           const params = new URLSearchParams();
-          if (filter !== 'Все' && !disposedFilter) {
-            params.append('type', filter);
-          }
-          if (disposedFilter) {
-            params.append('status', 'списано');
-          }
-          if (searchQuery) {
-            params.append('q', searchQuery);
-          }
-          if (warrantyFilter !== 'all' && !disposedFilter) {
-              params.append('warranty_status', warrantyFilter);
-          }
-          if (selectedUser) {
-            params.append('user_name', selectedUser);
+
+          // Когда активен age-фильтр — передаём ID уже отфильтрованных активов,
+          // чтобы точно совпасть с тем, что видит пользователь на экране
+          if (ageRangeFilter !== 'all') {
+            const filtered = getFilteredAssets();
+            if (filtered.length === 0) {
+              toast.dismiss(loadingToast);
+              showToast.info('Нет активов для экспорта с текущими фильтрами');
+              return;
+            }
+            params.append('ids', filtered.map(a => a.id).join(','));
+          } else {
+            if (filter !== 'Все' && !disposedFilter) {
+              params.append('type', filter);
+            }
+            if (disposedFilter) {
+              params.append('status', 'списано');
+            }
+            if (searchQuery) {
+              params.append('q', searchQuery);
+            }
+            if (warrantyFilter !== 'all' && !disposedFilter) {
+                params.append('warranty_status', warrantyFilter);
+            }
+            if (selectedUser) {
+              params.append('user_name', selectedUser);
+            }
           }
 
-          const url = `http://10.0.1.225:8000/export/excel?${params.toString()}`;
-          const res = await fetch(url, {
+          const url = `${API_BASE}/export/excel?${params.toString()}`;
+          const res = await apiFetch(url, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           
@@ -1199,7 +1232,7 @@ function App() {
     formData.append('file', file);
     
     try {
-      const res = await fetch('http://10.0.1.225:8000/import/excel', {
+      const res = await fetch(`${API_BASE}/import/excel`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData
@@ -1244,7 +1277,7 @@ function App() {
       "Перед очисткой базы рекомендуется сделать резервную копию. Скачать Excel-файл со всеми данными перед удалением?",
       async () => {
         const link = document.createElement('a');
-        link.href = `http://10.0.1.225:8000/export/excel`;
+        link.href = `${API_BASE}/export/excel`;
         link.setAttribute('download', '');
         link.style.display = 'none';
         document.body.appendChild(link);
@@ -1260,7 +1293,7 @@ function App() {
               const loadingToast = showToast.loading('Очистка базы данных...');
               
               try {
-                const res = await fetch('http://10.0.1.225:8000/admin/clear-db', {
+                const res = await apiFetch(`${API_BASE}/admin/clear-db`, {
                   method: 'POST',
                   headers: { 'Authorization': `Bearer ${token}` }
                 });
@@ -1309,7 +1342,7 @@ function App() {
             const loadingToast = showToast.loading('Очистка базы данных...');
             
             try {
-              const res = await fetch('http://10.0.1.225:8000/admin/clear-db', {
+              const res = await apiFetch(`${API_BASE}/admin/clear-db`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
               });
@@ -1427,12 +1460,12 @@ function App() {
 
 
     const url = isEditing 
-      ? `http://10.0.1.225:8000/assets/${formData.id}` 
-      : 'http://10.0.1.225:8000/assets/';
+      ? `${API_BASE}/assets/${formData.id}` 
+      : `${API_BASE}/assets/`;
     const method = isEditing ? 'PUT' : 'POST';
 
     try {
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
@@ -1491,6 +1524,13 @@ function App() {
       showToast.error("Пожалуйста, выберите тип оборудования из списка", { icon: '🔧' });
       return;
     }
+    if (formData.purchase_date && formData.warranty_until) {
+      if (new Date(formData.warranty_until) < new Date(formData.purchase_date)) {
+        showToast.error('Дата окончания гарантии не может быть раньше даты покупки', { icon: '📅' });
+        return;
+      }
+    }
+
 
     // --- Логика подтверждения ---
     if (!isEditing && !formData.purchase_date && (!formData.manual_age || !formData.manual_age.trim())) {
@@ -1541,7 +1581,7 @@ function App() {
     const loadingToast = showToast.loading('Загрузка данных актива...');
     
     try {
-      const res = await fetch(`http://10.0.1.225:8000/assets/${asset.id}`, {
+      const res = await apiFetch(`${API_BASE}/assets/${asset.id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -1567,7 +1607,7 @@ function App() {
         const loadingToast = showToast.loading('Удаление актива...');
         
         try {
-          const res = await fetch(`http://10.0.1.225:8000/assets/${id}`, {
+          const res = await apiFetch(`${API_BASE}/assets/${id}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${token}` }
           });
@@ -1628,7 +1668,7 @@ function App() {
     delete updatedAssetData.history;
     
     try {
-      const res = await fetch(`http://10.0.1.225:8000/assets/${assetId}`, {
+      const res = await apiFetch(`${API_BASE}/assets/${assetId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -1701,7 +1741,7 @@ function App() {
     delete updatedAssetData.history;
     
     try {
-      const res = await fetch(`http://10.0.1.225:8000/assets/${assetId}`, {
+      const res = await apiFetch(`${API_BASE}/assets/${assetId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -1862,12 +1902,12 @@ function App() {
     }
     
     const url = isEditingUser
-      ? `http://10.0.1.225:8000/users/${editingUser.id}`
-      : 'http://10.0.1.225:8000/users/';
+      ? `${API_BASE}/users/${editingUser.id}`
+      : `${API_BASE}/users/`;
     const method = isEditingUser ? 'PUT' : 'POST';
     
     try {
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
@@ -1914,7 +1954,7 @@ function App() {
         const loadingToast = showToast.loading('Удаление пользователя...');
         
         try {
-          const res = await fetch(`http://10.0.1.225:8000/users/${userId}`, {
+          const res = await apiFetch(`${API_BASE}/users/${userId}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${token}` }
           });
@@ -1940,7 +1980,7 @@ function App() {
   const fetchRepairsForAsset = async (assetId) => {
     if (!token) return;
     try {
-      const res = await fetch(`http://10.0.1.225:8000/assets/${assetId}/repairs/`, {
+      const res = await apiFetch(`${API_BASE}/assets/${assetId}/repairs/`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -1981,7 +2021,7 @@ function App() {
     const loadingToast = showToast.loading('Создание записи о ремонте...');
     
     try {
-      const res = await fetch(`http://10.0.1.225:8000/assets/${currentAssetId}/repairs/`, {
+      const res = await apiFetch(`${API_BASE}/assets/${currentAssetId}/repairs/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2030,7 +2070,7 @@ function App() {
     const loadingToast = showToast.loading('Обновление записи о ремонте...');
     
     try {
-      const res = await fetch(`http://10.0.1.225:8000/repairs/${editingRepairId}`, {
+      const res = await apiFetch(`${API_BASE}/repairs/${editingRepairId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -2072,7 +2112,7 @@ function App() {
         const loadingToast = showToast.loading('Удаление записи...');
         
         try {
-          const res = await fetch(`http://10.0.1.225:8000/repairs/${recordId}`, {
+          const res = await apiFetch(`${API_BASE}/repairs/${recordId}`, {
             method: 'DELETE',
             headers: {
               'Authorization': `Bearer ${token}`
@@ -2121,7 +2161,7 @@ function App() {
               <h6 className="mb-0 fw-bold text-primary">
                 {asset.inventory_number}
               </h6>
-              <span className={`badge bg-${getStatusColor(asset.status)} fs-6`}>
+              <span className={`status-badge status-${getStatusColor(asset.status)}`}>
                 {asset.status}
               </span>
             </div>
@@ -2648,7 +2688,7 @@ function App() {
 
 
       {token && (
-        <div className="d-flex justify-content-between align-items-center mb-3">
+        <div className="app-header d-flex justify-content-between align-items-center mb-3">
           <span>Вы вошли как {user?.username || 'пользователь'}</span>
           <div className="d-flex align-items-center gap-2">
             <img 
@@ -2680,7 +2720,7 @@ function App() {
 
 
       {token && user && (
-        <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 p-2 bg-white border rounded">
+        <div className="app-toolbar d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 p-2 bg-white border rounded">
           <div className="d-flex flex-wrap gap-1">
             <button
               className="btn btn-outline-info btn-sm"
@@ -3302,7 +3342,7 @@ function App() {
                         <h6 className="mb-0 fw-bold text-primary">
                           {asset.inventory_number}
                         </h6>
-                        <span className={`badge bg-${getStatusColor(asset.status)} fs-6`}>
+                        <span className={`status-badge status-${getStatusColor(asset.status)}`}>
                           {asset.status}
                         </span>
                       </div>

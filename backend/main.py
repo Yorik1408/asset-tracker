@@ -21,6 +21,16 @@ from crud import (
     get_deletion_logs
 )
 from passlib.context import CryptContext
+from jose import JWTError, jwt
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+SECRET_KEY = os.getenv("SECRET_KEY", "change-me-to-a-strong-secret-key-in-dotenv")
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("TOKEN_EXPIRE_MINUTES", "480"))
+MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10 MB
 
 # Создаем таблицы в БД
 models.Base.metadata.create_all(bind=engine)
@@ -29,9 +39,11 @@ app = FastAPI()
 
 # Подключение CORS
 from fastapi.middleware.cors import CORSMiddleware
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "http://10.0.1.225:5173,http://10.0.1.225:8000")
+ALLOWED_ORIGINS = [o.strip() for o in _raw_origins.split(",")]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -56,14 +68,23 @@ def clean_value(val):
         return None
     return str(val).strip()
 
+def create_access_token(username: str) -> str:
+    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    payload = {"sub": username, "exp": expire}
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
 # Функция для извлечения имени пользователя из токена
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    if not token.startswith("token_"):
-        raise HTTPException(status_code=401, detail="Неверный формат токена")
-    username = token.replace("token_", "", 1)
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise HTTPException(status_code=401, detail="Неверный токен")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Неверный токен или срок действия истёк")
     user = get_user_by_username(db, username)
     if not user:
-        raise HTTPException(status_code=401, detail="Неавторизован")
+        raise HTTPException(status_code=401, detail="Пользователь не найден")
     return user
 
 # Зависимости для проверки прав администратора
@@ -84,7 +105,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
             detail="Неверные учетные данные",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    return {"access_token": f"token_{form_data.username}", "token_type": "bearer"}
+    return {"access_token": create_access_token(form_data.username), "token_type": "bearer"}
 
 @app.get("/users/me", response_model=UserResponse)
 async def read_users_me(current_user: models.User = Depends(get_current_active_user)):
@@ -228,6 +249,8 @@ def export_to_excel(
     q: Optional[str] = None,
     warranty_status: Optional[str] = None,
     user_name: Optional[str] = None,
+    status: Optional[str] = None,
+    ids: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
 
@@ -278,6 +301,16 @@ def export_to_excel(
     # Фильтр по пользователю
     if user_name:
         query = query.filter(models.Asset.user_name == user_name)
+
+    # Фильтр по статусу (например, 'списано')
+    if status:
+        query = query.filter(models.Asset.status == status)
+
+    # Фильтр по конкретным ID (используется для age-фильтра с фронтенда)
+    if ids:
+        id_list = [int(i) for i in ids.split(',') if i.strip().isdigit()]
+        if id_list:
+            query = query.filter(models.Asset.id.in_(id_list))
 
     # Логика фильтрации по гарантии
     if warranty_status:
@@ -452,16 +485,20 @@ def import_from_excel(
         raise HTTPException(status_code=400, detail="Файл должен быть в формате .xlsx")
     try:
         contents = file.file.read()
+        if len(contents) > MAX_UPLOAD_SIZE:
+            raise HTTPException(status_code=400, detail="Файл слишком большой. Максимальный размер — 10 МБ")
         df_assets = pd.read_excel(BytesIO(contents), sheet_name="Активы")
         # Попробуем прочитать лист "История"
         try:
             df_history = pd.read_excel(BytesIO(contents), sheet_name="История изменений")
             has_history = True
-        except:
+        except Exception:
             has_history = False
             df_history = pd.DataFrame()
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Ошибка чтения файла: {str(e)}")
+        raise HTTPException(status_code=400, detail="Не удалось прочитать файл. Убедитесь, что это корректный .xlsx")
     imported = 0
     errors = []
     # Сначала импортируем активы
