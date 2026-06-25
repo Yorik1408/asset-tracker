@@ -1,4 +1,4 @@
-// app.jsx
+﻿// app.jsx
 import React, { useState, useEffect } from 'react';
 import QRCode from "react-qr-code";
 import qrCodeGenerator from 'qrcode-generator';
@@ -2730,7 +2730,7 @@ function App() {
               <i className="fas fa-info-circle"></i> О системе
             </button>
             <button
-              className="btn btn-outline-success btn-sm"
+              className="btn btn-outline-primary btn-sm"
               onClick={handleExport}
               title="Экспорт в Excel"
             >
@@ -3205,7 +3205,7 @@ function App() {
                           </td>
                           {warrantyFilter === 'active' && <td data-label="Гарантия до">{asset.warranty_until || '-'}</td>}
                           <td className="text-center desktop-actions">
-                            <div className="d-flex justify-content-center flex-wrap gap-1">
+                            <div className="d-flex justify-content-center flex-wrap gap-2">
                               {/* Кнопки для всех пользователей */}
                               <button
                                 className="btn btn-sm btn-outline-secondary"
@@ -4794,7 +4794,7 @@ function App() {
                 {/* Таблица с данными */}
                 <div className="windows-report-table">
                   <div className="table-responsive">
-                    <table className="table table-striped table-hover">
+                    <table className="table table-striped table-hover table-bordered">
                       <thead>
                         <tr>
                           <th>Инвентарный номер</th>

@@ -275,7 +275,17 @@ body {
   display: inline-flex !important;
   align-items: center !important;
   gap: 5px !important;
-  transition: all 0.12s ease !important;
+  transition: all 0.15s ease !important;
+}
+
+.app-toolbar .btn-sm:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12) !important;
+}
+
+.app-toolbar .btn-sm:active {
+  transform: translateY(0) !important;
+  box-shadow: none !important;
 }
 
 /* Secondary actions — тихие */
@@ -349,19 +359,19 @@ body {
   background: rgba(99, 102, 241, 0.16) !important;
 }
 
-/* Опасные кнопки — в фоне, только при hover */
+/* Опасные кнопки — всегда красные */
 .app-toolbar .btn-outline-danger,
 .app-toolbar .btn-danger {
-  background: transparent !important;
-  border: 1px solid var(--border-color) !important;
-  color: var(--text-muted) !important;
+  background: rgba(239, 68, 68, 0.08) !important;
+  border: 1px solid rgba(239, 68, 68, 0.35) !important;
+  color: #ef4444 !important;
 }
 
 .app-toolbar .btn-outline-danger:hover,
 .app-toolbar .btn-danger:hover {
-  background: rgba(239, 68, 68, 0.08) !important;
-  border-color: rgba(239, 68, 68, 0.3) !important;
-  color: #ef4444 !important;
+  background: rgba(239, 68, 68, 0.18) !important;
+  border-color: rgba(239, 68, 68, 0.55) !important;
+  color: #dc2626 !important;
 }
 
 /* Журнал удалений */
@@ -379,18 +389,11 @@ body {
 
 /* === FILTER BUTTONS === */
 
-/* Тип оборудования */
+/* Списано — нейтральный цвет, совпадает по размеру с соседними фильтрами */
 .btn-outline-dark {
   background: transparent !important;
   border: 1px solid var(--border-color) !important;
   color: var(--text-secondary) !important;
-  border-radius: 20px !important;
-  font-size: 12px !important;
-  font-weight: 500 !important;
-  padding: 4px 13px !important;
-  height: 28px !important;
-  display: inline-flex !important;
-  align-items: center !important;
   transition: all 0.12s ease !important;
 }
 
@@ -443,6 +446,7 @@ body {
 
 .age-filter-btn {
   border-radius: 20px !important;
+  min-height: 54px;
 }
 
 .age-range-filter .card {
@@ -663,11 +667,11 @@ body {
 .desktop-actions {
   background: transparent !important;
   border: none !important;
-  padding: 0 !important;
+  padding: 8px 6px !important;
 }
 
 .desktop-actions .d-flex {
-  gap: 3px !important;
+  gap: 5px !important;
   flex-wrap: wrap !important;
   justify-content: center !important;
   width: 100% !important;
@@ -1346,6 +1350,42 @@ body {
     width: 40px !important;
     height: 40px !important;
   }
+}
+
+/* === WINDOWS REPORT TABLE === */
+
+.windows-report-table .table {
+  border-collapse: collapse;
+}
+
+.windows-report-table .table th,
+.windows-report-table .table td {
+  border: 1px solid var(--border-color) !important;
+  padding: 8px 12px;
+  vertical-align: middle;
+}
+
+.windows-report-table .table thead th {
+  background: var(--bg-raised) !important;
+  color: var(--text-secondary) !important;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.windows-report-table .table tbody td {
+  background: var(--table-bg) !important;
+  color: var(--text-primary) !important;
+}
+
+.windows-report-table .table tbody tr:hover td {
+  background: var(--bg-hover) !important;
+}
+
+.windows-no-key-row td {
+  background: rgba(239, 68, 68, 0.04) !important;
 }
 
 /* === ANIMATIONS === */
