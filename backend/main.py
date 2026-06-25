@@ -32,7 +32,37 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("TOKEN_EXPIRE_MINUTES", "480"))
 MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10 MB
 
-# Создаем таблицы в БД
+# Автомиграция: добавляет новые колонки из моделей в существующие таблицы.
+# Запускается при каждом старте. Достаточно добавить поле в models.py — колонка
+# появится в БД автоматически. Переименование и удаление колонок не поддерживается.
+def auto_migrate(engine):
+    from sqlalchemy import inspect, text
+    inspector = inspect(engine)
+
+    for table in models.Base.metadata.sorted_tables:
+        if not inspector.has_table(table.name):
+            continue
+
+        existing = {col["name"] for col in inspector.get_columns(table.name)}
+
+        for column in table.columns:
+            if column.name in existing:
+                continue
+
+            col_type = column.type.compile(dialect=engine.dialect)
+
+            if column.default is not None and hasattr(column.default, "arg") and column.default.is_scalar:
+                arg = column.default.arg
+                default_clause = f" DEFAULT '{arg}'" if isinstance(arg, str) else f" DEFAULT {arg}"
+            else:
+                default_clause = " DEFAULT NULL"
+
+            sql = f'ALTER TABLE "{table.name}" ADD COLUMN "{column.name}" {col_type}{default_clause}'
+            with engine.begin() as conn:
+                conn.execute(text(sql))
+            print(f"[migrate] {table.name}.{column.name} ({col_type}) — добавлен")
+
+auto_migrate(engine)
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
@@ -641,5 +671,101 @@ def delete_repair(record_id: int, db: Session = Depends(get_db), current_user: m
     if not deleted:
         raise HTTPException(status_code=404, detail="Запись о ремонте не найдена")
     return {"detail": "Запись о ремонте удалена"}
-# ---------------------------------------
 
+# ──────────────────────────────────────────────────────
+# Инвентаризация
+# ──────────────────────────────────────────────────────
+
+@app.post("/inventory/sessions/", response_model=schemas.InventorySessionResponse, status_code=201)
+def start_inventory_session(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_active_admin)):
+    active = db.query(models.InventorySession).filter(models.InventorySession.finished_at == None).first()
+    if active:
+        raise HTTPException(status_code=400, detail="Уже есть активная сессия инвентаризации")
+    total = db.query(models.Asset).filter(models.Asset.status != "списано").count()
+    session = models.InventorySession(started_by=current_user.username, total_assets=total)
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+    return session
+
+@app.get("/inventory/sessions/active", response_model=schemas.InventorySessionResponse)
+def get_active_inventory_session(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_active_user)):
+    session = db.query(models.InventorySession).filter(models.InventorySession.finished_at == None).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Нет активной сессии")
+    return session
+
+@app.get("/inventory/sessions/", response_model=List[schemas.InventorySessionResponse])
+def list_inventory_sessions(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_active_admin)):
+    return db.query(models.InventorySession).order_by(models.InventorySession.started_at.desc()).limit(20).all()
+
+@app.post("/inventory/sessions/{session_id}/check", response_model=schemas.InventoryCheckResponse)
+def check_asset(session_id: int, body: schemas.InventoryCheckRequest, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_active_user)):
+    session = db.query(models.InventorySession).filter(
+        models.InventorySession.id == session_id,
+        models.InventorySession.finished_at == None
+    ).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Сессия не найдена или уже завершена")
+    asset = db.query(models.Asset).filter(models.Asset.id == body.asset_id).first()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Актив не найден")
+    existing = db.query(models.InventoryCheck).filter(
+        models.InventoryCheck.session_id == session_id,
+        models.InventoryCheck.asset_id == body.asset_id
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Актив уже отмечен в этой сессии")
+    user_before = asset.user_name
+    user_after = body.user_name if body.user_name is not None else user_before
+    if user_after != user_before:
+        asset.user_name = user_after
+        history = models.AssetHistory(
+            asset_id=asset.id,
+            field="user_name",
+            old_value=user_before,
+            new_value=user_after,
+            changed_at=datetime.utcnow().date(),
+            changed_by=current_user.username,
+        )
+        db.add(history)
+    check = models.InventoryCheck(
+        session_id=session_id,
+        asset_id=body.asset_id,
+        checked_by=current_user.username,
+        user_name_before=user_before,
+        user_name_after=user_after,
+    )
+    db.add(check)
+    db.commit()
+    db.refresh(check)
+    return check
+
+@app.delete("/inventory/sessions/{session_id}/check/{asset_id}")
+def uncheck_asset(session_id: int, asset_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_active_user)):
+    check = db.query(models.InventoryCheck).filter(
+        models.InventoryCheck.session_id == session_id,
+        models.InventoryCheck.asset_id == asset_id
+    ).first()
+    if not check:
+        raise HTTPException(status_code=404, detail="Отметка не найдена")
+    if check.user_name_before != check.user_name_after:
+        asset = db.query(models.Asset).filter(models.Asset.id == asset_id).first()
+        if asset:
+            asset.user_name = check.user_name_before
+    db.delete(check)
+    db.commit()
+    return {"detail": "Отметка снята"}
+
+@app.post("/inventory/sessions/{session_id}/finish", response_model=schemas.InventorySessionResponse)
+def finish_inventory_session(session_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_active_admin)):
+    session = db.query(models.InventorySession).filter(
+        models.InventorySession.id == session_id,
+        models.InventorySession.finished_at == None
+    ).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Сессия не найдена или уже завершена")
+    session.finished_at = datetime.utcnow()
+    db.commit()
+    db.refresh(session)
+    return session

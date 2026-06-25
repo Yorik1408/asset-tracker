@@ -41,7 +41,9 @@ class Asset(Base):
     comment = Column(Text, nullable=True)
     windows_key = Column(String, nullable=True) # Ключ Windows
     os_type = Column(String, nullable=True) # Тип ОС
-    manual_age = Column(String, nullable=True)  # ← ДОБАВИТЬ ЭТУ СТРОКУ
+    manual_age = Column(String, nullable=True)
+    storage_type = Column(String, nullable=True)  # SSD / HDD / NVMe / eMMC
+    storage_size = Column(String, nullable=True)  # 256 ГБ / 512 ГБ / 1 ТБ
 
     # Связь с историей изменений
     history = relationship("AssetHistory", back_populates="asset", cascade="all, delete-orphan")
@@ -79,6 +81,29 @@ class RepairRecord(Base):
 
     # Связь с активом
     asset = relationship("Asset", back_populates="repairs")
+
+class InventorySession(Base):
+    __tablename__ = "inventory_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    started_at = Column(DateTime, default=datetime.utcnow)
+    finished_at = Column(DateTime, nullable=True)
+    started_by = Column(String)
+    total_assets = Column(Integer, default=0)
+    checks = relationship("InventoryCheck", back_populates="session", cascade="all, delete-orphan")
+
+class InventoryCheck(Base):
+    __tablename__ = "inventory_checks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey("inventory_sessions.id"))
+    asset_id = Column(Integer, ForeignKey("assets.id"))
+    checked_at = Column(DateTime, default=datetime.utcnow)
+    checked_by = Column(String)
+    user_name_before = Column(String, nullable=True)
+    user_name_after = Column(String, nullable=True)
+    session = relationship("InventorySession", back_populates="checks")
+    asset = relationship("Asset")
 
 class DeletionLog(Base):
     """

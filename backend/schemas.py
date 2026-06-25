@@ -84,7 +84,9 @@ class AssetBase(BaseModel):
     comment: Optional[str] = None
     windows_key: Optional[str] = None
     os_type: Optional[str] = None
-    manual_age: Optional[str] = None  # ← ДОБАВИТЬ ЭТУ СТРОКУ
+    manual_age: Optional[str] = None
+    storage_type: Optional[str] = None
+    storage_size: Optional[str] = None
 
 # --- Схемы для записей о ремонте ---
 class RepairRecordBase(BaseModel):
@@ -125,6 +127,33 @@ class DeletionLogResponse(DeletionLogBase):
 
     class Config:
         from_attributes = True # Для совместимости с ORM
+
+# --- Инвентаризация ---
+class InventoryCheckResponse(BaseModel):
+    id: int
+    asset_id: int
+    checked_at: datetime
+    checked_by: str
+    user_name_before: Optional[str] = None
+    user_name_after: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+class InventorySessionResponse(BaseModel):
+    id: int
+    started_at: datetime
+    finished_at: Optional[datetime] = None
+    started_by: str
+    total_assets: int
+    checks: List[InventoryCheckResponse] = []
+
+    class Config:
+        from_attributes = True
+
+class InventoryCheckRequest(BaseModel):
+    asset_id: int
+    user_name: Optional[str] = None
 
 class AssetCreate(AssetBase):
     pass

@@ -1,0 +1,21 @@
+{
+  "name": "Asset Tracker - Учёт активов v2",
+  "short_name": "Asset Tracker",
+  "description": "Система учёта компьютеров, ноутбуков и оборудования",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#007bff",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/enhanced_asset-logo2.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["business", "productivity", "utilities"],
+  "lang": "ru-RU"
+}

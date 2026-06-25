@@ -44,6 +44,8 @@ function App() {
     windows_key: '',
     os_type: '',
     manual_age: '',
+    storage_type: '',
+    storage_size: '',
   });
   const [isEditing, setIsEditing] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -119,6 +121,17 @@ function App() {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [editingWindowsCell, setEditingWindowsCell] = useState({ assetId: null, field: null });
   const [editingWindowsValue, setEditingWindowsValue] = useState('');
+
+  // Инвентаризация
+  const [inventoryMode, setInventoryMode] = useState(false);
+  const [inventorySession, setInventorySession] = useState(null);
+  const [inventoryChecks, setInventoryChecks] = useState({}); // { asset_id: check }
+  const [inventorySearch, setInventorySearch] = useState('');
+  const [inventorySelected, setInventorySelected] = useState(null); // актив для подтверждения
+  const [inventoryUserName, setInventoryUserName] = useState('');
+  const [showInventoryFinish, setShowInventoryFinish] = useState(false);
+  const [inventoryChangedUsers, setInventoryChangedUsers] = useState(0);
+
   const getStatusColor = (status) => {
     switch(status) {
       case 'в эксплуатации': return 'success';
@@ -824,6 +837,85 @@ function App() {
 
 
   // Функция для генерации отчета с ключами windows
+  const openInventory = async () => {
+    // Если сессия уже загружена в память — просто разворачиваем
+    if (inventorySession) { setInventoryMode(true); return; }
+    // Иначе проверяем активную сессию на сервере
+    try {
+      const activeRes = await apiFetch(`${API_BASE}/inventory/sessions/active`);
+      if (activeRes.ok) {
+        const data = await activeRes.json();
+        const checksMap = {};
+        (data.checks || []).forEach(c => { checksMap[c.asset_id] = c; });
+        setInventorySession(data);
+        setInventoryChecks(checksMap);
+        setInventoryChangedUsers((data.checks || []).filter(c => c.user_name_before !== c.user_name_after).length);
+        setInventoryMode(true);
+        return;
+      }
+    } catch {}
+    // Активной сессии нет — создаём новую
+    try {
+      const res = await apiFetch(`${API_BASE}/inventory/sessions/`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) { showToast.error(data.detail || 'Не удалось начать инвентаризацию'); return; }
+      setInventorySession(data);
+      setInventoryChecks({});
+      setInventoryChangedUsers(0);
+      setInventorySearch('');
+      setInventorySelected(null);
+      setInventoryMode(true);
+    } catch { showToast.error('Ошибка сети'); }
+  };
+
+  const checkInventoryAsset = async (asset, userName) => {
+    try {
+      const res = await apiFetch(`${API_BASE}/inventory/sessions/${inventorySession.id}/check`, {
+        method: 'POST',
+        body: JSON.stringify({ asset_id: asset.id, user_name: userName }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showToast.error(data.detail || 'Ошибка'); return; }
+      setInventoryChecks(prev => ({ ...prev, [asset.id]: data }));
+      if (data.user_name_before !== data.user_name_after) {
+        setInventoryChangedUsers(prev => prev + 1);
+        setAssets(prev => prev.map(a => a.id === asset.id ? { ...a, user_name: userName } : a));
+      }
+      setInventorySelected(null);
+    } catch { showToast.error('Ошибка сети'); }
+  };
+
+  const uncheckInventoryAsset = async (assetId) => {
+    try {
+      const res = await apiFetch(`${API_BASE}/inventory/sessions/${inventorySession.id}/check/${assetId}`, { method: 'DELETE' });
+      if (!res.ok) return;
+      const check = inventoryChecks[assetId];
+      if (check && check.user_name_before !== check.user_name_after) {
+        setInventoryChangedUsers(prev => Math.max(0, prev - 1));
+        setAssets(prev => prev.map(a => a.id === assetId ? { ...a, user_name: check.user_name_before } : a));
+      }
+      setInventoryChecks(prev => { const n = { ...prev }; delete n[assetId]; return n; });
+    } catch {}
+  };
+
+  const finishInventory = async () => {
+    try {
+      const res = await apiFetch(`${API_BASE}/inventory/sessions/${inventorySession.id}/finish`, { method: 'POST' });
+      if (!res.ok) return;
+      setShowInventoryFinish(true);
+    } catch {}
+  };
+
+  const closeInventory = () => {
+    setInventoryMode(false);
+    setInventorySession(null);
+    setInventoryChecks({});
+    setInventorySearch('');
+    setInventorySelected(null);
+    setShowInventoryFinish(false);
+    fetchAssets();
+  };
+
   const generateWindowsReport = () => {
     // Фильтруем активы с Windows
     const windowsFilter = assets.filter(asset => 
@@ -1412,6 +1504,8 @@ function App() {
         windows_key: asset.windows_key || '',
         os_type: asset.os_type || '',
         manual_age: asset.manual_age || '',
+        storage_type: asset.storage_type || '',
+        storage_size: asset.storage_size || '',
       });
       setIsEditing(true);
     } else {
@@ -1433,6 +1527,8 @@ function App() {
         windows_key: '',
         os_type: '',
         manual_age: '',
+        storage_type: '',
+        storage_size: '',
       });
       setIsEditing(false);
     }
@@ -1553,6 +1649,7 @@ function App() {
     }
   };
 
+
   const getHumanFieldName = (field) => {
     const labels = {
       inventory_number: 'Инвентарный номер',
@@ -1572,7 +1669,9 @@ function App() {
       issue_date: 'Дата выдачи',
       comment: 'Комментарий',
       created: 'Создание',
-      manual_age: 'Возраст'
+      manual_age: 'Возраст',
+      storage_type: 'Тип накопителя',
+      storage_size: 'Объём накопителя'
     };
     return labels[field] || field;
   };
@@ -2754,12 +2853,21 @@ function App() {
                   <i className="fas fa-qrcode"></i> Печать всех QR-кодов
                 </button>
     
-                <button 
-                  className="btn btn-warning btn-sm" 
+                <button
+                  className="btn btn-warning btn-sm"
                   onClick={generateWindowsReport}
                   title="Отчет по лицензиям Windows"
                 >
                   <i className="fab fa-windows"></i> Windows отчет
+                </button>
+
+                <button
+                  className={`btn btn-sm ${inventorySession && !inventoryMode ? 'btn-warning' : 'btn-secondary'}`}
+                  onClick={inventoryMode ? undefined : openInventory}
+                  title={inventoryMode ? 'Инвентаризация открыта' : inventorySession ? 'Продолжить инвентаризацию' : 'Начать инвентаризацию'}
+                  disabled={inventoryMode}
+                >
+                  <i className="fas fa-clipboard-check"></i> {inventorySession && !inventoryMode ? 'Продолжить' : 'Инвентаризация'}
                 </button>
 
               </>
@@ -3053,6 +3161,274 @@ function App() {
           )}
         </div>
       )}
+
+      {/* ───── Режим инвентаризации ───── */}
+      {token && inventoryMode && inventorySession && (() => {
+        const nonRetired = assets.filter(a => a.status !== 'списано');
+        const q = inventorySearch.trim().toLowerCase();
+        const filtered = q
+          ? nonRetired.filter(a =>
+              (a.inventory_number || '').toLowerCase().includes(q) ||
+              (a.model || '').toLowerCase().includes(q) ||
+              (a.serial_number || '').toLowerCase().includes(q) ||
+              (a.location || '').toLowerCase().includes(q)
+            )
+          : nonRetired;
+        const unchecked = filtered.filter(a => !inventoryChecks[a.id]);
+        const checked   = filtered.filter(a =>  inventoryChecks[a.id]);
+        const checkedCount = Object.keys(inventoryChecks).length;
+        const total = inventorySession.total_assets;
+        const pct = total > 0 ? Math.round(checkedCount / total * 100) : 0;
+        const notFoundAll = nonRetired.filter(a => !inventoryChecks[a.id]);
+
+        return (
+          <div className="mb-4">
+            {/* Шапка инвентаризации */}
+            <div className="card mb-3" style={{ borderColor: '#0d6efd' }}>
+              <div className="card-body py-2 px-3">
+                <div className="d-flex flex-wrap align-items-center gap-3">
+                  <div>
+                    <strong>Инвентаризация</strong>
+                    <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
+                      начата {new Date(inventorySession.started_at).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })} • {inventorySession.started_by}
+                    </span>
+                  </div>
+                  <div className="flex-grow-1" style={{ minWidth: '150px' }}>
+                    <div className="d-flex align-items-center gap-2">
+                      <div className="progress flex-grow-1" style={{ height: '8px' }}>
+                        <div className="progress-bar bg-success" style={{ width: `${pct}%` }}></div>
+                      </div>
+                      <span style={{ whiteSpace: 'nowrap', fontSize: '0.9rem' }}>
+                        <strong>{checkedCount}</strong> / {total}
+                      </span>
+                    </div>
+                  </div>
+                  {inventoryChangedUsers > 0 && (
+                    <span className="badge bg-info">обновлено пользователей: {inventoryChangedUsers}</span>
+                  )}
+                  <div className="d-flex gap-2">
+                    <button className="btn btn-outline-secondary btn-sm" onClick={() => setInventoryMode(false)}>
+                      Свернуть
+                    </button>
+                    <button className="btn btn-success btn-sm" onClick={finishInventory}>
+                      Завершить
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Поиск */}
+            <div className="input-group mb-3">
+              <span className="input-group-text"><i className="fas fa-search"></i></span>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Поиск по инв. №, модели, серийному номеру, расположению..."
+                value={inventorySearch}
+                autoFocus
+                onChange={e => setInventorySearch(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && unchecked.length === 1 && !inventorySelected) {
+                    setInventorySelected(unchecked[0]);
+                    setInventoryUserName(unchecked[0].user_name || '');
+                  }
+                }}
+              />
+              {inventorySearch && (
+                <button className="btn btn-outline-secondary" onClick={() => setInventorySearch('')}>
+                  <i className="fas fa-times"></i>
+                </button>
+              )}
+            </div>
+
+            {/* Панель подтверждения */}
+            {inventorySelected && (
+              <div className="card mb-3 border-primary">
+                <div className="card-body py-2 px-3">
+                  <div className="d-flex flex-wrap align-items-center gap-3">
+                    <div>
+                      <strong>{inventorySelected.model || '—'}</strong>
+                      <span className="text-muted ms-2">инв. №{inventorySelected.inventory_number}</span>
+                      <span className="badge bg-secondary ms-2">{inventorySelected.type}</span>
+                      <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>{inventorySelected.location}</span>
+                    </div>
+                    <div className="d-flex align-items-center gap-2 flex-grow-1">
+                      <label className="text-muted mb-0" style={{ whiteSpace: 'nowrap', fontSize: '0.9rem' }}>Пользователь:</label>
+                      <input
+                        type="text"
+                        className="form-control form-control-sm"
+                        value={inventoryUserName}
+                        onChange={e => setInventoryUserName(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && checkInventoryAsset(inventorySelected, inventoryUserName || null)}
+                        autoFocus
+                        placeholder="ФИО или пусто"
+                      />
+                    </div>
+                    <div className="d-flex gap-2">
+                      <button className="btn btn-outline-secondary btn-sm" onClick={() => setInventorySelected(null)}>
+                        Отмена
+                      </button>
+                      <button
+                        className="btn btn-success btn-sm"
+                        onClick={() => checkInventoryAsset(inventorySelected, inventoryUserName || null)}
+                      >
+                        <i className="fas fa-check"></i> Подтвердить
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Список — не найденные */}
+            {unchecked.length > 0 && (
+              <div className="mb-3">
+                {!q && <div className="text-muted mb-1" style={{ fontSize: '0.85rem' }}>Не отмечено ({unchecked.length})</div>}
+                <div className="list-group">
+                  {unchecked.map(asset => (
+                    <button
+                      key={asset.id}
+                      className={`list-group-item list-group-item-action py-2${inventorySelected?.id === asset.id ? ' active' : ''}`}
+                      onClick={() => {
+                        setInventorySelected(asset);
+                        setInventoryUserName(asset.user_name || '');
+                        setInventorySearch('');
+                      }}
+                    >
+                      {isMobile ? (
+                        <div className="d-flex align-items-start gap-2">
+                          <i className="far fa-square text-muted mt-1"></i>
+                          <div className="min-w-0 flex-grow-1">
+                            <div className="d-flex align-items-center gap-2 flex-wrap">
+                              <span style={{ fontSize: '0.78rem', opacity: 0.7 }}>{asset.inventory_number}</span>
+                              <span className="badge bg-light text-dark border" style={{ fontSize: '0.7rem' }}>{asset.type}</span>
+                            </div>
+                            <div className="fw-medium text-truncate">{asset.model || '—'}</div>
+                            <div style={{ fontSize: '0.82rem', opacity: 0.7 }}>{asset.location} · {asset.user_name || 'без пользователя'}</div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="d-flex align-items-center gap-3">
+                          <i className="far fa-square text-muted flex-shrink-0"></i>
+                          <span className="text-muted flex-shrink-0" style={{ fontSize: '0.8rem', width: '80px' }}>{asset.inventory_number}</span>
+                          <span className="flex-grow-1 text-truncate">{asset.model || '—'}</span>
+                          <span className="badge bg-light text-dark border flex-shrink-0">{asset.type}</span>
+                          <span className="text-muted flex-shrink-0" style={{ fontSize: '0.85rem', width: '110px' }}>{asset.location}</span>
+                          <span className="text-muted flex-shrink-0" style={{ fontSize: '0.85rem', width: '130px' }}>{asset.user_name || <em>без пользователя</em>}</span>
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Список — найденные */}
+            {checked.length > 0 && (
+              <div>
+                <div className="text-muted mb-1" style={{ fontSize: '0.85rem' }}>Найдено ({checked.length})</div>
+                <div className="list-group">
+                  {checked.map(asset => {
+                    const chk = inventoryChecks[asset.id];
+                    return (
+                      <div
+                        key={asset.id}
+                        className="list-group-item py-2"
+                        style={{ opacity: 0.6 }}
+                      >
+                        {isMobile ? (
+                          <div className="d-flex align-items-start gap-2">
+                            <i className="fas fa-check-square text-success mt-1 flex-shrink-0"></i>
+                            <div className="min-w-0 flex-grow-1">
+                              <div className="d-flex align-items-center gap-2 flex-wrap">
+                                <span style={{ fontSize: '0.78rem' }}>{asset.inventory_number}</span>
+                                <span className="badge bg-light text-dark border" style={{ fontSize: '0.7rem' }}>{asset.type}</span>
+                              </div>
+                              <div className="text-truncate">{asset.model || '—'}</div>
+                              <div style={{ fontSize: '0.82rem' }}>
+                                {chk?.user_name_before !== chk?.user_name_after
+                                  ? <><s>{chk?.user_name_before || '—'}</s> → <strong>{chk?.user_name_after || '—'}</strong></>
+                                  : (asset.user_name || 'без пользователя')
+                                }
+                              </div>
+                            </div>
+                            <button className="btn btn-link btn-sm p-0 flex-shrink-0" title="Снять отметку" onClick={() => uncheckInventoryAsset(asset.id)}>
+                              <i className="fas fa-undo text-muted"></i>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="d-flex align-items-center gap-3 text-muted">
+                            <i className="fas fa-check-square text-success flex-shrink-0"></i>
+                            <span style={{ fontSize: '0.8rem', width: '80px' }} className="flex-shrink-0">{asset.inventory_number}</span>
+                            <span className="flex-grow-1 text-truncate">{asset.model || '—'}</span>
+                            <span className="badge bg-light text-dark border flex-shrink-0">{asset.type}</span>
+                            <span style={{ fontSize: '0.85rem', width: '110px' }} className="flex-shrink-0">{asset.location}</span>
+                            <span style={{ fontSize: '0.85rem', width: '130px' }} className="flex-shrink-0">
+                              {chk?.user_name_before !== chk?.user_name_after
+                                ? <><s>{chk?.user_name_before || '—'}</s> → {chk?.user_name_after || '—'}</>
+                                : (asset.user_name || <em>без пользователя</em>)
+                              }
+                            </span>
+                            <button className="btn btn-link btn-sm text-muted p-0 flex-shrink-0" title="Снять отметку" onClick={() => uncheckInventoryAsset(asset.id)}>
+                              <i className="fas fa-undo"></i>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {filtered.length === 0 && q && (
+              <div className="text-center text-muted py-4">Ничего не найдено по запросу «{inventorySearch}»</div>
+            )}
+
+            {/* Модаль завершения */}
+            {showInventoryFinish && (
+              <>
+                <div className="modal fade show d-block" tabIndex="-1">
+                  <div className="modal-dialog modal-dialog-centered">
+                    <div className="modal-content">
+                      <div className="modal-header">
+                        <h5 className="modal-title">Итоги инвентаризации</h5>
+                      </div>
+                      <div className="modal-body">
+                        <p>
+                          Найдено: <strong className="text-success">{checkedCount}</strong> из <strong>{total}</strong>
+                        </p>
+                        {inventoryChangedUsers > 0 && (
+                          <p>Обновлено пользователей: <strong className="text-info">{inventoryChangedUsers}</strong></p>
+                        )}
+                        {notFoundAll.length > 0 && (
+                          <>
+                            <p className="mb-1 text-danger">Не найдено ({notFoundAll.length}):</p>
+                            <ul className="list-unstyled small" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                              {notFoundAll.map(a => (
+                                <li key={a.id} className="text-muted">
+                                  {a.inventory_number} — {a.model || '—'} ({a.location})
+                                </li>
+                              ))}
+                            </ul>
+                          </>
+                        )}
+                      </div>
+                      <div className="modal-footer">
+                        <button className="btn btn-primary" onClick={closeInventory}>
+                          Закрыть
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="modal-backdrop fade show"></div>
+              </>
+            )}
+          </div>
+        );
+      })()}
 
       <React.Fragment>
         {token && activeTab === 'assets' && !isMobile && (
@@ -3878,6 +4254,7 @@ function App() {
                 <button type="button" className="btn-close" onClick={closeModal}></button>
               </div>
               <div className="modal-body">
+
                 <form onSubmit={handleSubmit} className="row g-3">
                   <div className="col-md-6">
                     <label className="form-label">Инвентарный номер</label>
@@ -4054,6 +4431,36 @@ function App() {
                           name="ram"
                           value={formData.ram || ''}
                           onChange={handleChange}
+                        />
+                      </div>
+                    </>
+                  )}
+                  {(formData.type === 'Компьютер' || formData.type === 'Ноутбук') && (
+                    <>
+                      <div className="col-md-4">
+                        <label className="form-label">Тип накопителя</label>
+                        <select
+                          className="form-select"
+                          name="storage_type"
+                          value={formData.storage_type || ''}
+                          onChange={handleChange}
+                        >
+                          <option value="">Не указан</option>
+                          <option value="SSD">SSD</option>
+                          <option value="HDD">HDD</option>
+                          <option value="NVMe">NVMe</option>
+                          <option value="eMMC">eMMC</option>
+                        </select>
+                      </div>
+                      <div className="col-md-4">
+                        <label className="form-label">Объём накопителя</label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          name="storage_size"
+                          value={formData.storage_size || ''}
+                          onChange={handleChange}
+                          placeholder="Например: 512 ГБ"
                         />
                       </div>
                     </>
@@ -4480,6 +4887,9 @@ function App() {
                           <tr><th>Модель</th><td>{assetInfo.model || '-'}</td></tr>
                           <tr><th>Процессор</th><td>{assetInfo.processor || '-'}</td></tr>
                           <tr><th>ОЗУ</th><td>{assetInfo.ram || '-'}</td></tr>
+                          {(assetInfo.storage_type || assetInfo.storage_size) && (
+                            <tr><th>Накопитель</th><td>{[assetInfo.storage_type, assetInfo.storage_size].filter(Boolean).join(' ')}</td></tr>
+                          )}
                           <tr><th>Операционная система</th><td>{assetInfo.os_type || '-'}</td></tr>
                           {/* КЛЮЧ WINDOWS - ТОЛЬКО ЕСЛИ ОС СОДЕРЖИТ WINDOWS */}
                           {assetInfo.os_type && assetInfo.os_type.toLowerCase().includes('windows') && (
@@ -4496,7 +4906,7 @@ function App() {
                           )}
                         </>
                       )}
-                      
+
                       {/* ДЛЯ КОМПЬЮТЕРОВ */}
                       {assetInfo.type === 'Компьютер' && (
                         <>
@@ -4505,6 +4915,9 @@ function App() {
                           <tr><th>Материнская плата</th><td>{assetInfo.motherboard || '-'}</td></tr>
                           <tr><th>Процессор</th><td>{assetInfo.processor || '-'}</td></tr>
                           <tr><th>ОЗУ</th><td>{assetInfo.ram || '-'}</td></tr>
+                          {(assetInfo.storage_type || assetInfo.storage_size) && (
+                            <tr><th>Накопитель</th><td>{[assetInfo.storage_type, assetInfo.storage_size].filter(Boolean).join(' ')}</td></tr>
+                          )}
                           <tr><th>Операционная система</th><td>{assetInfo.os_type || '-'}</td></tr>
                           {/* КЛЮЧ WINDOWS - ТОЛЬКО ЕСЛИ ОС СОДЕРЖИТ WINDOWS */}
                           {assetInfo.os_type && assetInfo.os_type.toLowerCase().includes('windows') && (
