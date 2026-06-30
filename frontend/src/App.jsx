@@ -2683,17 +2683,11 @@ function App() {
       {token && (
         <header className="hdr">
           <div className="logo-wrap">
-            <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
-              <rect width="36" height="36" rx="7" style={{ fill: 'var(--bg-raised)', stroke: 'var(--border-color)' }} strokeWidth="1"/>
-              <rect x="6" y="8" width="24" height="20" rx="2.5" style={{ stroke: 'var(--accent)' }} strokeWidth="1.5" fill="none"/>
-              <line x1="6" y1="15" x2="30" y2="15" style={{ stroke: 'var(--accent)' }} strokeWidth=".7" strokeOpacity=".35"/>
-              <line x1="6" y1="21" x2="30" y2="21" style={{ stroke: 'var(--accent)' }} strokeWidth=".7" strokeOpacity=".35"/>
-              <rect x="10" y="10.5" width="8" height="1.8" rx=".9" style={{ fill: 'var(--accent)' }} opacity=".75"/>
-              <rect x="10" y="17" width="6" height="1.8" rx=".9" style={{ fill: 'var(--accent)' }} opacity=".5"/>
-              <rect x="10" y="22.5" width="7.5" height="1.8" rx=".9" style={{ fill: 'var(--accent)' }} opacity=".5"/>
-              <circle cx="25.5" cy="11.5" r="3.2" fill="#3A9D6E"/>
-              <polyline points="23.8,11.5 24.9,12.7 27.3,9.5" stroke="#fff" strokeWidth="1.1" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+            <img
+              src={isDarkMode ? '/asset-logo-blur.png' : '/enhanced_asset-logo2.png'}
+              alt="Asset Tracker"
+              style={{ height: '36px', width: '36px', objectFit: 'contain', borderRadius: '6px' }}
+            />
             <div>
               <div className="logo-text">Asset Tracker</div>
               <div className="logo-ver">АСПРО · v2.1</div>
