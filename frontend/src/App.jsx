@@ -4,7 +4,6 @@ import QRCode from "react-qr-code";
 import qrCodeGenerator from 'qrcode-generator';
 import './TableStyles.css';
 import packageInfo from '../package.json';
-import Select from 'react-select';
 import toast, { Toaster } from 'react-hot-toast';
 
 
@@ -2685,13 +2684,13 @@ function App() {
         <header className="hdr">
           <div className="logo-wrap">
             <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
-              <rect width="36" height="36" rx="7" fill="var(--bg-app)"/>
-              <rect x="6" y="8" width="24" height="20" rx="2.5" stroke="var(--accent)" strokeWidth="1.5"/>
-              <line x1="6" y1="15" x2="30" y2="15" stroke="var(--accent)" strokeWidth=".7" strokeOpacity=".35"/>
-              <line x1="6" y1="21" x2="30" y2="21" stroke="var(--accent)" strokeWidth=".7" strokeOpacity=".35"/>
-              <rect x="10" y="10.5" width="8" height="1.8" rx=".9" fill="var(--accent)" opacity=".75"/>
-              <rect x="10" y="17" width="6" height="1.8" rx=".9" fill="var(--accent)" opacity=".5"/>
-              <rect x="10" y="22.5" width="7.5" height="1.8" rx=".9" fill="var(--accent)" opacity=".5"/>
+              <rect width="36" height="36" rx="7" style={{ fill: 'var(--bg-raised)', stroke: 'var(--border-color)' }} strokeWidth="1"/>
+              <rect x="6" y="8" width="24" height="20" rx="2.5" style={{ stroke: 'var(--accent)' }} strokeWidth="1.5" fill="none"/>
+              <line x1="6" y1="15" x2="30" y2="15" style={{ stroke: 'var(--accent)' }} strokeWidth=".7" strokeOpacity=".35"/>
+              <line x1="6" y1="21" x2="30" y2="21" style={{ stroke: 'var(--accent)' }} strokeWidth=".7" strokeOpacity=".35"/>
+              <rect x="10" y="10.5" width="8" height="1.8" rx=".9" style={{ fill: 'var(--accent)' }} opacity=".75"/>
+              <rect x="10" y="17" width="6" height="1.8" rx=".9" style={{ fill: 'var(--accent)' }} opacity=".5"/>
+              <rect x="10" y="22.5" width="7.5" height="1.8" rx=".9" style={{ fill: 'var(--accent)' }} opacity=".5"/>
               <circle cx="25.5" cy="11.5" r="3.2" fill="#3A9D6E"/>
               <polyline points="23.8,11.5 24.9,12.7 27.3,9.5" stroke="#fff" strokeWidth="1.1" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
@@ -3151,15 +3150,15 @@ function App() {
                 <thead>
                   <tr>
                     <th style={{ width: '44px' }}>ID</th>
-                    <th>Инв. номер</th>
-                    <th>Серийный №</th>
-                    <th>Статус</th>
-                    <th>Расположение</th>
-                    <th>ФИО пользователя</th>
-                    <th>Возраст</th>
+                    <th style={{ width: '106px' }}>Инв. номер</th>
+                    <th style={{ width: '96px' }}>Серийный №</th>
+                    <th style={{ width: '116px' }}>Статус</th>
+                    <th style={{ width: '106px' }}>Расположение</th>
+                    <th style={{ width: '130px' }}>ФИО пользователя</th>
+                    <th style={{ width: '72px' }}>Возраст</th>
                     <th>Комментарий</th>
-                    {warrantyFilter === 'active' && <th style={{ color: 'rgba(107,122,153,.5)' }}>Гарантия до *</th>}
-                    <th className="th-r" style={{ width: '180px' }}>Действия</th>
+                    {warrantyFilter === 'active' && <th style={{ width: '90px', color: 'rgba(107,122,153,.5)' }}>Гарантия до *</th>}
+                    <th className="th-r" style={{ width: '174px' }}>Действия</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -3287,7 +3286,7 @@ function App() {
                             )}
                           </td>
                           {warrantyFilter === 'active' && <td style={{ fontSize: '11px', fontVariantNumeric: 'tabular-nums' }}>{asset.warranty_until || '—'}</td>}
-                          <td>
+                          <td className="td-actions">
                             <div className="ra">
                               <button
                                 className={`ra-btn ${showHistory === asset.id ? 'ra-on' : ''}`}
