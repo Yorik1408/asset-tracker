@@ -3158,7 +3158,7 @@ function App() {
                     <th style={{ width: '72px' }}>Возраст</th>
                     <th>Комментарий</th>
                     {warrantyFilter === 'active' && <th style={{ width: '90px', color: 'rgba(107,122,153,.5)' }}>Гарантия до *</th>}
-                    <th className="th-r" style={{ width: '174px' }}>Действия</th>
+                    <th className="th-r" style={{ width: '106px' }}>Действия</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -3288,19 +3288,21 @@ function App() {
                           {warrantyFilter === 'active' && <td style={{ fontSize: '11px', fontVariantNumeric: 'tabular-nums' }}>{asset.warranty_until || '—'}</td>}
                           <td className="td-actions">
                             <div className="ra">
-                              <button
-                                className={`ra-btn ${showHistory === asset.id ? 'ra-on' : ''}`}
-                                title={showHistory === asset.id ? "Скрыть историю" : "История"}
-                                onClick={() => { if (showHistory === asset.id) { setShowHistory(null); } else { setShowHistory(asset.id); setHistoryPage(1); } }}
-                              >↺</button>
-                              <button className="ra-btn" title="Информация" onClick={() => openAssetInfoModal(asset)}>i</button>
-                              <button className="ra-btn" title="Копировать" onClick={() => handleCopyAssetInfo(asset)}>⎘</button>
+                              <div className="ra-row">
+                                <button
+                                  className={`ra-btn ${showHistory === asset.id ? 'ra-on' : ''}`}
+                                  title={showHistory === asset.id ? "Скрыть историю" : "История"}
+                                  onClick={() => { if (showHistory === asset.id) { setShowHistory(null); } else { setShowHistory(asset.id); setHistoryPage(1); } }}
+                                >↺</button>
+                                <button className="ra-btn" title="Информация" onClick={() => openAssetInfoModal(asset)}>i</button>
+                                <button className="ra-btn" title="Копировать" onClick={() => handleCopyAssetInfo(asset)}>⎘</button>
+                              </div>
                               {user?.is_admin && (
-                                <>
+                                <div className="ra-row">
                                   <button className="ra-btn" title="Редактировать" onClick={() => handleEdit(asset)}>✎</button>
                                   <button className="ra-btn ra-del" title="Удалить" onClick={() => handleDelete(asset.id)}>⊠</button>
                                   <button className="ra-btn ra-fix" title="Ремонты" onClick={() => openRepairsModal(asset.id)}>⚙</button>
-                                </>
+                                </div>
                               )}
                             </div>
                           </td>
@@ -3837,253 +3839,178 @@ function App() {
                 <button type="button" className="btn-close" onClick={closeModal}></button>
               </div>
               <div className="modal-body">
+                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '13px' }}>
 
-                <form onSubmit={handleSubmit} className="row g-3">
-                  <div className="col-md-6">
-                    <label className="form-label">Инвентарный номер</label>
-                    <input
-                      type="text"
-                      className="form-control required-field"
-                      name="inventory_number"
-                      value={formData.inventory_number}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-                  <div className="col-md-6">
-                    <label className="form-label">Тип</label>
-                    <select
-                      className="form-select required-field"
-                      name="type"
-                      value={formData.type}
-                      onChange={handleChange}
-                      required
-                    >
-                      <option value="">Выберите тип</option>
-                      <option value="Монитор">Монитор</option>
-                      <option value="Компьютер">Компьютер</option>
-                      <option value="Ноутбук">Ноутбук</option>
-                      <option value="Прочее">Прочее</option>
-                    </select>
-                  </div>
-                  <div className="col-md-6">
-                    <label className="form-label">Серийный номер</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      name="serial_number"
-                      value={formData.serial_number || ''}
-                      onChange={handleChange}
-                    />
-                  </div>
-                  <div className="col-md-6">
-                    <label className="form-label">Модель</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      name="model"
-                      value={formData.model || ''}
-                      onChange={handleChange}
-                    />
-                  </div>
-                  <div className="col-md-6">
-                    <label className="form-label">Расположение</label>
-                    <input
-                      type="text"
-                      className="form-control required-field"
-                      name="location"
-                      value={formData.location}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-                  <div className="col-md-6">
-                    <label className="form-label">ФИО пользователя</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      name="user_name"
-                      value={formData.user_name || ''}
-                      onChange={handleChange}
-                    />
-                  </div>
-                  <div className="col-md-6">
-                    <label className="form-label">Статус</label>
-                    <select
-                      className="form-select"
-                      name="status"
-                      value={formData.status}
-                      onChange={handleChange}
-                    >
-                      <option value="в эксплуатации">в эксплуатации</option>
-                      <option value="на ремонте">на ремонте</option>
-                      <option value="списано">списано</option>
-                    </select>
-                  </div>
-                  <div className="col-md-6">
-                    <label className="form-label">Дата покупки</label>
-                    <input
-                      type="date"
-                      className="form-control"
-                      name="purchase_date"
-                      value={formData.purchase_date || ''}
-                      onChange={handleChange}
-                    />
+                  <div className="mrow">
+                    <div className="mf">
+                      <label>Инвентарный номер *</label>
+                      <input type="text" name="inventory_number" value={formData.inventory_number} onChange={handleChange} required />
+                    </div>
+                    <div className="mf">
+                      <label>Тип *</label>
+                      <select name="type" value={formData.type} onChange={handleChange} required>
+                        <option value="">Выберите тип</option>
+                        <option value="Монитор">Монитор</option>
+                        <option value="Компьютер">Компьютер</option>
+                        <option value="Ноутбук">Ноутбук</option>
+                        <option value="Прочее">Прочее</option>
+                      </select>
+                    </div>
                   </div>
 
-                  {/* Поле возраста */}
-                  <div className="col-md-6">
-                    <label className="form-label">
-                      Возраст (если дата покупки неизвестна)
-                      <small className="text-muted d-block">Например: "5 лет", "около 3 лет"</small>
-                    </label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      name="manual_age" 
-                      value={formData.manual_age || ''} 
-                      onChange={handleChange}
-                      placeholder="3 года, 5 лет, более 10 лет..."
-                    />
+                  <div className="mrow">
+                    <div className="mf">
+                      <label>Серийный номер</label>
+                      <input type="text" name="serial_number" value={formData.serial_number || ''} onChange={handleChange} />
+                    </div>
+                    <div className="mf">
+                      <label>Модель</label>
+                      <input type="text" name="model" value={formData.model || ''} onChange={handleChange} />
+                    </div>
                   </div>
 
-                  {/* Показываем какой возраст будет отображаться */}
+                  <div className="mrow">
+                    <div className="mf">
+                      <label>Расположение *</label>
+                      <input type="text" name="location" value={formData.location} onChange={handleChange} required />
+                    </div>
+                    <div className="mf">
+                      <label>ФИО пользователя</label>
+                      <input type="text" name="user_name" value={formData.user_name || ''} onChange={handleChange} />
+                    </div>
+                  </div>
+
+                  <div className="mrow">
+                    <div className="mf">
+                      <label>Статус</label>
+                      <select name="status" value={formData.status} onChange={handleChange}>
+                        <option value="в эксплуатации">в эксплуатации</option>
+                        <option value="на ремонте">на ремонте</option>
+                        <option value="списано">списано</option>
+                      </select>
+                    </div>
+                    <div className="mf">
+                      <label>Дата покупки</label>
+                      <input type="date" name="purchase_date" value={formData.purchase_date || ''} onChange={handleChange} />
+                    </div>
+                  </div>
+
+                  <div className="mrow">
+                    <div className="mf">
+                      <label>Возраст (если дата покупки неизвестна)</label>
+                      <input type="text" name="manual_age" value={formData.manual_age || ''} onChange={handleChange} placeholder="3 года, 5 лет..." />
+                    </div>
+                    <div className="mf">
+                      <label>Гарантия до</label>
+                      <input type="date" name="warranty_until" value={formData.warranty_until || ''} onChange={handleChange} />
+                    </div>
+                  </div>
+
+                  <div className="mf">
+                    <label>Комментарий</label>
+                    <input type="text" name="comment" value={formData.comment || ''} onChange={handleChange} />
+                  </div>
+
                   {(formData.purchase_date || formData.manual_age) && (
-                    <div className="col-12">
-                      <div className="alert alert-info">
-                        <strong>Возраст будет отображаться как:</strong> 
-                        <span className={getAgeClass(formData)}>
-                          {calculateAssetAge(formData)}
-                        </span>
-                      </div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', padding: '7px 11px', background: 'var(--bg-raised)', borderRadius: '5px', border: '1px solid var(--border-color)' }}>
+                      Возраст будет отображаться как: <span className={getAgeClass(formData)}>{calculateAssetAge(formData)}</span>
                     </div>
                   )}
 
-                  <div className="col-md-6">
-                    <label className="form-label">Гарантия до</label>
-                    <input
-                      type="date"
-                      className="form-control"
-                      name="warranty_until"
-                      value={formData.warranty_until || ''}
-                      onChange={handleChange}
-                    />
-                  </div>
-                  <div className="col-md-6">
-                    <label className="form-label">Комментарий</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      name="comment"
-                      value={formData.comment || ''}
-                      onChange={handleChange}
-                    />
-                  </div>
-                  {/* Материнская плата - только для компьютеров */}
                   {formData.type === 'Компьютер' && (
-                    <div className="col-md-4">
-                      <label className="form-label">Мат. плата</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        name="motherboard"
-                        value={formData.motherboard || ''}
-                        onChange={handleChange}
-                      />
-                    </div>
+                    <>
+                      <div className="msec">Характеристики</div>
+                      <div className="mrow3">
+                        <div className="mf">
+                          <label>Мат. плата</label>
+                          <input type="text" name="motherboard" value={formData.motherboard || ''} onChange={handleChange} />
+                        </div>
+                        <div className="mf">
+                          <label>Процессор</label>
+                          <input type="text" name="processor" value={formData.processor || ''} onChange={handleChange} />
+                        </div>
+                        <div className="mf">
+                          <label>ОЗУ</label>
+                          <input type="text" name="ram" value={formData.ram || ''} onChange={handleChange} />
+                        </div>
+                      </div>
+                      <div className="mrow">
+                        <div className="mf">
+                          <label>Тип накопителя</label>
+                          <select name="storage_type" value={formData.storage_type || ''} onChange={handleChange}>
+                            <option value="">Не указан</option>
+                            <option value="SSD">SSD</option>
+                            <option value="HDD">HDD</option>
+                            <option value="NVMe">NVMe</option>
+                            <option value="eMMC">eMMC</option>
+                          </select>
+                        </div>
+                        <div className="mf">
+                          <label>Объём накопителя</label>
+                          <input type="text" name="storage_size" value={formData.storage_size || ''} onChange={handleChange} placeholder="512 ГБ" />
+                        </div>
+                      </div>
+                      <div className="mrow">
+                        <div className="mf">
+                          <label>Ключ Windows</label>
+                          <input type="text" name="windows_key" value={formData.windows_key || ''} onChange={handleChange} />
+                        </div>
+                        <div className="mf">
+                          <label>Тип ОС</label>
+                          <input type="text" name="os_type" value={formData.os_type || ''} onChange={handleChange} />
+                        </div>
+                      </div>
+                    </>
                   )}
 
-                  {/* Процессор и ОЗУ - для компьютеров И ноутбуков */}
-                  {(formData.type === 'Компьютер' || formData.type === 'Ноутбук') && (
-                    <>
-                      <div className="col-md-4">
-                        <label className="form-label">Процессор</label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          name="processor"
-                          value={formData.processor || ''}
-                          onChange={handleChange}
-                        />
-                      </div>
-                      <div className="col-md-4">
-                        <label className="form-label">ОЗУ</label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          name="ram"
-                          value={formData.ram || ''}
-                          onChange={handleChange}
-                        />
-                      </div>
-                    </>
-                  )}
-                  {(formData.type === 'Компьютер' || formData.type === 'Ноутбук') && (
-                    <>
-                      <div className="col-md-4">
-                        <label className="form-label">Тип накопителя</label>
-                        <select
-                          className="form-select"
-                          name="storage_type"
-                          value={formData.storage_type || ''}
-                          onChange={handleChange}
-                        >
-                          <option value="">Не указан</option>
-                          <option value="SSD">SSD</option>
-                          <option value="HDD">HDD</option>
-                          <option value="NVMe">NVMe</option>
-                          <option value="eMMC">eMMC</option>
-                        </select>
-                      </div>
-                      <div className="col-md-4">
-                        <label className="form-label">Объём накопителя</label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          name="storage_size"
-                          value={formData.storage_size || ''}
-                          onChange={handleChange}
-                          placeholder="Например: 512 ГБ"
-                        />
-                      </div>
-                    </>
-                  )}
-                  {(formData.type === 'Компьютер' || formData.type === 'Ноутбук') && (
-                    <>
-                      <div className="col-md-6">
-                        <label className="form-label">Ключ Windows</label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          name="windows_key"
-                          value={formData.windows_key || ''}
-                          onChange={handleChange}
-                        />
-                      </div>
-                      <div className="col-md-6">
-                        <label className="form-label">Тип ОС</label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          name="os_type"
-                          value={formData.os_type || ''}
-                          onChange={handleChange}
-                        />
-                      </div>
-                    </>
-                  )}
                   {formData.type === 'Ноутбук' && (
-                    <div className="col-md-6">
-                      <label className="form-label">Дата выдачи</label>
-                      <input
-                        type="date"
-                        className="form-control"
-                        name="issue_date"
-                        value={formData.issue_date || ''}
-                        onChange={handleChange}
-                      />
-                    </div>
+                    <>
+                      <div className="msec">Характеристики</div>
+                      <div className="mrow">
+                        <div className="mf">
+                          <label>Процессор</label>
+                          <input type="text" name="processor" value={formData.processor || ''} onChange={handleChange} />
+                        </div>
+                        <div className="mf">
+                          <label>ОЗУ</label>
+                          <input type="text" name="ram" value={formData.ram || ''} onChange={handleChange} />
+                        </div>
+                      </div>
+                      <div className="mrow">
+                        <div className="mf">
+                          <label>Тип накопителя</label>
+                          <select name="storage_type" value={formData.storage_type || ''} onChange={handleChange}>
+                            <option value="">Не указан</option>
+                            <option value="SSD">SSD</option>
+                            <option value="HDD">HDD</option>
+                            <option value="NVMe">NVMe</option>
+                            <option value="eMMC">eMMC</option>
+                          </select>
+                        </div>
+                        <div className="mf">
+                          <label>Объём накопителя</label>
+                          <input type="text" name="storage_size" value={formData.storage_size || ''} onChange={handleChange} placeholder="512 ГБ" />
+                        </div>
+                      </div>
+                      <div className="mrow">
+                        <div className="mf">
+                          <label>Ключ Windows</label>
+                          <input type="text" name="windows_key" value={formData.windows_key || ''} onChange={handleChange} />
+                        </div>
+                        <div className="mf">
+                          <label>Тип ОС</label>
+                          <input type="text" name="os_type" value={formData.os_type || ''} onChange={handleChange} />
+                        </div>
+                      </div>
+                      <div style={{ maxWidth: '50%' }}>
+                        <div className="mf">
+                          <label>Дата выдачи</label>
+                          <input type="date" name="issue_date" value={formData.issue_date || ''} onChange={handleChange} />
+                        </div>
+                      </div>
+                    </>
                   )}
+
                 </form>
               </div>
               <div className="modal-footer">
