@@ -4021,125 +4021,106 @@ function App() {
       )}
 
       {showUserModal && (
-        <div className="modal fade show" style={{ display: 'block' }} tabIndex="-1" role="dialog">
-          <div className="modal-dialog modal-lg" role="document">
+        <div className="modal fade show" style={{ display: 'block' }} tabIndex="-1">
+          <div className="modal-dialog modal-lg">
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">
-                  {isEditingUser ? 'Редактировать пользователя' : 'Создать пользователя'}
+                  {isEditingUser ? 'Редактировать пользователя' : 'Пользователи'}
                 </h5>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={() => {
-                    setShowUserModal(false);
-                    setIsEditingUser(false);
-                    setEditingUser(null);
-                    setUserFormData({ username: '', password: '', is_admin: false });
-                  }}
-                ></button>
+                <button type="button" className="btn-close" onClick={() => { setShowUserModal(false); setIsEditingUser(false); setEditingUser(null); setUserFormData({ username: '', password: '', is_admin: false }); }}></button>
               </div>
-              <div className="modal-body">
-                <form onSubmit={handleUserSubmit} className="mb-4">
-                  <div className="mb-3">
-                    <label className="form-label">Имя пользователя</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      name="username"
-                      value={userFormData.username}
-                      onChange={handleUserChange}
-                      required
-                    />
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '13px' }}>
+
+                {/* Форма создания / редактирования */}
+                <form onSubmit={handleUserSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '13px' }}>
+                  <div className="msec" style={{ marginTop: 0, paddingTop: 0, borderTop: 'none' }}>
+                    {isEditingUser ? 'Редактировать пользователя' : 'Новый пользователь'}
                   </div>
-                  <div className="mb-3">
-                    <label className="form-label">
-                      {isEditingUser ? 'Новый пароль (оставьте пустым, чтобы не менять)' : 'Пароль'}
-                    </label>
-                    <input
-                      type="password"
-                      className="form-control"
-                      name="password"
-                      value={userFormData.password}
-                      onChange={handleUserChange}
-                      required={!isEditingUser}
-                    />
+                  <div className="mrow">
+                    <div className="mf">
+                      <label>Имя пользователя</label>
+                      <input type="text" name="username" value={userFormData.username} onChange={handleUserChange} required />
+                    </div>
+                    <div className="mf">
+                      <label>{isEditingUser ? 'Новый пароль (пусто — не менять)' : 'Пароль'}</label>
+                      <input type="password" name="password" value={userFormData.password} onChange={handleUserChange} required={!isEditingUser} />
+                    </div>
                   </div>
-                  <div className="mb-3 form-check">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <input
                       type="checkbox"
-                      className="form-check-input"
+                      id="is_admin_cb"
                       name="is_admin"
                       checked={userFormData.is_admin}
                       onChange={handleUserChange}
+                      style={{ width: '16px', height: '16px', accentColor: 'var(--accent)', cursor: 'pointer', flexShrink: 0 }}
                     />
-                    <label className="form-check-label">Администратор</label>
+                    <label htmlFor="is_admin_cb" style={{ fontSize: '13px', color: 'var(--text-primary)', cursor: 'pointer', margin: 0 }}>
+                      Администратор
+                    </label>
                   </div>
-                  <button type="submit" className="btn btn-success">
-                    {isEditingUser ? 'Сохранить изменения' : 'Создать'}
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button type="submit" className="btn-ok">
+                      {isEditingUser ? 'Сохранить' : 'Создать пользователя'}
+                    </button>
+                    {isEditingUser && (
+                      <button type="button" className="btn-sec" onClick={() => { setIsEditingUser(false); setEditingUser(null); setUserFormData({ username: '', password: '', is_admin: false }); }}>
+                        Отмена
+                      </button>
+                    )}
+                  </div>
                 </form>
+
+                {/* Список пользователей */}
                 {user?.is_admin && (
-                  <div>
-                    <h5>Список пользователей</h5>
-                    <div className="table-responsive">
-                      <table className="table table-striped table-hover">
+                  <>
+                    <div className="msec">Список пользователей</div>
+                    <div style={{ border: '1px solid var(--border-color)', borderRadius: '6px', overflow: 'hidden' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
-                          <tr>
-                            <th>ID</th>
-                            <th>Имя пользователя</th>
-                            <th>Администратор</th>
-                            <th>Действия</th>
+                          <tr style={{ background: 'var(--bg-raised)', borderBottom: '1px solid var(--border-color)' }}>
+                            <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', width: '44px' }}>ID</th>
+                            <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)' }}>Пользователь</th>
+                            <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', width: '140px' }}>Роль</th>
+                            <th style={{ padding: '8px 12px', textAlign: 'right', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', width: '72px' }}>Действия</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {users.length > 0 ? (
-                            users.map(u => (
-                              <tr key={u.id}>
-                                <td>{u.id}</td>
-                                <td>{u.username}</td>
-                                <td>{u.is_admin ? 'Да' : 'Нет'}</td>
-                                <td>
-                                  <button
-                                    className="btn btn-sm btn-outline-primary me-1"
-                                    onClick={() => openUserModal(u)}
-                                    title="Редактировать"
-                                  >
-                                    <i className="fas fa-edit"></i>
-                                  </button>
-                                  <button
-                                    className="btn btn-sm btn-outline-danger"
-                                    onClick={() => handleDeleteUser(u.id)}
-                                    title="Удалить"
-                                    disabled={u.id === user.id}
-                                  >
-                                    <i className="fas fa-trash"></i>
-                                  </button>
-                                </td>
-                              </tr>
-                            ))
-                          ) : (
+                          {users.length > 0 ? users.map((u, idx) => (
+                            <tr key={u.id} style={{ borderBottom: idx < users.length - 1 ? '1px solid var(--bg-raised)' : 'none' }}>
+                              <td style={{ padding: '8px 12px' }}><span className="cell-id">{u.id}</span></td>
+                              <td style={{ padding: '8px 12px', color: 'var(--text-primary)', fontSize: '13px' }}>
+                                {u.username}
+                                {u.id === user.id && <span style={{ marginLeft: '7px', fontSize: '10px', color: 'var(--accent)', fontWeight: 600 }}>вы</span>}
+                              </td>
+                              <td style={{ padding: '8px 12px' }}>
+                                {u.is_admin
+                                  ? <span className="pill pill-on"><span className="pill-dot"></span>Администратор</span>
+                                  : <span className="pill pill-off"><span className="pill-dot"></span>Пользователь</span>
+                                }
+                              </td>
+                              <td style={{ padding: '8px 12px' }}>
+                                <div className="ra-row" style={{ justifyContent: 'flex-end' }}>
+                                  <button className="ra-btn" title="Редактировать" onClick={() => openUserModal(u)}>✎</button>
+                                  <button className="ra-btn ra-del" title="Удалить" onClick={() => handleDeleteUser(u.id)} disabled={u.id === user.id}>⊠</button>
+                                </div>
+                              </td>
+                            </tr>
+                          )) : (
                             <tr>
-                              <td colSpan="4" className="text-center">Нет пользователей</td>
+                              <td colSpan="4" style={{ padding: '16px 12px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>Нет пользователей</td>
                             </tr>
                           )}
                         </tbody>
                       </table>
                     </div>
-                  </div>
+                  </>
                 )}
+
               </div>
               <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    setShowUserModal(false);
-                    setIsEditingUser(false);
-                    setEditingUser(null);
-                    setUserFormData({ username: '', password: '', is_admin: false });
-                  }}
-                >
+                <button type="button" className="btn btn-secondary" onClick={() => { setShowUserModal(false); setIsEditingUser(false); setEditingUser(null); setUserFormData({ username: '', password: '', is_admin: false }); }}>
                   Закрыть
                 </button>
               </div>
