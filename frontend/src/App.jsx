@@ -128,8 +128,18 @@ function App() {
   const [inventorySearch, setInventorySearch] = useState('');
   const [inventorySelected, setInventorySelected] = useState(null); // актив для подтверждения
   const [inventoryUserName, setInventoryUserName] = useState('');
+  const [inventoryLocation, setInventoryLocation] = useState('');
   const [showInventoryFinish, setShowInventoryFinish] = useState(false);
   const [inventoryChangedUsers, setInventoryChangedUsers] = useState(0);
+
+  // Export modal
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportScope, setExportScope] = useState('current');
+  const [exportFormat, setExportFormat] = useState('xlsx');
+  // Import modal
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importFile, setImportFile] = useState(null);
+  const [importDragOver, setImportDragOver] = useState(false);
 
   const getStatusColor = (status) => {
     switch(status) {
@@ -231,116 +241,87 @@ function App() {
   // Toast helper functions
   const showToast = {
     success: (message, options = {}) => {
-      toast.success(message, {
-        icon: '✅',
-        duration: 3000,
-        ...options,
-      });
+      const { duration = 3000 } = options;
+      toast.custom((t) => (
+        <div className={`t-base t-success${t.visible ? '' : ' t-out'}`}>
+          <span className="t-icon">✓</span>
+          <span className="t-msg">{message}</span>
+        </div>
+      ), { duration });
     },
-    
+
     error: (message, options = {}) => {
-      toast.error(message, {
-        icon: '❌',
-        duration: 4000,
-        ...options,
-      });
+      const { duration = 4000 } = options;
+      toast.custom((t) => (
+        <div className={`t-base t-error${t.visible ? '' : ' t-out'}`}>
+          <span className="t-icon">✕</span>
+          <span className="t-msg">{message}</span>
+        </div>
+      ), { duration });
     },
-    
+
     loading: (message) => {
-      return toast.loading(message, {
-        icon: '⏳',
-      });
+      return toast.custom((t) => (
+        <div className={`t-base t-load${t.visible ? '' : ' t-out'}`}>
+          <span className="t-icon"><span className="t-spinner"></span></span>
+          <span className="t-msg">{message}</span>
+        </div>
+      ), { duration: Infinity });
     },
-    
+
     info: (message, options = {}) => {
-      toast(message, {
-        icon: 'ℹ️',
-        style: {
-          background: '#3b82f6',
-          color: '#fff',
-        },
-        duration: 3000,
-        ...options,
-      });
+      const { duration = 3000 } = options;
+      toast.custom((t) => (
+        <div className={`t-base t-info${t.visible ? '' : ' t-out'}`}>
+          <span className="t-icon t-icon-i">i</span>
+          <span className="t-msg">{message}</span>
+        </div>
+      ), { duration });
     },
-    
+
     warning: (message, options = {}) => {
-      toast(message, {
-        icon: '⚠️',
-        style: {
-          background: '#f59e0b',
-          color: '#fff',
-        },
-        duration: 4000,
-        ...options,
-      });
+      const { duration = 4000 } = options;
+      toast.custom((t) => (
+        <div className={`t-base t-warn${t.visible ? '' : ' t-out'}`}>
+          <span className="t-icon">!</span>
+          <span className="t-msg">{message}</span>
+        </div>
+      ), { duration });
     },
 
     confirm: (message, onConfirm, onCancel = null) => {
       return toast.custom((t) => (
-        <div className="bg-white rounded-lg shadow-lg p-4 border toast-confirm" style={{ minWidth: '300px' }}>
-          <div className="d-flex align-items-start">
-            <i className="fas fa-question-circle text-primary me-3 mt-1"></i>
-            <div className="flex-grow-1">
-              <h6 className="mb-2 fw-bold">Подтверждение</h6>
-              <p className="mb-3 text-muted small">{message}</p>
-              <div className="d-flex gap-2">
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={() => {
-                    toast.dismiss(t.id);
-                    onConfirm && onConfirm();
-                  }}
-                >
-                  Да
-                </button>
-                <button
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => {
-                    toast.dismiss(t.id);
-                    onCancel && onCancel();
-                  }}
-                >
-                  Отмена
-                </button>
-              </div>
-            </div>
+        <div className={`t-base t-confirm${t.visible ? '' : ' t-out'}`}>
+          <div className="t-confirm-title">Подтверждение</div>
+          <div className="t-confirm-msg">{message}</div>
+          <div className="t-confirm-btns">
+            <button className="btn-ok" style={{ fontSize: '12px', height: '28px', padding: '0 14px' }}
+              onClick={() => { toast.dismiss(t.id); onConfirm && onConfirm(); }}>
+              Да
+            </button>
+            <button className="btn-sec" style={{ fontSize: '12px', height: '28px', padding: '0 14px' }}
+              onClick={() => { toast.dismiss(t.id); onCancel && onCancel(); }}>
+              Отмена
+            </button>
           </div>
         </div>
-      ), { 
-        duration: Infinity,
-      });
+      ), { duration: Infinity });
     },
 
     deleteConfirm: (message, onConfirm, onCancel = null) => {
       return toast.custom((t) => (
-        <div className="bg-white rounded-lg shadow-lg p-4 border toast-confirm" style={{ minWidth: '300px' }}>
-          <div className="d-flex align-items-start">
-            <i className="fas fa-exclamation-triangle text-danger me-3 mt-1"></i>
-            <div className="flex-grow-1">
-              <h6 className="mb-2 fw-bold text-danger">Подтверждение удаления</h6>
-              <p className="mb-3 text-muted small">{message}</p>
-              <div className="d-flex gap-2">
-                <button
-                  className="btn btn-danger btn-sm"
-                  onClick={() => {
-                    toast.dismiss(t.id);
-                    onConfirm && onConfirm();
-                  }}
-                >
-                  Удалить
-                </button>
-                <button
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => {
-                    toast.dismiss(t.id);
-                    onCancel && onCancel();
-                  }}
-                >
-                  Отмена
-                </button>
-              </div>
-            </div>
+        <div className={`t-base t-confirm t-confirm-del${t.visible ? '' : ' t-out'}`}>
+          <div className="t-confirm-title t-confirm-del-title">Удалить?</div>
+          <div className="t-confirm-msg">{message}</div>
+          <div className="t-confirm-btns">
+            <button className="btn-ok" style={{ fontSize: '12px', height: '28px', padding: '0 14px', background: '#C93A3A', borderColor: '#C93A3A' }}
+              onClick={() => { toast.dismiss(t.id); onConfirm && onConfirm(); }}>
+              Удалить
+            </button>
+            <button className="btn-sec" style={{ fontSize: '12px', height: '28px', padding: '0 14px' }}
+              onClick={() => { toast.dismiss(t.id); onCancel && onCancel(); }}>
+              Отмена
+            </button>
           </div>
         </div>
       ), { duration: Infinity });
@@ -867,18 +848,25 @@ function App() {
     } catch { showToast.error('Ошибка сети'); }
   };
 
-  const checkInventoryAsset = async (asset, userName) => {
+  const checkInventoryAsset = async (asset, userName, location) => {
     try {
       const res = await apiFetch(`${API_BASE}/inventory/sessions/${inventorySession.id}/check`, {
         method: 'POST',
-        body: JSON.stringify({ asset_id: asset.id, user_name: userName }),
+        body: JSON.stringify({ asset_id: asset.id, user_name: userName, location: location || null }),
       });
       const data = await res.json();
       if (!res.ok) { showToast.error(data.detail || 'Ошибка'); return; }
       setInventoryChecks(prev => ({ ...prev, [asset.id]: data }));
+      const updates = {};
       if (data.user_name_before !== data.user_name_after) {
         setInventoryChangedUsers(prev => prev + 1);
-        setAssets(prev => prev.map(a => a.id === asset.id ? { ...a, user_name: userName } : a));
+        updates.user_name = userName;
+      }
+      if (location && location.trim() && location.trim() !== asset.location) {
+        updates.location = location.trim();
+      }
+      if (Object.keys(updates).length > 0) {
+        setAssets(prev => prev.map(a => a.id === asset.id ? { ...a, ...updates } : a));
       }
       setInventorySelected(null);
     } catch { showToast.error('Ошибка сети'); }
@@ -1107,6 +1095,8 @@ function App() {
     fetchAssets();
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
+        if (showExportModal) setShowExportModal(false);
+        if (showImportModal) { setShowImportModal(false); setImportFile(null); }
         if (showAboutModal) setShowAboutModal(false);
         if (isModalOpen || isEditing) closeModal();
         if (showUserModal) {
@@ -1131,7 +1121,7 @@ function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showAboutModal, isModalOpen, isEditing, showUserModal, showDeletionLogModal, showRepairsModal, showAssetInfoModal, showWindowsReportModal, token]);
+  }, [showExportModal, showImportModal, showAboutModal, isModalOpen, isEditing, showUserModal, showDeletionLogModal, showRepairsModal, showAssetInfoModal, showWindowsReportModal, token]);
 
   useEffect(() => {
     if (!token) {
@@ -1204,155 +1194,82 @@ function App() {
     showToast.info('Вы вышли из системы', { icon: '👋' });
   };
 
-  const handleExport = async () => {
-    const ageLabels = { new: 'до 1 года', fresh: '1–3 года', medium: '3–5 лет', old: 'старше 5 лет' };
-    let filterText = "всех активов";
-    if (filter !== 'Все') {
-      filterText = `активов типа "${filter}"`;
-    }
-    if (disposedFilter) {
-      filterText = "списанных активов";
-    }
-    if (warrantyFilter !== 'all' && !disposedFilter) {
-        const warrantyText = warrantyFilter === 'active' ? 'на гарантии' : 'с заканчивающейся гарантией';
-        if (filterText === "всех активов") {
-            filterText = `активов ${warrantyText}`;
-        } else {
-            filterText += ` и ${warrantyText}`;
-        }
-    }
-    if (ageRangeFilter !== 'all') {
-      filterText += ` (возраст: ${ageLabels[ageRangeFilter] || ageRangeFilter})`;
-    }
-    if (searchQuery) {
-      filterText += ` с поиском по "${searchQuery}"`;
-    }
-    if (selectedUser) {
-      filterText += ` для пользователя "${selectedUser}"`;
-    }
+  const performExport = async () => {
+    setShowExportModal(false);
+    const loadingToast = showToast.loading('Подготовка экспорта...');
+    try {
+      const params = new URLSearchParams();
 
-    showToast.confirm(
-      `Экспорт будет выполнен согласно выбранному фильтру ${filterText}. Продолжить?`,
-      async () => {
-        const loadingToast = showToast.loading('Подготовка экспорта...');
-
-        try {
-          const params = new URLSearchParams();
-
-          // Когда активен age-фильтр — передаём ID уже отфильтрованных активов,
-          // чтобы точно совпасть с тем, что видит пользователь на экране
-          if (ageRangeFilter !== 'all') {
-            const filtered = getFilteredAssets();
-            if (filtered.length === 0) {
-              toast.dismiss(loadingToast);
-              showToast.info('Нет активов для экспорта с текущими фильтрами');
-              return;
-            }
-            params.append('ids', filtered.map(a => a.id).join(','));
-          } else {
-            if (filter !== 'Все' && !disposedFilter) {
-              params.append('type', filter);
-            }
-            if (disposedFilter) {
-              params.append('status', 'списано');
-            }
-            if (searchQuery) {
-              params.append('q', searchQuery);
-            }
-            if (warrantyFilter !== 'all' && !disposedFilter) {
-                params.append('warranty_status', warrantyFilter);
-            }
-            if (selectedUser) {
-              params.append('user_name', selectedUser);
-            }
-          }
-
-          const url = `${API_BASE}/export/excel?${params.toString()}`;
-          const res = await apiFetch(url, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          
-          toast.dismiss(loadingToast);
-          
-          if (!res.ok) {
-            const error = await res.json().catch(() => ({ detail: 'Ошибка экспорта' }));
-            showToast.error(error.detail);
+      if (exportScope === 'current') {
+        if (ageRangeFilter !== 'all') {
+          const filtered = getFilteredAssets();
+          if (filtered.length === 0) {
+            toast.dismiss(loadingToast);
+            showToast.info('Нет активов для экспорта с текущими фильтрами');
             return;
           }
-          
-          const blob = await res.blob();
-          const filenameMatch = res.headers.get('Content-Disposition')?.match(/filename[^;=\r\n]*=([^;\r\n]*)/);
-          const filename = decodeURIComponent(filenameMatch?.[1]?.replace(/['"]/g, '') || 'активы.xlsx');
-          const urlBlob = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = urlBlob;
-          a.download = filename;
-          document.body.appendChild(a);
-          a.click();
-          window.URL.revokeObjectURL(urlBlob);
-          document.body.removeChild(a);
-          
-          showToast.success('Файл успешно экспортирован', { icon: '📥' });
-        } catch (err) {
-          toast.dismiss(loadingToast);
-  
-        showToast.error('Ошибка сети при экспорте');
-          console.error(err);
+          params.append('ids', filtered.map(a => a.id).join(','));
+        } else {
+          if (filter !== 'Все' && !disposedFilter) params.append('type', filter);
+          if (disposedFilter) params.append('status', 'списано');
+          if (searchQuery) params.append('q', searchQuery);
+          if (warrantyFilter !== 'all' && !disposedFilter) params.append('warranty_status', warrantyFilter);
+          if (selectedUser) params.append('user_name', selectedUser);
         }
-      },
-      () => {
-        // Обработчик для кнопки "Отмена"
-        showToast.info('Экспорт отменен', { 
-          icon: '❌', 
-          duration: 2000,
-          style: {
-            background: '#6c757d',
-            color: '#fff',
-          }
-        });
       }
-    );
+      // exportScope === 'all': no params
+
+      const url = `${API_BASE}/export/excel?${params.toString()}`;
+      const res = await apiFetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+      toast.dismiss(loadingToast);
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ detail: 'Ошибка экспорта' }));
+        showToast.error(error.detail);
+        return;
+      }
+
+      const blob = await res.blob();
+      const filenameMatch = res.headers.get('Content-Disposition')?.match(/filename[^;=\r\n]*=([^;\r\n]*)/);
+      const filename = decodeURIComponent(filenameMatch?.[1]?.replace(/['"]/g, '') || 'активы.xlsx');
+      const urlBlob = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = urlBlob;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(urlBlob);
+      document.body.removeChild(a);
+
+      showToast.success('Файл успешно экспортирован');
+    } catch (err) {
+      toast.dismiss(loadingToast);
+      showToast.error('Ошибка сети при экспорте');
+      console.error(err);
+    }
   };
 
-  const handleImport = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
+  const performImport = async () => {
+    if (!importFile) return;
+    setShowImportModal(false);
+
     const loadingToast = showToast.loading('Импорт файла...');
     const formData = new FormData();
-    formData.append('file', file);
-    
+    formData.append('file', importFile);
+
     try {
       const res = await fetch(`${API_BASE}/import/excel`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData
       });
-      
       const result = await res.json();
       toast.dismiss(loadingToast);
-      
+
       if (result.errors && result.errors.length > 0) {
-        toast.custom((t) => (
-          <div className="bg-warning text-dark rounded-lg shadow-lg p-4" style={{ maxWidth: '400px' }}>
-            <div className="d-flex align-items-start">
-              <i className="fas fa-exclamation-triangle me-2"></i>
-              <div>
-                <h6 className="mb-2 fw-bold">Импорт завершен с предупреждениями</h6>
-                <div className="small">
-                  {result.errors.slice(0, 3).map((error, idx) => (
-                    <div key={idx} className="mb-1">• {error}</div>
-                  ))}
-                  {result.errors.length > 3 && (
-                    <div className="text-muted">и еще {result.errors.length - 3} ошибок...</div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        ), { duration: 8000 });
+        showToast.warning(`Импорт завершен с предупреждениями (${result.errors.length})`, { duration: 6000 });
       } else {
-        showToast.success(result.detail, { icon: '📥' });
+        showToast.success(result.detail);
       }
       await fetchAssets();
     } catch (err) {
@@ -1360,7 +1277,7 @@ function App() {
       showToast.error('Критическая ошибка импорта: ' + err.message);
       console.error(err);
     }
-    e.target.value = null;
+    setImportFile(null);
   };
 
   const handleClearDatabase = async () => {
@@ -1931,7 +1848,7 @@ function App() {
         })
       );
     }
-    result = result.filter(asset => !selectedUser || asset.user_name === selectedUser);
+    result = result.filter(asset => !selectedUser || (asset.user_name || '').toLowerCase().includes(selectedUser.toLowerCase()));
 
     if (ageRangeFilter && ageRangeFilter !== 'all') {
       result = result.filter(asset => {
@@ -2684,13 +2601,13 @@ function App() {
         <header className="hdr">
           <div className="logo-wrap">
             <img
+              key={isDarkMode ? 'logo-dark' : 'logo-light'}
               src={isDarkMode ? '/asset-logo-blur.png' : '/enhanced_asset-logo2.png'}
               alt="Asset Tracker"
               style={{ height: '36px', width: '36px', objectFit: 'contain', borderRadius: '6px' }}
             />
             <div>
               <div className="logo-text">Asset Tracker</div>
-              <div className="logo-ver">АСПРО · v2.1</div>
             </div>
           </div>
           <div className="hdr-gap"></div>
@@ -2750,50 +2667,48 @@ function App() {
       {/* TOOLBAR */}
       {token && user && (
         <div className="tb">
-          {user.is_admin && (
-            <button className="btn-p" onClick={() => openModal()}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Добавить
-            </button>
-          )}
-          <div className="tsep"></div>
-          <button className="btn-t" onClick={handleExport}>↓ Экспорт</button>
-          {user.is_admin && (
-            <label className="btn-t" style={{ cursor: 'pointer' }}>
-              ↑ Импорт
-              <input type="file" accept=".xlsx" style={{ display: 'none' }} onChange={handleImport} />
-            </label>
-          )}
-          {user.is_admin && (
-            <>
-              <div className="tsep"></div>
-              <button className="btn-t" onClick={handlePrintAllQRCodes}>⊡ Печать QR</button>
-              <button className="btn-t" onClick={generateWindowsReport}>⊞ Windows отчет</button>
-              <div className="tsep"></div>
-              <button
-                className={`btn-t ${inventorySession && !inventoryMode ? 'lit' : ''}`}
-                onClick={inventoryMode ? undefined : openInventory}
-                disabled={inventoryMode}
-              >
-                {inventorySession && !inventoryMode ? '↺ Продолжить' : '✓ Инвентаризация'}
+          {/* tb-scroll-line: all action buttons — scrollable on mobile */}
+          <div className="tb-scroll-line">
+            {user.is_admin && (
+              <button className="btn-p" onClick={() => openModal()}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Добавить
               </button>
-            </>
-          )}
-          <div className="tsep"></div>
-          {user.is_admin && (
-            <>
-              <button className="btn-t sm" onClick={() => openUserModal()}>👥 Пользователи</button>
-              <button className="btn-t sm" onClick={openDeletionLogModal}>🕐 Журнал</button>
-            </>
-          )}
-          <button className="btn-t sm" onClick={() => setShowAboutModal(true)}>ℹ О системе</button>
-          <div className="tsp"></div>
-          {user.is_admin && (
-            <>
-              <button className="btn-t danger sm" onClick={handleClearDatabase}>⊠ Очистить БД</button>
-              <div className="tsep"></div>
-            </>
-          )}
+            )}
+            <div className="tsep"></div>
+            <button className="btn-t" onClick={() => setShowExportModal(true)}>↓ Экспорт</button>
+            {user.is_admin && (
+              <button className="btn-t" onClick={() => { setImportFile(null); setShowImportModal(true); }}>↑ Импорт</button>
+            )}
+            {user.is_admin && (
+              <>
+                <div className="tsep"></div>
+                <button className="btn-t" onClick={handlePrintAllQRCodes}>⎙ Печать QR</button>
+                <button className="btn-t" onClick={generateWindowsReport}>⊞ Windows</button>
+                <div className="tsep"></div>
+                <button
+                  className={`btn-t ${inventorySession && !inventoryMode ? 'lit' : ''}`}
+                  onClick={inventoryMode ? undefined : openInventory}
+                  disabled={inventoryMode}
+                >
+                  {inventorySession && !inventoryMode ? '↺ Продолжить' : '✓ Инвентаризация'}
+                </button>
+              </>
+            )}
+            <div className="tsep"></div>
+            {user.is_admin && (
+              <>
+                <button className="btn-t sm" onClick={() => openUserModal()}>👥 Пользователи</button>
+                <button className="btn-t sm" onClick={openDeletionLogModal}>🕐 Журнал</button>
+              </>
+            )}
+            <button className="btn-t sm" onClick={() => setShowAboutModal(true)}>ℹ О системе</button>
+            <div className="tsp"></div>
+            {user.is_admin && (
+              <button className="btn-t danger sm" onClick={handleClearDatabase}><i className="fas fa-trash-alt"></i> Очистить БД</button>
+            )}
+          </div>
+          {/* Search — last in DOM, moved to top on mobile via order:-1 */}
           <div className="search-wrap">
             <input
               className="search"
@@ -2813,6 +2728,7 @@ function App() {
         const ageCounts = getAssetsByAgeCategory();
         const hasActive = filter !== 'Все' || disposedFilter || warrantyFilter !== 'all' || ageRangeFilter !== 'all' || searchQuery || selectedUser;
         return (
+          <>
           <div className="fb">
             <button className={`ft ${filter === 'Все' && !disposedFilter && warrantyFilter === 'all' ? 'on' : ''}`}
               onClick={() => { setFilter('Все'); setDisposedFilter(false); setWarrantyFilter('all'); setPage(1); if (activeTab !== 'assets') setActiveTab('assets'); }}>
@@ -2847,24 +2763,44 @@ function App() {
               onClick={() => setActiveTab(activeTab === 'reports' ? 'assets' : 'reports')}>
               Гарантия заканчивается
             </button>
-            <div className="fsep"></div>
-            <button className={`ab ${ageRangeFilter === 'all' ? 'on' : ''}`} onClick={() => setAgeRangeFilter('all')}>Все</button>
-            <button className={`ab ${ageRangeFilter === 'new' ? 'on' : ''}`} onClick={() => setAgeRangeFilter('new')}><span className="n cg">{ageCounts.new}</span>&nbsp;до 1 г.</button>
-            <button className={`ab ${ageRangeFilter === 'fresh' ? 'on' : ''}`} onClick={() => setAgeRangeFilter('fresh')}><span className="n cb">{ageCounts.fresh}</span>&nbsp;1–3 г.</button>
-            <button className={`ab ${ageRangeFilter === 'medium' ? 'on' : ''}`} onClick={() => setAgeRangeFilter('medium')}><span className="n cy">{ageCounts.medium}</span>&nbsp;3–5 л.</button>
-            <button className={`ab ${ageRangeFilter === 'old' ? 'on' : ''}`} onClick={() => setAgeRangeFilter('old')}><span className="n cr">{ageCounts.old}</span>&nbsp;5+ л.</button>
-            <button className={`ab ${ageRangeFilter === 'unknown' ? 'on' : ''}`} onClick={() => setAgeRangeFilter('unknown')}><span className="n cm">{ageCounts.unknown}</span>&nbsp;Не указан</button>
             <div className="fsp"></div>
-            <select className="fsel" value={selectedUser} onChange={(e) => { setSelectedUser(e.target.value); setPage(1); }}>
-              <option value="">Пользователь: все</option>
-              {uniqueUsers.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
-            </select>
+            <input
+              className="fsel-input"
+              type="text"
+              placeholder="Пользователь…"
+              value={selectedUser}
+              onChange={(e) => { setSelectedUser(e.target.value); setPage(1); }}
+              list="user-datalist"
+            />
+            <datalist id="user-datalist">
+              {uniqueUsers.map(u => <option key={u.value} value={u.value} />)}
+            </datalist>
             {hasActive && (
               <button className="btn-rst" onClick={() => { setFilter('Все'); setDisposedFilter(false); setWarrantyFilter('all'); setAgeRangeFilter('all'); setSearchQuery(''); setSelectedUser(''); setPage(1); }}>
                 ↺ Сбросить
               </button>
             )}
           </div>
+          <div className="fb2">
+            <span className="fb2-lbl">Возраст</span>
+            <button className={`ab2 ${ageRangeFilter === 'all' ? 'on' : ''}`} onClick={() => setAgeRangeFilter('all')}>Все</button>
+            {[
+              { key: 'new',     label: 'до 1 года',    color: '#3A9D6E', count: ageCounts.new },
+              { key: 'fresh',   label: '1–3 года',     color: 'var(--accent)', count: ageCounts.fresh },
+              { key: 'medium',  label: '3–5 лет',      color: '#D4882A', count: ageCounts.medium },
+              { key: 'old',     label: 'старше 5 лет', color: '#D95252', count: ageCounts.old },
+              { key: 'unknown', label: 'Не указан',    color: 'var(--text-muted)', count: ageCounts.unknown },
+            ].map(({ key, label, color, count }) => (
+              <button key={key} className={`ab2 ${ageRangeFilter === key ? 'on' : ''}`}
+                style={ageRangeFilter === key ? { borderColor: color, color: 'var(--text-primary)' } : {}}
+                onClick={() => setAgeRangeFilter(key)}>
+                <span className="ab2-dot" style={{ background: color }}></span>
+                {label}
+                <span className="ab2-cnt" style={{ color }}>{count}</span>
+              </button>
+            ))}
+          </div>
+          </>
         );
       })()}
 
@@ -2888,209 +2824,154 @@ function App() {
         const notFoundAll = nonRetired.filter(a => !inventoryChecks[a.id]);
 
         return (
-          <div className="mb-4">
-            {/* Шапка инвентаризации */}
-            <div className="card mb-3" style={{ borderColor: '#0d6efd' }}>
-              <div className="card-body py-2 px-3">
-                <div className="d-flex flex-wrap align-items-center gap-3">
-                  <div>
-                    <strong>Инвентаризация</strong>
-                    <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
-                      начата {new Date(inventorySession.started_at).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })} • {inventorySession.started_by}
-                    </span>
-                  </div>
-                  <div className="flex-grow-1" style={{ minWidth: '150px' }}>
-                    <div className="d-flex align-items-center gap-2">
-                      <div className="progress flex-grow-1" style={{ height: '8px' }}>
-                        <div className="progress-bar bg-success" style={{ width: `${pct}%` }}></div>
-                      </div>
-                      <span style={{ whiteSpace: 'nowrap', fontSize: '0.9rem' }}>
-                        <strong>{checkedCount}</strong> / {total}
+          <div className="inv-overlay">
+            {/* Шапка */}
+            <div className="inv-hdr">
+              <span className="inv-badge">Инвентаризация</span>
+              <span className="inv-meta">
+                начата <span>{new Date(inventorySession.started_at).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</span>
+                {' · '}
+                <span>{inventorySession.started_by}</span>
+              </span>
+              {inventoryChangedUsers > 0 && (
+                <span className="inv-updated">{inventoryChangedUsers} обновлено</span>
+              )}
+              <div className="inv-gap"></div>
+              <button className="inv-btn" onClick={() => setInventoryMode(false)}>Свернуть</button>
+              <button className="inv-btn finish" onClick={finishInventory}>Завершить</button>
+            </div>
+
+            {/* Прогресс */}
+            <div className="inv-progress-wrap">
+              <div className="inv-progress-bar" style={{ width: `${pct}%` }}></div>
+            </div>
+            <div className="inv-progress-label">
+              Проверено: <span>{checkedCount}</span> из <span>{total}</span> — <span>{pct}%</span>
+            </div>
+
+            {/* Тело: 2 колонки */}
+            <div className="inv-body">
+              {/* Левая: поиск + подтверждение + не найденные */}
+              <div className="inv-left">
+                <div className="inv-search-wrap">
+                  <input
+                    className="inv-search"
+                    type="text"
+                    placeholder="Инв. №, модель, серийный, расположение…"
+                    value={inventorySearch}
+                    autoFocus
+                    onChange={e => setInventorySearch(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && unchecked.length === 1 && !inventorySelected) {
+                        setInventorySelected(unchecked[0]);
+                        setInventoryUserName(unchecked[0].user_name || '');
+                        setInventoryLocation(unchecked[0].location || '');
+                      }
+                    }}
+                  />
+                </div>
+
+                {inventorySelected && (
+                  <div className="inv-confirm">
+                    <div className="inv-confirm-asset">
+                      {inventorySelected.model || '—'}
+                      {' · '}
+                      <span style={{ fontFamily: 'monospace', color: 'var(--accent)', fontSize: '11px' }}>
+                        {inventorySelected.inventory_number}
                       </span>
                     </div>
-                  </div>
-                  {inventoryChangedUsers > 0 && (
-                    <span className="badge bg-info">обновлено пользователей: {inventoryChangedUsers}</span>
-                  )}
-                  <div className="d-flex gap-2">
-                    <button className="btn btn-outline-secondary btn-sm" onClick={() => setInventoryMode(false)}>
-                      Свернуть
-                    </button>
-                    <button className="btn btn-success btn-sm" onClick={finishInventory}>
-                      Завершить
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Поиск */}
-            <div className="input-group mb-3">
-              <span className="input-group-text"><i className="fas fa-search"></i></span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Поиск по инв. №, модели, серийному номеру, расположению..."
-                value={inventorySearch}
-                autoFocus
-                onChange={e => setInventorySearch(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && unchecked.length === 1 && !inventorySelected) {
-                    setInventorySelected(unchecked[0]);
-                    setInventoryUserName(unchecked[0].user_name || '');
-                  }
-                }}
-              />
-              {inventorySearch && (
-                <button className="btn btn-outline-secondary" onClick={() => setInventorySearch('')}>
-                  <i className="fas fa-times"></i>
-                </button>
-              )}
-            </div>
-
-            {/* Панель подтверждения */}
-            {inventorySelected && (
-              <div className="card mb-3 border-primary">
-                <div className="card-body py-2 px-3">
-                  <div className="d-flex flex-wrap align-items-center gap-3">
-                    <div>
-                      <strong>{inventorySelected.model || '—'}</strong>
-                      <span className="text-muted ms-2">инв. №{inventorySelected.inventory_number}</span>
-                      <span className="badge bg-secondary ms-2">{inventorySelected.type}</span>
-                      <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>{inventorySelected.location}</span>
+                    <div className="inv-confirm-meta">
+                      <span>{inventorySelected.type}</span>
                     </div>
-                    <div className="d-flex align-items-center gap-2 flex-grow-1">
-                      <label className="text-muted mb-0" style={{ whiteSpace: 'nowrap', fontSize: '0.9rem' }}>Пользователь:</label>
+                    <div className="inv-user-row">
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Расположение:</span>
                       <input
+                        className="inv-user-input"
                         type="text"
-                        className="form-control form-control-sm"
-                        value={inventoryUserName}
-                        onChange={e => setInventoryUserName(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && checkInventoryAsset(inventorySelected, inventoryUserName || null)}
-                        autoFocus
-                        placeholder="ФИО или пусто"
+                        value={inventoryLocation}
+                        onChange={e => setInventoryLocation(e.target.value)}
+                        placeholder="Расположение"
                       />
                     </div>
-                    <div className="d-flex gap-2">
-                      <button className="btn btn-outline-secondary btn-sm" onClick={() => setInventorySelected(null)}>
-                        Отмена
-                      </button>
-                      <button
-                        className="btn btn-success btn-sm"
-                        onClick={() => checkInventoryAsset(inventorySelected, inventoryUserName || null)}
-                      >
-                        <i className="fas fa-check"></i> Подтвердить
+                    <div className="inv-user-row">
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Пользователь:</span>
+                      <input
+                        className="inv-user-input"
+                        type="text"
+                        value={inventoryUserName}
+                        onChange={e => setInventoryUserName(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && checkInventoryAsset(inventorySelected, inventoryUserName || null, inventoryLocation)}
+                        autoFocus
+                        placeholder="ФИО или оставьте пустым"
+                      />
+                    </div>
+                    <div className="inv-confirm-btns">
+                      <button className="inv-btn-cancel" onClick={() => setInventorySelected(null)}>Отмена</button>
+                      <button className="inv-btn-ok" onClick={() => checkInventoryAsset(inventorySelected, inventoryUserName || null, inventoryLocation)}>
+                        ✓ Подтвердить
                       </button>
                     </div>
                   </div>
-                </div>
-              </div>
-            )}
+                )}
 
-            {/* Список — не найденные */}
-            {unchecked.length > 0 && (
-              <div className="mb-3">
-                {!q && <div className="text-muted mb-1" style={{ fontSize: '0.85rem' }}>Не отмечено ({unchecked.length})</div>}
-                <div className="list-group">
+                <div className="inv-list-title">
+                  {q ? `Результаты (${unchecked.length})` : `Не найдено (${unchecked.length})`}
+                </div>
+                <div className="inv-list">
                   {unchecked.map(asset => (
-                    <button
+                    <div
                       key={asset.id}
-                      className={`list-group-item list-group-item-action py-2${inventorySelected?.id === asset.id ? ' active' : ''}`}
+                      className={`inv-item${inventorySelected?.id === asset.id ? ' selected' : ''}`}
                       onClick={() => {
                         setInventorySelected(asset);
                         setInventoryUserName(asset.user_name || '');
+                        setInventoryLocation(asset.location || '');
                         setInventorySearch('');
                       }}
                     >
-                      {isMobile ? (
-                        <div className="d-flex align-items-start gap-2">
-                          <i className="far fa-square text-muted mt-1"></i>
-                          <div className="min-w-0 flex-grow-1">
-                            <div className="d-flex align-items-center gap-2 flex-wrap">
-                              <span style={{ fontSize: '0.78rem', opacity: 0.7 }}>{asset.inventory_number}</span>
-                              <span className="badge bg-light text-dark border" style={{ fontSize: '0.7rem' }}>{asset.type}</span>
-                            </div>
-                            <div className="fw-medium text-truncate">{asset.model || '—'}</div>
-                            <div style={{ fontSize: '0.82rem', opacity: 0.7 }}>{asset.location} · {asset.user_name || 'без пользователя'}</div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="d-flex align-items-center gap-3">
-                          <i className="far fa-square text-muted flex-shrink-0"></i>
-                          <span className="text-muted flex-shrink-0" style={{ fontSize: '0.8rem', width: '80px' }}>{asset.inventory_number}</span>
-                          <span className="flex-grow-1 text-truncate">{asset.model || '—'}</span>
-                          <span className="badge bg-light text-dark border flex-shrink-0">{asset.type}</span>
-                          <span className="text-muted flex-shrink-0" style={{ fontSize: '0.85rem', width: '110px' }}>{asset.location}</span>
-                          <span className="text-muted flex-shrink-0" style={{ fontSize: '0.85rem', width: '130px' }}>{asset.user_name || <em>без пользователя</em>}</span>
-                        </div>
-                      )}
-                    </button>
+                      <div className="inv-item-dot not-found"></div>
+                      <div className="inv-item-body">
+                        <div className="inv-item-inv">{asset.inventory_number}</div>
+                        <div className="inv-item-name">{asset.model || '—'}</div>
+                        <div className="inv-item-meta">{asset.type} · {asset.location}</div>
+                      </div>
+                    </div>
                   ))}
+                  {unchecked.length === 0 && q && (
+                    <div className="inv-empty">Ничего не найдено по «{inventorySearch}»</div>
+                  )}
+                  {unchecked.length === 0 && !q && checkedCount >= total && (
+                    <div className="inv-empty" style={{ color: '#3A9D6E' }}>Все активы проверены</div>
+                  )}
                 </div>
               </div>
-            )}
 
-            {/* Список — найденные */}
-            {checked.length > 0 && (
-              <div>
-                <div className="text-muted mb-1" style={{ fontSize: '0.85rem' }}>Найдено ({checked.length})</div>
-                <div className="list-group">
+              {/* Правая: найденные */}
+              <div className="inv-right">
+                <div className="inv-list-title">Найдено ({checked.length})</div>
+                <div className="inv-list">
                   {checked.map(asset => {
                     const chk = inventoryChecks[asset.id];
                     return (
-                      <div
-                        key={asset.id}
-                        className="list-group-item py-2"
-                        style={{ opacity: 0.6 }}
-                      >
-                        {isMobile ? (
-                          <div className="d-flex align-items-start gap-2">
-                            <i className="fas fa-check-square text-success mt-1 flex-shrink-0"></i>
-                            <div className="min-w-0 flex-grow-1">
-                              <div className="d-flex align-items-center gap-2 flex-wrap">
-                                <span style={{ fontSize: '0.78rem' }}>{asset.inventory_number}</span>
-                                <span className="badge bg-light text-dark border" style={{ fontSize: '0.7rem' }}>{asset.type}</span>
-                              </div>
-                              <div className="text-truncate">{asset.model || '—'}</div>
-                              <div style={{ fontSize: '0.82rem' }}>
-                                {chk?.user_name_before !== chk?.user_name_after
-                                  ? <><s>{chk?.user_name_before || '—'}</s> → <strong>{chk?.user_name_after || '—'}</strong></>
-                                  : (asset.user_name || 'без пользователя')
-                                }
-                              </div>
-                            </div>
-                            <button className="btn btn-link btn-sm p-0 flex-shrink-0" title="Снять отметку" onClick={() => uncheckInventoryAsset(asset.id)}>
-                              <i className="fas fa-undo text-muted"></i>
-                            </button>
+                      <div key={asset.id} className="inv-item found">
+                        <div className="inv-item-dot found-ok"></div>
+                        <div className="inv-item-body">
+                          <div className="inv-item-inv">{asset.inventory_number}</div>
+                          <div className="inv-item-name">{asset.model || '—'}</div>
+                          <div className="inv-item-meta">
+                            {chk?.user_name_before !== chk?.user_name_after
+                              ? `${chk?.user_name_before || '—'} → ${chk?.user_name_after || '—'}`
+                              : (asset.user_name || 'без пользователя')
+                            }
                           </div>
-                        ) : (
-                          <div className="d-flex align-items-center gap-3 text-muted">
-                            <i className="fas fa-check-square text-success flex-shrink-0"></i>
-                            <span style={{ fontSize: '0.8rem', width: '80px' }} className="flex-shrink-0">{asset.inventory_number}</span>
-                            <span className="flex-grow-1 text-truncate">{asset.model || '—'}</span>
-                            <span className="badge bg-light text-dark border flex-shrink-0">{asset.type}</span>
-                            <span style={{ fontSize: '0.85rem', width: '110px' }} className="flex-shrink-0">{asset.location}</span>
-                            <span style={{ fontSize: '0.85rem', width: '130px' }} className="flex-shrink-0">
-                              {chk?.user_name_before !== chk?.user_name_after
-                                ? <><s>{chk?.user_name_before || '—'}</s> → {chk?.user_name_after || '—'}</>
-                                : (asset.user_name || <em>без пользователя</em>)
-                              }
-                            </span>
-                            <button className="btn btn-link btn-sm text-muted p-0 flex-shrink-0" title="Снять отметку" onClick={() => uncheckInventoryAsset(asset.id)}>
-                              <i className="fas fa-undo"></i>
-                            </button>
-                          </div>
-                        )}
+                        </div>
+                        <button className="inv-item-undo" title="Снять отметку" onClick={() => uncheckInventoryAsset(asset.id)}>↺</button>
                       </div>
                     );
                   })}
                 </div>
               </div>
-            )}
-
-            {filtered.length === 0 && q && (
-              <div className="text-center text-muted py-4">Ничего не найдено по запросу «{inventorySearch}»</div>
-            )}
+            </div>
 
             {/* Модаль завершения */}
             {showInventoryFinish && (
@@ -3100,20 +2981,19 @@ function App() {
                     <div className="modal-content">
                       <div className="modal-header">
                         <h5 className="modal-title">Итоги инвентаризации</h5>
+                        <button type="button" className="btn-close" onClick={() => setShowInventoryFinish(false)}></button>
                       </div>
                       <div className="modal-body">
-                        <p>
-                          Найдено: <strong className="text-success">{checkedCount}</strong> из <strong>{total}</strong>
-                        </p>
+                        <p>Найдено: <strong style={{ color: '#3A9D6E' }}>{checkedCount}</strong> из <strong>{total}</strong></p>
                         {inventoryChangedUsers > 0 && (
-                          <p>Обновлено пользователей: <strong className="text-info">{inventoryChangedUsers}</strong></p>
+                          <p>Обновлено пользователей: <strong style={{ color: 'var(--accent)' }}>{inventoryChangedUsers}</strong></p>
                         )}
                         {notFoundAll.length > 0 && (
                           <>
-                            <p className="mb-1 text-danger">Не найдено ({notFoundAll.length}):</p>
-                            <ul className="list-unstyled small" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                            <p style={{ color: '#D95252', marginBottom: '4px' }}>Не найдено ({notFoundAll.length}):</p>
+                            <ul style={{ maxHeight: '200px', overflowY: 'auto', fontSize: '12px', listStyle: 'none', padding: 0, margin: 0 }}>
                               {notFoundAll.map(a => (
-                                <li key={a.id} className="text-muted">
+                                <li key={a.id} style={{ color: 'var(--text-muted)', padding: '2px 0' }}>
                                   {a.inventory_number} — {a.model || '—'} ({a.location})
                                 </li>
                               ))}
@@ -3122,9 +3002,7 @@ function App() {
                         )}
                       </div>
                       <div className="modal-footer">
-                        <button className="btn btn-primary" onClick={closeInventory}>
-                          Закрыть
-                        </button>
+                        <button className="btn-ok" onClick={closeInventory}>Закрыть</button>
                       </div>
                     </div>
                   </div>
@@ -3145,11 +3023,11 @@ function App() {
                   <tr>
                     <th style={{ width: '44px' }}>ID</th>
                     <th style={{ width: '106px' }}>Инв. номер</th>
-                    <th style={{ width: '96px' }}>Серийный №</th>
+                    <th style={{ width: '80px' }}>Серийный №</th>
                     <th style={{ width: '116px' }}>Статус</th>
                     <th style={{ width: '106px' }}>Расположение</th>
                     <th style={{ width: '130px' }}>ФИО пользователя</th>
-                    <th style={{ width: '72px' }}>Возраст</th>
+                    <th style={{ width: '95px' }}>Возраст</th>
                     <th>Комментарий</th>
                     {warrantyFilter === 'active' && <th style={{ width: '90px', color: 'rgba(107,122,153,.5)' }}>Гарантия до *</th>}
                     <th className="th-r" style={{ width: '106px' }}>Действия</th>
@@ -3294,8 +3172,8 @@ function App() {
                               {user?.is_admin && (
                                 <div className="ra-row">
                                   <button className="ra-btn" title="Редактировать" onClick={() => handleEdit(asset)}>✎</button>
-                                  <button className="ra-btn ra-del" title="Удалить" onClick={() => handleDelete(asset.id)}>⊠</button>
-                                  <button className="ra-btn ra-fix" title="Ремонты" onClick={() => openRepairsModal(asset.id)}>⚙</button>
+                                  <button className="ra-btn ra-del" title="Удалить" onClick={() => handleDelete(asset.id)}><i className="fas fa-trash-alt"></i></button>
+                                  <button className="ra-btn ra-fix" title="Ремонты" onClick={() => openRepairsModal(asset.id)}><i className="fas fa-cog"></i></button>
                                 </div>
                               )}
                             </div>
@@ -4103,7 +3981,7 @@ function App() {
                               <td style={{ padding: '8px 12px' }}>
                                 <div className="ra-row" style={{ justifyContent: 'flex-end' }}>
                                   <button className="ra-btn" title="Редактировать" onClick={() => openUserModal(u)}>✎</button>
-                                  <button className="ra-btn ra-del" title="Удалить" onClick={() => handleDeleteUser(u.id)} disabled={u.id === user.id}>⊠</button>
+                                  <button className="ra-btn ra-del" title="Удалить" onClick={() => handleDeleteUser(u.id)} disabled={u.id === user.id}><i className="fas fa-trash-alt"></i></button>
                                 </div>
                               </td>
                             </tr>
@@ -4198,7 +4076,7 @@ function App() {
                             <td style={{ padding: '8px 12px' }}>
                               <div className="ra-row" style={{ justifyContent: 'flex-end' }}>
                                 <button className="ra-btn" title="Редактировать" onClick={() => handleEditRepair(record)}>✎</button>
-                                <button className="ra-btn ra-del" title="Удалить" onClick={() => handleDeleteRepair(record.id)}>⊠</button>
+                                <button className="ra-btn ra-del" title="Удалить" onClick={() => handleDeleteRepair(record.id)}><i className="fas fa-trash-alt"></i></button>
                               </div>
                             </td>
                           </tr>
@@ -4223,34 +4101,32 @@ function App() {
 
       {showDeletionLogModal && (
         <div className="modal fade show" style={{ display: 'block' }} tabIndex="-1" role="dialog">
-          <div className="modal-dialog modal-xl" role="document">
+          <div className="modal-dialog modal-lg" role="document">
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">Журнал удалений</h5>
                 <button type="button" className="btn-close" onClick={() => setShowDeletionLogModal(false)}></button>
               </div>
-              <div className="modal-body">
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '13px' }}>
                 {deletionLogLoading ? (
-                  <div className="text-center">
-                    <div className="spinner-border text-primary" role="status">
-                      <span className="visually-hidden">Загрузка...</span>
-                    </div>
+                  <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+                    Загрузка...
                   </div>
                 ) : deletionLogs.length > 0 ? (
-                  <div className="table-responsive">
-                    <table className="table table-striped table-hover table-sm">
+                  <div style={{ border: '1px solid var(--border-color)', borderRadius: '6px', overflow: 'hidden' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                       <thead>
-                        <tr>
-                          <th>Дата/Время</th>
-                          <th>Тип</th>
-                          <th>ID</th>
-                          <th>Удалено пользователем</th>
-                          <th>Данные (кратко)</th>
+                        <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'var(--bg-raised)' }}>
+                          <th style={{ width: '150px', padding: '7px 10px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--text-muted)', textAlign: 'left' }}>Дата/Время</th>
+                          <th style={{ width: '100px', padding: '7px 10px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--text-muted)', textAlign: 'left' }}>Тип</th>
+                          <th style={{ width: '50px', padding: '7px 10px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--text-muted)', textAlign: 'left' }}>ID</th>
+                          <th style={{ width: '130px', padding: '7px 10px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--text-muted)', textAlign: 'left' }}>Пользователь</th>
+                          <th style={{ padding: '7px 10px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--text-muted)', textAlign: 'left' }}>Данные</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {deletionLogs.map((log) => {
-                          let shortData = '-';
+                        {deletionLogs.map((log, idx) => {
+                          let shortData = '—';
                           if (log.entity_data) {
                             try {
                               const dataObj = JSON.parse(log.entity_data);
@@ -4260,12 +4136,12 @@ function App() {
                             }
                           }
                           return (
-                            <tr key={log.id}>
-                              <td>{new Date(log.deleted_at).toLocaleString()}</td>
-                              <td>{log.entity_type}</td>
-                              <td>{log.entity_id}</td>
-                              <td>{log.deleted_by}</td>
-                              <td>{shortData}</td>
+                            <tr key={log.id} style={{ borderBottom: idx < deletionLogs.length - 1 ? '1px solid var(--bg-raised)' : 'none' }}>
+                              <td style={{ padding: '7px 10px', fontSize: '12px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={new Date(log.deleted_at).toLocaleString()}>{new Date(log.deleted_at).toLocaleString()}</td>
+                              <td style={{ padding: '7px 10px', fontSize: '12px', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={log.entity_type}>{log.entity_type}</td>
+                              <td style={{ padding: '7px 10px', fontSize: '12px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>{log.entity_id}</td>
+                              <td style={{ padding: '7px 10px', fontSize: '12px', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={log.deleted_by}>{log.deleted_by}</td>
+                              <td style={{ padding: '7px 10px', fontSize: '12px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={shortData}>{shortData}</td>
                             </tr>
                           );
                         })}
@@ -4273,14 +4149,16 @@ function App() {
                     </table>
                   </div>
                 ) : (
-                  <p className="text-muted text-center">Записи об удалениях отсутствуют.</p>
+                  <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', background: 'var(--bg-raised)', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                    Записи об удалениях отсутствуют.
+                  </div>
                 )}
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowDeletionLogModal(false)}>
+                <button type="button" className="btn-sec" onClick={() => setShowDeletionLogModal(false)}>
                   Закрыть
                 </button>
-                <button type="button" className="btn btn-primary" onClick={fetchDeletionLogs} disabled={deletionLogLoading}>
+                <button type="button" className="btn-ok" onClick={fetchDeletionLogs} disabled={deletionLogLoading}>
                   {deletionLogLoading ? 'Обновление...' : 'Обновить'}
                 </button>
               </div>
@@ -4346,7 +4224,7 @@ function App() {
                       />
                     </div>
                     <button className="btn-sec" style={{ fontSize: '11px', height: '28px', padding: '0 10px' }} onClick={() => handlePrintSingleQRCode(assetInfo)}>
-                      <i className="fas fa-print"></i> Печать QR
+                      ⎙ Печать QR
                     </button>
                   </div>
 
@@ -4366,39 +4244,161 @@ function App() {
         </>
       )}
 
+      {/* EXPORT MODAL */}
+      {showExportModal && (
+        <div className="modal fade show" style={{ display: 'block' }} onClick={() => setShowExportModal(false)}>
+          <div className="modal-dialog modal-dialog-centered" onClick={e => e.stopPropagation()}>
+            <div className="modal-content">
+              <div className="mhdr">
+                <div className="mhdr-left"><div className="mhdr-title">Экспорт данных</div></div>
+                <div className="mhdr-right">
+                  <button className="mclose" onClick={() => setShowExportModal(false)}>×</button>
+                </div>
+              </div>
+              <div className="mbody">
+                <div className="radio-group">
+                  <div className={`radio-item${exportScope === 'current' ? ' selected' : ''}`} onClick={() => setExportScope('current')}>
+                    <div className="radio-dot"></div>
+                    <div className="radio-body">
+                      <div className="radio-title">Текущий фильтр</div>
+                      <div className="radio-sub">
+                        {getFilteredAssets().length} записей
+                        {searchQuery ? ` · поиск «${searchQuery}»` : ''}
+                      </div>
+                    </div>
+                  </div>
+                  <div className={`radio-item${exportScope === 'all' ? ' selected' : ''}`} onClick={() => setExportScope('all')}>
+                    <div className="radio-dot"></div>
+                    <div className="radio-body">
+                      <div className="radio-title">Все активы</div>
+                      <div className="radio-sub">{assets.length} записей</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="mf">
+                  <label>Формат</label>
+                  <select value={exportFormat} onChange={e => setExportFormat(e.target.value)}>
+                    <option value="xlsx">Excel (.xlsx)</option>
+                    <option value="csv">CSV</option>
+                  </select>
+                </div>
+              </div>
+              <div className="mftr">
+                <button className="btn-sec" onClick={() => setShowExportModal(false)}>Отмена</button>
+                <button className="btn-ok" onClick={performExport}>↓ Скачать</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {showExportModal && <div className="modal-backdrop fade show"></div>}
+
+      {/* IMPORT MODAL */}
+      {showImportModal && (
+        <div className="modal fade show" style={{ display: 'block' }} onClick={() => { setShowImportModal(false); setImportFile(null); }}>
+          <div className="modal-dialog modal-dialog-centered" onClick={e => e.stopPropagation()}>
+            <div className="modal-content">
+              <div className="mhdr">
+                <div className="mhdr-left"><div className="mhdr-title">Импорт данных</div></div>
+                <div className="mhdr-right">
+                  <button className="mclose" onClick={() => { setShowImportModal(false); setImportFile(null); }}>×</button>
+                </div>
+              </div>
+              <div className="mbody">
+                <div
+                  className={`drop-zone${importDragOver ? ' drag-over' : ''}`}
+                  onClick={() => document.getElementById('import-file-input').click()}
+                  onDragOver={e => { e.preventDefault(); setImportDragOver(true); }}
+                  onDragLeave={() => setImportDragOver(false)}
+                  onDrop={e => { e.preventDefault(); setImportDragOver(false); const f = e.dataTransfer.files[0]; if (f) setImportFile(f); }}
+                >
+                  <div className="drop-icon">↑</div>
+                  <div className="drop-title">Перетащите файл сюда</div>
+                  <div className="drop-sub">или нажмите для выбора · Excel (.xlsx, .xls)</div>
+                  <input
+                    id="import-file-input"
+                    type="file"
+                    accept=".xlsx,.xls"
+                    style={{ display: 'none' }}
+                    onChange={e => { const f = e.target.files[0]; if (f) setImportFile(f); e.target.value = null; }}
+                  />
+                </div>
+                {importFile && (
+                  <div className="file-selected">
+                    <span>Файл:</span>
+                    <span className="fn">{importFile.name}</span>
+                    <span style={{ color: '#3A9D6E', marginLeft: 'auto', flexShrink: 0 }}>✓ {(importFile.size / 1024).toFixed(0)} KB</span>
+                  </div>
+                )}
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', padding: '0 2px' }}>
+                  Существующие активы будут обновлены по инвентарному номеру. Новые — добавлены.
+                </div>
+              </div>
+              <div className="mftr">
+                <button className="btn-sec" onClick={() => { setShowImportModal(false); setImportFile(null); }}>Отмена</button>
+                <button className="btn-ok" onClick={performImport} disabled={!importFile} style={!importFile ? { opacity: 0.5, cursor: 'default' } : {}}>↑ Загрузить</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {showImportModal && <div className="modal-backdrop fade show"></div>}
+
       {showAboutModal && (
         <div className="modal fade show" style={{ display: 'block' }} onClick={() => setShowAboutModal(false)}>
           <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title">О системе учёта активов</h5>
+                <h5 className="modal-title">О системе</h5>
                 <button type="button" className="btn-close" onClick={() => setShowAboutModal(false)}></button>
               </div>
-              <div className="modal-body">
-                <p><strong>Версия:</strong> v{packageInfo.version.split('.').slice(0, 2).join('.')}</p>
-                <p>Система учёта активов Asset Tracker — это веб-приложение для управления компьютерами, ноутбуками, мониторами и другим оборудованием.</p>
-                <p>Позволяет:</p>
-                <ul>
-                  <li>Вести учёт активов с инвентарными номерами</li>
-                  <li>Отслеживать историю изменений с указанием пользователя</li>
-                  <li>Экспортировать и импортировать данные через Excel</li>
-                  <li>Контролировать гарантийные сроки</li>
-                  <li>Узнавать историю ремонтов оборудования</li>
-                </ul>
-                <p>Разработано для повышения прозрачности и эффективности учёта оборудования.</p>
-                <p>
-                  <a 
-                    href="https://gitlab.aspro.cloud/office/asset_tracker/" 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="btn btn-outline-primary btn-sm"
-                  >
-                    <i className="fab fa-gitlab"></i> Открыть репозиторий
-                  </a>
-                </p>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+                {/* Шапка: логотип + название + версия */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '4px 0 8px', borderBottom: '1px solid var(--border-color)' }}>
+                  <img
+                    key={isDarkMode ? 'about-logo-dark' : 'about-logo-light'}
+                    src={isDarkMode ? '/asset-logo-blur.png' : '/enhanced_asset-logo2.png'}
+                    alt="Asset Tracker"
+                    style={{ width: '48px', height: '48px', borderRadius: '10px', objectFit: 'contain' }}
+                  />
+                  <div>
+                    <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-.01em' }}>Asset Tracker</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                      Версия <span style={{ fontFamily: 'monospace', color: 'var(--accent)' }}>v{packageInfo.version.split('.').slice(0, 2).join('.')}</span> · Система учёта оборудования
+                    </div>
+                  </div>
+                </div>
+
+                {/* Возможности */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  {[
+                    { icon: 'fas fa-desktop', text: 'Учёт ПК, ноутбуков и периферии с инвентарными номерами' },
+                    { icon: 'fas fa-history', text: 'История всех изменений с указанием автора' },
+                    { icon: 'fas fa-download', text: 'Экспорт и импорт данных через Excel' },
+                    { icon: 'fas fa-shield-alt', text: 'Контроль гарантийных сроков и предупреждения' },
+                    { icon: 'fas fa-wrench', text: 'Журнал ремонтов: даты, стоимость, исполнители' },
+                    { icon: 'fas fa-qrcode', text: 'QR-коды для быстрой идентификации актива' },
+                  ].map(({ icon, text }, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '10px 12px', background: 'var(--bg-raised)', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                      <i className={icon} style={{ color: 'var(--accent)', marginTop: '2px', flexShrink: 0, width: '14px', textAlign: 'center', fontSize: '13px' }}></i>
+                      <span style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{text}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
+
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowAboutModal(false)}>
+                <a
+                  href="https://gitlab.aspro.cloud/office/asset_tracker/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-sec"
+                  style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <i className="fab fa-gitlab"></i> Репозиторий
+                </a>
+                <button type="button" className="btn-sec" onClick={() => setShowAboutModal(false)}>
                   Закрыть
                 </button>
               </div>
@@ -4430,260 +4430,117 @@ function App() {
       {/* Toast Container */}
       <Toaster
         position="top-right"
-        reverseOrder={false}
         gutter={8}
-        containerClassName=""
-        containerStyle={{}}
-        toastOptions={{
-          duration: 4000,
-          style: {
-            background: '#363636',
-            color: '#fff',
-            fontSize: '14px',
-            borderRadius: '8px',
-            padding: '12px 16px',
-          },
-          success: {
-            duration: 3000,
-            iconTheme: {
-              primary: '#4aed88',
-              secondary: '#fff',
-            },
-            style: {
-              background: '#10b981',
-              color: '#fff',
-            },
-          },
-          error: {
-            duration: 5000,
-            iconTheme: {
-              primary: '#ff6b6b',
-              secondary: '#fff',
-            },
-            style: {
-              background: '#ef4444',
-              color: '#fff',
-            },
-          },
-          loading: {
-            style: {
-              background: '#3b82f6',
-              color: '#fff',
-            },
-          },
-          custom: {
-	    duration: Infinity,
-	  }
-        }}
+        toastOptions={{ style: { background: 'transparent', padding: 0, boxShadow: 'none' } }}
       />
 
       {showWindowsReportModal && (
         <div className="modal fade show" style={{ display: 'block' }} tabIndex="-1" role="dialog">
-          <div className="modal-dialog modal-xl" role="document">
+          <div className="modal-dialog modal-xl" style={{ maxWidth: 'min(1100px, 95vw)' }} role="document">
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title">
-                  <i className="fab fa-windows me-2"></i>
-                  Отчет по лицензиям Windows
-                </h5>
-                <button 
-                  type="button" 
-                  className="btn-close" 
-                  onClick={() => setShowWindowsReportModal(false)}
-                ></button>
+                <h5 className="modal-title">Windows — лицензии</h5>
+                <button type="button" className="btn-close" onClick={() => setShowWindowsReportModal(false)}></button>
               </div>
-              <div className="modal-body">
-          
-                {/* Сводная информация */}
-                <div className="windows-report-stats">
-                  <div className="row mb-4 g-3">
-                    <div className="col-xl-3 col-lg-6">
-                      <div className="card bg-primary text-white">
-                        <div className="card-body text-center">
-                          <h4>{windowsAssets.length}</h4>
-                          <small>Всего Windows устройств</small>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="col-xl-3 col-lg-6">
-                      <div className="card bg-success text-white">
-                       <div className="card-body text-center">
-                          <h4>{windowsAssets.filter(a => !isWindowsKeyMissing(a)).length}</h4>
-                          <small>С ключами</small>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="col-xl-3 col-lg-6">
-                      <div className="card bg-danger text-white">
-                        <div className="card-body text-center">
-                          <h4>{windowsAssets.filter(isWindowsKeyMissing).length}</h4>
-                          <small>Без ключей</small>
-                        </div>
-                      </div>
-                    </div>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '13px' }}>
 
-                    <div className="col-xl-3 col-lg-6">
-                      <div className="card bg-info text-white">
-                        <div className="card-body text-center">
-                          <h4>{windowsAssets.filter(a => !a.user_name || !a.user_name.trim()).length}</h4>
-                          <small>Без пользователя</small>
-                        </div>
-                      </div>
+                {/* Статистика */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {[
+                    { label: 'Всего', value: windowsAssets.length, color: 'var(--accent)' },
+                    { label: 'С ключами', value: windowsAssets.filter(a => !isWindowsKeyMissing(a)).length, color: '#4ade80' },
+                    { label: 'Без ключей', value: windowsAssets.filter(isWindowsKeyMissing).length, color: '#f87171' },
+                    { label: 'В эксплуатации', value: windowsAssets.filter(a => a.status === 'в эксплуатации').length, color: 'var(--text-primary)' },
+                    { label: 'Без пользователя', value: windowsAssets.filter(a => !a.user_name || !a.user_name.trim()).length, color: 'var(--text-muted)' },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} style={{ flex: '1 1 120px', background: 'var(--bg-raised)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px 12px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '22px', fontWeight: 700, color, fontVariantNumeric: 'tabular-nums', lineHeight: 1.2 }}>{value}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>{label}</div>
                     </div>
-
-                    <div className="col-md-3">
-                      <div className="card bg-info text-white">
-                        <div className="card-body text-center">
-                          <h4>{windowsAssets.filter(a => a.status === 'в эксплуатации').length}</h4>
-                          <small>В эксплуатации</small>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div> 
-
-                {/* Кнопки действий */}
-                <div className="d-flex justify-content-between mb-3">
-                  <div>
-                    <button 
-                      className="btn btn-outline-primary btn-sm me-2"
-                      onClick={refreshWindowsReport} 
-                    >
-                      <i className="fas fa-sync"></i> Обновить данные
-                    </button>
-                  </div>
-                  <div>
-                    <button 
-                      className="btn btn-success btn-sm"
-                      onClick={exportWindowsReport}
-                      disabled={windowsAssets.length === 0}
-                    >
-                      <i className="fas fa-download"></i> Экспорт в CSV
-                    </button>
-                  </div>
+                  ))}
                 </div>
 
-                {/* Таблица с данными */}
-                <div className="windows-report-table">
-                  <div className="table-responsive">
-                    <table className="table table-striped table-hover table-bordered">
+                {/* Кнопки */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <button className="btn-sec" style={{ fontSize: '12px', height: '28px', padding: '0 10px' }} onClick={refreshWindowsReport}>
+                    ↺ Обновить
+                  </button>
+                  <button className="btn-ok" style={{ fontSize: '12px', height: '28px', padding: '0 10px' }} onClick={exportWindowsReport} disabled={windowsAssets.length === 0}>
+                    ↓ Экспорт CSV
+                  </button>
+                </div>
+
+                {/* Таблица */}
+                {windowsAssets.length === 0 ? (
+                  <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', background: 'var(--bg-raised)', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                    Активы с Windows не найдены
+                  </div>
+                ) : (
+                  <div style={{ border: '1px solid var(--border-color)', borderRadius: '6px', overflow: 'hidden' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                       <thead>
-                        <tr>
-                          <th>Инвентарный номер</th>
-                          <th>Модель</th>
-                          <th>Расположение</th>
-                          <th>Пользователь</th>
-                          <th>Версия Windows</th>
-                          <th>Ключ Windows</th>
-                          <th>Статус</th>
+                        <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'var(--bg-raised)' }}>
+                          {[
+                            { label: 'Инв. номер', w: '11%' },
+                            { label: 'Модель', w: '12%' },
+                            { label: 'Расположение', w: '11%' },
+                            { label: 'Пользователь', w: '12%' },
+                            { label: 'Версия', w: '13%' },
+                            { label: 'Ключ Windows', w: '26%' },
+                            { label: 'Статус', w: '15%' },
+                          ].map(({ label, w }) => (
+                            <th key={label} style={{ width: w, padding: '7px 10px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--text-muted)', textAlign: 'left' }}>{label}</th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody>
-                        {windowsAssets.length === 0 ? (
-                          <tr>
-                            <td colSpan="6" className="text-center text-muted">
-                              Активы с Windows не найдены
+                        {windowsAssets.map((asset, idx) => (
+                          <tr key={asset.id} style={{ borderBottom: idx < windowsAssets.length - 1 ? '1px solid var(--bg-raised)' : 'none', background: isWindowsKeyMissing(asset) ? 'rgba(248,113,113,.05)' : 'transparent' }}>
+                            <td style={{ padding: '7px 10px', fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={asset.inventory_number}>{asset.inventory_number}</td>
+                            <td style={{ padding: '7px 10px', fontSize: '12px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={asset.model || ''}>{asset.model || '—'}</td>
+                            <td style={{ padding: '7px 10px', fontSize: '12px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={asset.location || ''}>{asset.location || '—'}</td>
+                            <td style={{ padding: '7px 10px', fontSize: '12px', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={asset.user_name || ''}>{asset.user_name || <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
+                            <td style={{ padding: '7px 10px', fontSize: '11px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={asset.os_type || ''}>{asset.os_type || '—'}</td>
+                            <td style={{ padding: '6px 10px' }} onDoubleClick={() => user?.is_admin && startEditingWindows(asset.id, 'windows_key', asset.windows_key)}>
+                              {editingWindowsCell.assetId === asset.id && editingWindowsCell.field === 'windows_key' ? (
+                                <input
+                                  type="text"
+                                  value={editingWindowsValue}
+                                  onChange={handleEditWindowsChange}
+                                  onKeyDown={handleEditWindowsKeyDown}
+                                  onBlur={saveEditWindows}
+                                  placeholder="Введите ключ"
+                                  autoFocus
+                                  style={{ width: '100%', fontFamily: 'monospace', fontSize: '11px', padding: '3px 6px', background: 'var(--bg-input)', border: '1px solid var(--accent)', borderRadius: '4px', color: 'var(--text-primary)', outline: 'none' }}
+                                />
+                              ) : !isWindowsKeyMissing(asset) ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-primary)', cursor: user?.is_admin ? 'pointer' : 'default', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{asset.windows_key}</span>
+                                  <button className="ra-btn" onClick={() => navigator.clipboard.writeText(asset.windows_key)} title="Скопировать ключ" style={{ flexShrink: 0 }}>
+                                    <i className="fas fa-copy"></i>
+                                  </button>
+                                </div>
+                              ) : (
+                                <span style={{ fontSize: '12px', color: '#f87171', cursor: user?.is_admin ? 'pointer' : 'default' }}>
+                                  <i className="fas fa-exclamation-triangle"></i> Не указан
+                                </span>
+                              )}
+                            </td>
+                            <td style={{ padding: '7px 10px' }}>
+                              <span className={`pill ${asset.status === 'в эксплуатации' ? 'pill-on' : asset.status === 'списано' ? 'pill-out' : asset.status === 'на ремонте' ? 'pill-fix' : 'pill-off'}`}>
+                                <span className="pill-dot"></span>{asset.status}
+                              </span>
                             </td>
                           </tr>
-                        ) : (
-                          windowsAssets.map(asset => (
-                            <tr 
-                              key={asset.id}
-			      className={isWindowsKeyMissing(asset) ? 'windows-no-key-row' : ''}
-                            >
-                              <td>
-                                <strong>{asset.inventory_number}</strong>
-                              </td>
-                              <td>{asset.model || '-'}</td>
-                              <td>
-                                <span className="badge bg-secondary">
-                                  {asset.location || 'Не указано'}
-                                </span>
-                              </td>
-
-                              <td>
-                                {asset.user_name ? (
-                                  <span className="text-primary fw-bold">{asset.user_name}</span>
-                                ) : (
-                                  <span className="text-muted">—</span>
-                                )}
-                              </td>
-
-                              <td>
-                                <span className="badge bg-info">
-                                  {asset.os_type}
-                                </span>
-                              </td>
-                              <td onDoubleClick={() => user?.is_admin && startEditingWindows(asset.id, 'windows_key', asset.windows_key)}>
-                                {editingWindowsCell.assetId === asset.id && editingWindowsCell.field === 'windows_key' ? (
-                                  <input
-                                    type="text"
-                                    className="form-control form-control-sm"
-                                    value={editingWindowsValue}
-                                    onChange={handleEditWindowsChange}
-                                    onKeyDown={handleEditWindowsKeyDown}
-                                    onBlur={saveEditWindows}
-                                    placeholder="Введите ключ Windows"
-                                    autoFocus
-                                    style={{ fontFamily: 'monospace', fontSize: '0.9em' }}
-                                  />
-                                ) : (
-                                  !isWindowsKeyMissing(asset) ? (
-                                    <div className="d-flex align-items-center">
-                                      <code 
-                                        className={`small me-2 ${user?.is_admin ? 'editable-cell' : ''}`}
-                                        style={{ cursor: user?.is_admin ? 'pointer' : 'default' }}
-                                      >
-                                        {asset.windows_key}
-                                      </code>
-                                      <button 
-                                        className="btn btn-sm btn-outline-secondary" 
-                                        onClick={() => navigator.clipboard.writeText(asset.windows_key)} 
-                                        title="Скопировать ключ"
-                                      >
-                                        <i className="fas fa-copy"></i>
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <span 
-                                      className={`text-danger ${user?.is_admin ? 'editable-cell' : ''}`}
-                                      style={{ cursor: user?.is_admin ? 'pointer' : 'default' }}
-                                    >
-                                      <i className="fas fa-exclamation-triangle"></i> Не указан
-                                    </span>
-                                  )
-                                )}
-                              </td>
-
-                              <td>
-                                <span className={`badge bg-${getStatusColor(asset.status)}`}>
-                                  {asset.status}
-                                </span>
-                              </td>
-                            </tr>
-                          ))
-                        )}
+                        ))}
                       </tbody>
                     </table>
                   </div>
-                </div>
-                {windowsAssets.length > 0 && (
-                  <div className="mt-3">
-                    <small className="text-muted">
-                      <i className="fas fa-info-circle"></i>
-                      Строки выделены желтым цветом для активов без ключей Windows.
-                      Нажмите на иконку копирования рядом с ключом, чтобы скопировать его в буфер обмена.
-                    </small>
-                  </div>
                 )}
               </div>
-        
+
               <div className="modal-footer">
-                <button 
-                  type="button" 
-                  className="btn btn-secondary" 
-                  onClick={() => setShowWindowsReportModal(false)}
-                >
+                <button type="button" className="btn-sec" onClick={() => setShowWindowsReportModal(false)}>
                   Закрыть
                 </button>
               </div>

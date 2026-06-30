@@ -729,6 +729,19 @@ def check_asset(session_id: int, body: schemas.InventoryCheckRequest, db: Sessio
             changed_by=current_user.username,
         )
         db.add(history)
+    loc_before = asset.location
+    loc_after = body.location.strip() if body.location and body.location.strip() else loc_before
+    if loc_after != loc_before:
+        asset.location = loc_after
+        history_loc = models.AssetHistory(
+            asset_id=asset.id,
+            field="location",
+            old_value=loc_before,
+            new_value=loc_after,
+            changed_at=datetime.utcnow().date(),
+            changed_by=current_user.username,
+        )
+        db.add(history_loc)
     check = models.InventoryCheck(
         session_id=session_id,
         asset_id=body.asset_id,

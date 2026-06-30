@@ -154,6 +154,7 @@ class InventorySessionResponse(BaseModel):
 class InventoryCheckRequest(BaseModel):
     asset_id: int
     user_name: Optional[str] = None
+    location: Optional[str] = None
 
 class AssetCreate(AssetBase):
     pass
