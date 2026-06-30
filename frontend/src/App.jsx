@@ -4359,148 +4359,67 @@ function App() {
             <div className="modal-dialog modal-lg">
               <div className="modal-content">
                 <div className="modal-header">
-                  <h5 className="modal-title">Информация об активе — {assetInfo.inventory_number}</h5>
+                  <h5 className="modal-title">{assetInfo.type} — {assetInfo.inventory_number}</h5>
                   <button type="button" className="btn-close" onClick={closeAssetInfoModal}></button>
                 </div>
-                <div className="modal-body">
-                  <div className="mb-3 d-flex flex-column align-items-center">
-                    <div style={{ height: "auto", margin: "0 auto", maxWidth: "160px", width: "100%" }}>
-                      <div style={{ height: "160px", width: "160px", backgroundColor: "white", padding: "8px", borderRadius: "4px" }}>
-                        <QRCode 
-                          size={256} 
-                          style={{ height: "100%", width: "100%" }}
-                          value={`${window.location.origin}${window.location.pathname}#asset-info-${assetInfo.id}`} 
-                          viewBox={`0 0 256 256`} 
-                        />
-                      </div>
+                <div className="modal-body" style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
+
+                  {/* Поля актива */}
+                  <div style={{ flex: 1 }}>
+                    <div className="ai-sec">Основное</div>
+                    <div className="ai-row"><span className="ai-lbl">Инв. номер</span><span className="ai-val ai-mono">{assetInfo.inventory_number}</span></div>
+                    {assetInfo.serial_number && <div className="ai-row"><span className="ai-lbl">Серийный №</span><span className="ai-val ai-mono">{assetInfo.serial_number}</span></div>}
+                    {assetInfo.model && <div className="ai-row"><span className="ai-lbl">Модель</span><span className="ai-val">{assetInfo.model}</span></div>}
+                    <div className="ai-row">
+                      <span className="ai-lbl">Статус</span>
+                      <span className="ai-val">
+                        <span className={`pill ${assetInfo.status === 'в эксплуатации' ? 'pill-on' : assetInfo.status === 'списано' ? 'pill-out' : assetInfo.status === 'на ремонте' ? 'pill-fix' : 'pill-off'}`}>
+                          <span className="pill-dot"></span>{assetInfo.status}
+                        </span>
+                      </span>
                     </div>
-                    <p className="text-center text-muted small mt-2 mb-0">Отсканируйте QR-код на активе для быстрого доступа к информации</p>
-                    <button 
-                      className="btn btn-outline-primary btn-sm mt-2" 
-                      onClick={() => handlePrintSingleQRCode(assetInfo)}
-                    >
-                      <i className="fas fa-print"></i> Печать QR-кода
+                    <div className="ai-row"><span className="ai-lbl">Расположение</span><span className="ai-val">{assetInfo.location || '—'}</span></div>
+                    {assetInfo.user_name && <div className="ai-row"><span className="ai-lbl">Пользователь</span><span className="ai-val">{assetInfo.user_name}</span></div>}
+                    <div className="ai-row"><span className="ai-lbl">Возраст</span><span className={`ai-val ${getAgeClass(assetInfo)}`}>{calculateAssetAge(assetInfo)}</span></div>
+                    {assetInfo.purchase_date && <div className="ai-row"><span className="ai-lbl">Дата покупки</span><span className="ai-val">{new Date(assetInfo.purchase_date).toLocaleDateString('ru-RU')}</span></div>}
+                    {assetInfo.warranty_until && <div className="ai-row"><span className="ai-lbl">Гарантия до</span><span className="ai-val">{new Date(assetInfo.warranty_until).toLocaleDateString('ru-RU')}</span></div>}
+                    {assetInfo.comment && <div className="ai-row"><span className="ai-lbl">Комментарий</span><span className="ai-val" style={{ color: 'var(--text-muted)' }}>{assetInfo.comment}</span></div>}
+
+                    {(assetInfo.type === 'Компьютер' || assetInfo.type === 'Ноутбук') && (
+                      <>
+                        <div className="ai-sec">Характеристики</div>
+                        {assetInfo.type === 'Компьютер' && assetInfo.motherboard && <div className="ai-row"><span className="ai-lbl">Мат. плата</span><span className="ai-val">{assetInfo.motherboard}</span></div>}
+                        {assetInfo.processor && <div className="ai-row"><span className="ai-lbl">Процессор</span><span className="ai-val">{assetInfo.processor}</span></div>}
+                        {assetInfo.ram && <div className="ai-row"><span className="ai-lbl">ОЗУ</span><span className="ai-val">{assetInfo.ram}</span></div>}
+                        {(assetInfo.storage_type || assetInfo.storage_size) && <div className="ai-row"><span className="ai-lbl">Накопитель</span><span className="ai-val">{[assetInfo.storage_type, assetInfo.storage_size].filter(Boolean).join(' ')}</span></div>}
+                        {assetInfo.os_type && <div className="ai-row"><span className="ai-lbl">ОС</span><span className="ai-val">{assetInfo.os_type}</span></div>}
+                        {assetInfo.os_type && assetInfo.os_type.toLowerCase().includes('windows') && assetInfo.windows_key && <div className="ai-row"><span className="ai-lbl">Ключ Windows</span><span className="ai-val ai-mono" style={{ fontSize: '11px' }}>{assetInfo.windows_key}</span></div>}
+                        {assetInfo.type === 'Ноутбук' && assetInfo.issue_date && <div className="ai-row"><span className="ai-lbl">Дата выдачи</span><span className="ai-val">{new Date(assetInfo.issue_date).toLocaleDateString('ru-RU')}</span></div>}
+                      </>
+                    )}
+                  </div>
+
+                  {/* QR-код */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                    <div style={{ background: '#fff', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                      <QRCode
+                        size={128}
+                        style={{ display: 'block' }}
+                        value={`${window.location.origin}${window.location.pathname}#asset-info-${assetInfo.id}`}
+                        viewBox="0 0 256 256"
+                      />
+                    </div>
+                    <button className="btn-sec" style={{ fontSize: '11px', height: '28px', padding: '0 10px' }} onClick={() => handlePrintSingleQRCode(assetInfo)}>
+                      <i className="fas fa-print"></i> Печать QR
                     </button>
                   </div>
-                  <table className="table table-bordered">
-                    <tbody>
-                      {/* ДЛЯ НОУТБУКОВ */}
-                      {assetInfo.type === 'Ноутбук' && (
-                        <>
-                          <tr><th>Серийный номер</th><td>{assetInfo.serial_number || '-'}</td></tr>
-                          <tr><th>Модель</th><td>{assetInfo.model || '-'}</td></tr>
-                          <tr><th>Процессор</th><td>{assetInfo.processor || '-'}</td></tr>
-                          <tr><th>ОЗУ</th><td>{assetInfo.ram || '-'}</td></tr>
-                          {(assetInfo.storage_type || assetInfo.storage_size) && (
-                            <tr><th>Накопитель</th><td>{[assetInfo.storage_type, assetInfo.storage_size].filter(Boolean).join(' ')}</td></tr>
-                          )}
-                          <tr><th>Операционная система</th><td>{assetInfo.os_type || '-'}</td></tr>
-                          {/* КЛЮЧ WINDOWS - ТОЛЬКО ЕСЛИ ОС СОДЕРЖИТ WINDOWS */}
-                          {assetInfo.os_type && assetInfo.os_type.toLowerCase().includes('windows') && (
-                            <tr><th>Ключ Windows</th><td>{assetInfo.windows_key || '-'}</td></tr>
-                          )}
-                          {assetInfo.purchase_date && (
-                            <tr><th>Дата покупки</th><td>{new Date(assetInfo.purchase_date).toLocaleDateString()}</td></tr>
-                          )}
-                          {assetInfo.warranty_until && (
-                            <tr><th>Гарантия до</th><td>{new Date(assetInfo.warranty_until).toLocaleDateString()}</td></tr>
-                          )}
-                          {assetInfo.issue_date && (
-                            <tr><th>Дата выдачи</th><td>{new Date(assetInfo.issue_date).toLocaleDateString()}</td></tr>
-                          )}
-                        </>
-                      )}
 
-                      {/* ДЛЯ КОМПЬЮТЕРОВ */}
-                      {assetInfo.type === 'Компьютер' && (
-                        <>
-                          <tr><th>Серийный номер</th><td>{assetInfo.serial_number || '-'}</td></tr>
-                          <tr><th>Модель</th><td>{assetInfo.model || '-'}</td></tr>
-                          <tr><th>Материнская плата</th><td>{assetInfo.motherboard || '-'}</td></tr>
-                          <tr><th>Процессор</th><td>{assetInfo.processor || '-'}</td></tr>
-                          <tr><th>ОЗУ</th><td>{assetInfo.ram || '-'}</td></tr>
-                          {(assetInfo.storage_type || assetInfo.storage_size) && (
-                            <tr><th>Накопитель</th><td>{[assetInfo.storage_type, assetInfo.storage_size].filter(Boolean).join(' ')}</td></tr>
-                          )}
-                          <tr><th>Операционная система</th><td>{assetInfo.os_type || '-'}</td></tr>
-                          {/* КЛЮЧ WINDOWS - ТОЛЬКО ЕСЛИ ОС СОДЕРЖИТ WINDOWS */}
-                          {assetInfo.os_type && assetInfo.os_type.toLowerCase().includes('windows') && (
-                            <tr><th>Ключ Windows</th><td>{assetInfo.windows_key || '-'}</td></tr>
-                          )}
-                          {assetInfo.purchase_date && (
-                            <tr><th>Дата покупки</th><td>{new Date(assetInfo.purchase_date).toLocaleDateString()}</td></tr>
-                          )}
-                          {assetInfo.warranty_until && (
-                            <tr><th>Гарантия до</th><td>{new Date(assetInfo.warranty_until).toLocaleDateString()}</td></tr>
-                          )}
-                        </>
-                      )}
-
-                      {/* ДЛЯ МОНИТОРОВ */}
-                      {assetInfo.type === 'Монитор' && (
-                        <>
-                          <tr><th>Серийный номер</th><td>{assetInfo.serial_number || '-'}</td></tr>
-                          <tr><th>Модель</th><td>{assetInfo.model || '-'}</td></tr>
-                          {assetInfo.purchase_date && (
-                            <tr><th>Дата покупки</th><td>{new Date(assetInfo.purchase_date).toLocaleDateString()}</td></tr>
-                          )}
-                          {assetInfo.warranty_until && (
-                            <tr><th>Гарантия до</th><td>{new Date(assetInfo.warranty_until).toLocaleDateString()}</td></tr>
-                          )}
-                          {assetInfo.comment && (
-                            <tr><th>Характеристики</th><td>{assetInfo.comment}</td></tr>
-                          )}
-                          <tr><th>Возраст</th><td>{calculateAssetAge(assetInfo)}</td></tr>
-                        </>
-                      )}
-
-                      {/* ДЛЯ ПРОЧЕГО */}
-                      {assetInfo.type === 'Прочее' && (
-                        <>
-                          <tr><th>Серийный номер</th><td>{assetInfo.serial_number || '-'}</td></tr>
-                          <tr><th>Модель</th><td>{assetInfo.model || '-'}</td></tr>
-                          {assetInfo.purchase_date && (
-                            <tr><th>Дата покупки</th><td>{new Date(assetInfo.purchase_date).toLocaleDateString()}</td></tr>
-                          )}
-                          {assetInfo.warranty_until && (
-                            <tr><th>Гарантия до</th><td>{new Date(assetInfo.warranty_until).toLocaleDateString()}</td></tr>
-                          )}
-                          {assetInfo.comment && (
-                            <tr><th>Описание</th><td>{assetInfo.comment}</td></tr>
-                          )}
-                          <tr><th>Возраст</th><td>{calculateAssetAge(assetInfo)}</td></tr>
-                        </>
-                      )}
-
-                      {/* ОБЩАЯ ИНФОРМАЦИЯ ДЛЯ ВСЕХ ТИПОВ */}
-                      <tr><th>Расположение</th><td>{assetInfo.location || '-'}</td></tr>
-                      <tr><th>Статус</th><td>
-                        <span className={`badge bg-${getStatusColor(assetInfo.status)}`}>
-                          {assetInfo.status}
-                        </span>
-                      </td></tr>
-                      {assetInfo.user_name && (
-                        <tr><th>Пользователь</th><td>{assetInfo.user_name}</td></tr>
-                      )}
-                    </tbody>
-                  </table>
                 </div>
                 <div className="modal-footer">
-                  <button className="btn btn-secondary" onClick={closeAssetInfoModal}>
-                    Закрыть
-                  </button>
-                  
-                  {/* КНОПКА РЕДАКТИРОВАНИЯ - только для админов */}
+                  <button className="btn btn-secondary" onClick={closeAssetInfoModal}>Закрыть</button>
                   {user?.is_admin && (
-                    <button 
-                      className="btn btn-primary" 
-                      onClick={() => {
-                        closeAssetInfoModal(); // Закрываем информационную модалку
-                        handleEdit(assetInfo);  // Открываем модалку редактирования
-                      }}
-                    >
-                      <i className="fas fa-edit me-2"></i>
-                      Редактировать актив
+                    <button className="btn btn-primary" onClick={() => { closeAssetInfoModal(); handleEdit(assetInfo); }}>
+                      <i className="fas fa-edit"></i> Редактировать
                     </button>
                   )}
                 </div>

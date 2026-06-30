@@ -2028,6 +2028,42 @@ body {
 .cell-age-r { color: #D95252; font-size: 12px; }
 .cell-age-x { color: var(--text-muted); font-size: 12px; }
 
+/* ── ASSET INFO MODAL ── */
+.ai-sec {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--accent);
+  font-weight: 600;
+  padding: 10px 0 5px;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 2px;
+}
+.ai-sec:first-child { padding-top: 0; }
+.ai-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--bg-raised);
+}
+.ai-row:last-child { border-bottom: none; }
+.ai-lbl {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-weight: 600;
+  color: var(--text-muted);
+  min-width: 114px;
+  flex-shrink: 0;
+}
+.ai-val {
+  font-size: 13px;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+.ai-mono { font-family: 'Consolas', 'Cascadia Code', 'SF Mono', monospace; font-size: 12px; }
+
 /* ── MODAL REDESIGN ── */
 
 .modal-content {
