@@ -2649,7 +2649,7 @@ function App() {
 
 
   return (
-    <div className="container mt-4">
+    <div className="app-root">
       {!token && (
         <form
           className="login-form mb-4 p-3 bg-light border rounded"
@@ -2680,487 +2680,200 @@ function App() {
         </form>
       )}
 
+      {/* HEADER */}
+      {token && (
+        <header className="hdr">
+          <div className="logo-wrap">
+            <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+              <rect width="36" height="36" rx="7" fill="var(--bg-app)"/>
+              <rect x="6" y="8" width="24" height="20" rx="2.5" stroke="var(--accent)" strokeWidth="1.5"/>
+              <line x1="6" y1="15" x2="30" y2="15" stroke="var(--accent)" strokeWidth=".7" strokeOpacity=".35"/>
+              <line x1="6" y1="21" x2="30" y2="21" stroke="var(--accent)" strokeWidth=".7" strokeOpacity=".35"/>
+              <rect x="10" y="10.5" width="8" height="1.8" rx=".9" fill="var(--accent)" opacity=".75"/>
+              <rect x="10" y="17" width="6" height="1.8" rx=".9" fill="var(--accent)" opacity=".5"/>
+              <rect x="10" y="22.5" width="7.5" height="1.8" rx=".9" fill="var(--accent)" opacity=".5"/>
+              <circle cx="25.5" cy="11.5" r="3.2" fill="#3A9D6E"/>
+              <polyline points="23.8,11.5 24.9,12.7 27.3,9.5" stroke="#fff" strokeWidth="1.1" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <div>
+              <div className="logo-text">Asset Tracker</div>
+              <div className="logo-ver">АСПРО · v2.1</div>
+            </div>
+          </div>
+          <div className="hdr-gap"></div>
+          <button className="theme-btn" onClick={toggleTheme} title={`Переключить на ${isDarkMode ? 'светлую' : 'темную'} тему`}>
+            <i className={`fas fa-${isDarkMode ? 'sun' : 'moon'}`}></i>
+          </button>
+          <div className="chip"><div className="chip-dot"></div>{user?.username || 'пользователь'}</div>
+          <button className="btn-exit" onClick={handleLogout}>Выйти</button>
+        </header>
+      )}
+
+      {/* STATS BAR — desktop */}
+      {token && !isMobile && stats.total > 0 && (
+        <div className="stats-bar">
+          <div className="sc sc-ac"><div className="sc-n">{stats.total}</div><div className="sc-l">Всего активов</div></div>
+          <div className="sc"><div className="sc-n">{stats.laptops}</div><div className="sc-l">Ноутбуки</div></div>
+          <div className="sc"><div className="sc-n">{stats.computers}</div><div className="sc-l">Компьютеры</div></div>
+          <div className="sc"><div className="sc-n">{stats.monitors}</div><div className="sc-l">Мониторы</div></div>
+          <div className="sc sc-tm"><div className="sc-n">{stats.other}</div><div className="sc-l">Прочее</div></div>
+          <div className="sc sc-tm"><div className="sc-n">{stats.retired}</div><div className="sc-l">Списано</div></div>
+          <div className="sc sc-ok"><div className="sc-n">{stats.underWarranty}</div><div className="sc-l">На гарантии</div></div>
+          <div className="sc sc-wa"><div className="sc-n">{stats.expiringWarranty}</div><div className="sc-l">Гарантия истекает</div></div>
+          <div className="sc sc-er"><div className="sc-n">{stats.inRepair}</div><div className="sc-l">В ремонте</div></div>
+        </div>
+      )}
+
       {/* КОМПАКТНАЯ СТАТИСТИКА ДЛЯ МОБИЛЬНЫХ */}
       {token && isMobile && (
-        <div className="mobile-stats-section mb-3">
+        <div className="mobile-stats-section mb-3" style={{ padding: '12px 16px' }}>
           <div className="d-flex justify-content-between align-items-center mb-2">
             <h6 className="mb-0 text-muted">
               <i className="fas fa-chart-pie me-1"></i>Статистика
             </h6>
-            <button 
+            <button
               className="btn btn-sm btn-outline-secondary"
               onClick={() => setShowMobileStats(!showMobileStats)}
             >
               <i className={`fas fa-chevron-${showMobileStats ? 'up' : 'down'}`}></i>
             </button>
           </div>
-    
           {showMobileStats && (
-            <div className="mobile-stats-grid" style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
-              gap: '8px',
-              marginBottom: '12px'
-            }}>
-              <div className="mini-stat-card">
-                <div className="stat-value text-primary">{stats.total}</div>
-                <div className="stat-label">Всего</div>
-              </div>
-              <div className="mini-stat-card">
-                <div className="stat-value text-info">{stats.laptops}</div>
-                <div className="stat-label">Ноутбуки</div>
-              </div>
-              <div className="mini-stat-card">
-                <div className="stat-value text-success">{stats.computers}</div>
-                <div className="stat-label">ПК</div>
-              </div>
-              <div className="mini-stat-card">
-                <div className="stat-value text-warning">{stats.monitors}</div>
-                <div className="stat-label">Мониторы</div>
-              </div>
-	      <div className="mini-stat-card">
-                <div className="stat-value text-muted">{stats.other}</div>
-                <div className="stat-label">Прочее</div>
-              </div>
-              <div className="mini-stat-card">
-                <div className="stat-value text-danger">{stats.retired}</div>
-                <div className="stat-label">Списано</div>
-              </div>
-              <div className="mini-stat-card">
-                <div className="stat-value text-secondary">{stats.inRepair}</div>
-                <div className="stat-label">Ремонт</div>
-              </div>
-	      <div className="mini-stat-card">
-                <div className="stat-value text-purple">{stats.underWarranty}</div>
-                <div className="stat-label">На гарантии</div>
-              </div>
-              <div className="mini-stat-card">
-                <div className="stat-value text-orange">{stats.expiringWarranty}</div>
-                <div className="stat-label">Гарантия истекает</div>
-              </div>
+            <div className="mobile-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '12px' }}>
+              <div className="mini-stat-card"><div className="stat-value text-primary">{stats.total}</div><div className="stat-label">Всего</div></div>
+              <div className="mini-stat-card"><div className="stat-value text-info">{stats.laptops}</div><div className="stat-label">Ноутбуки</div></div>
+              <div className="mini-stat-card"><div className="stat-value text-success">{stats.computers}</div><div className="stat-label">ПК</div></div>
+              <div className="mini-stat-card"><div className="stat-value text-warning">{stats.monitors}</div><div className="stat-label">Мониторы</div></div>
+              <div className="mini-stat-card"><div className="stat-value text-muted">{stats.other}</div><div className="stat-label">Прочее</div></div>
+              <div className="mini-stat-card"><div className="stat-value text-danger">{stats.retired}</div><div className="stat-label">Списано</div></div>
+              <div className="mini-stat-card"><div className="stat-value text-secondary">{stats.inRepair}</div><div className="stat-label">Ремонт</div></div>
+              <div className="mini-stat-card"><div className="stat-value text-purple">{stats.underWarranty}</div><div className="stat-label">На гарантии</div></div>
+              <div className="mini-stat-card"><div className="stat-value text-orange">{stats.expiringWarranty}</div><div className="stat-label">Гарантия истекает</div></div>
             </div>
           )}
         </div>
       )}
 
-      {/* ПОЛНАЯ СТАТИСТИКА ДЛЯ ДЕСКТОПА */}
-      {token && !isMobile && (
-        <div className="d-flex flex-wrap justify-content-center gap-3 mb-4">
-          <div className="stat-card text-center">
-            <div className="stat-value text-primary">{stats.total}</div>
-            <div className="stat-label">Всего активов</div>
-          </div>
-          <div className="stat-card text-center">
-            <div className="stat-value text-info">{stats.laptops}</div>
-            <div className="stat-label">Ноутбуки</div>
-          </div>
-          <div className="stat-card text-center">
-            <div className="stat-value text-success">{stats.computers}</div>
-            <div className="stat-label">Компьютеры</div>
-          </div>
-          <div className="stat-card text-center">
-            <div className="stat-value text-warning">{stats.monitors}</div>
-            <div className="stat-label">Мониторы</div>
-          </div>
-          <div className="stat-card text-center">
-            <div className="stat-value text-secondary">{stats.other}</div>
-            <div className="stat-label">Прочее</div>
-          </div>
-          <div className="stat-card text-center">
-            <div className="stat-value text-danger">{stats.retired}</div>
-            <div className="stat-label">Списано</div>
-          </div>
-          <div className="stat-card text-center">
-            <div className="stat-value text-purple">{stats.underWarranty}</div>
-            <div className="stat-label">На гарантии</div>
-          </div>
-          <div className="stat-card text-center">
-            <div className="stat-value text-orange">{stats.expiringWarranty}</div>
-            <div className="stat-label">Гарантия истекает</div>
-          </div>
-          <div className="stat-card text-center">
-            <div className="stat-value text-secondary">{stats.inRepair}</div>
-            <div className="stat-label">В ремонте</div>
-          </div>
-        </div>
-      )}
-
-
-      {token && (
-        <div className="app-header d-flex justify-content-between align-items-center mb-3">
-          <span>Вы вошли как {user?.username || 'пользователь'}</span>
-          <div className="d-flex align-items-center gap-2">
-            <img 
-              src={isDarkMode ? "/asset-logo-blur.png" : "/enhanced_asset-logo2.png"} 
-              alt="Логотип" 
-              style={{ 
-                height: '80px', 
-                opacity: 0.9, 
-                filter: 'grayscale(100%)',
-                transition: 'all 0.3s ease' /* Плавная смена */
-              }} 
-            />
-            
-            {/* Переключатель темы */}
-            <button 
-              className={`btn btn-outline-${isDarkMode ? 'light' : 'dark'} btn-sm`}
-              onClick={toggleTheme}
-              title={`Переключить на ${isDarkMode ? 'светлую' : 'темную'} тему`}
-              style={{ minWidth: '45px' }}
-            >
-              <i className={`fas fa-${isDarkMode ? 'sun' : 'moon'}`}></i>
-            </button>
-            
-            <button className="btn btn-outline-danger" onClick={handleLogout}>Выйти</button>
-          </div>
-        </div>
-      )}
-
-
-
+      {/* TOOLBAR */}
       {token && user && (
-        <div className="app-toolbar d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 p-2 bg-white border rounded">
-          <div className="d-flex flex-wrap gap-1">
-            <button
-              className="btn btn-outline-info btn-sm"
-              onClick={() => setShowAboutModal(true)}
-              title="О системе"
-            >
-              <i className="fas fa-info-circle"></i> О системе
-            </button>
-            <button
-              className="btn btn-outline-primary btn-sm"
-              onClick={handleExport}
-              title="Экспорт в Excel"
-            >
-              <i className="fas fa-file-export"></i> Экспорт
-            </button>
-            {user.is_admin && (
-              <>
-                <label
-                  className="btn btn-outline-primary btn-sm mb-0 d-flex align-items-center"
-                  title="Импорт из Excel"
-                >
-                  <i className="fas fa-file-import me-1"></i> Импорт
-                  <input
-                    type="file"
-                    accept=".xlsx"
-                    style={{ display: 'none' }}
-                    onChange={handleImport}
-                  />
-                </label>
-                <button className="btn btn-info btn-sm" onClick={handlePrintAllQRCodes}>
-                  <i className="fas fa-qrcode"></i> Печать всех QR-кодов
-                </button>
-    
-                <button
-                  className="btn btn-warning btn-sm"
-                  onClick={generateWindowsReport}
-                  title="Отчет по лицензиям Windows"
-                >
-                  <i className="fab fa-windows"></i> Windows отчет
-                </button>
-
-                <button
-                  className={`btn btn-sm ${inventorySession && !inventoryMode ? 'btn-warning' : 'btn-secondary'}`}
-                  onClick={inventoryMode ? undefined : openInventory}
-                  title={inventoryMode ? 'Инвентаризация открыта' : inventorySession ? 'Продолжить инвентаризацию' : 'Начать инвентаризацию'}
-                  disabled={inventoryMode}
-                >
-                  <i className="fas fa-clipboard-check"></i> {inventorySession && !inventoryMode ? 'Продолжить' : 'Инвентаризация'}
-                </button>
-
-              </>
-            )}
-          </div>
-
+        <div className="tb">
           {user.is_admin && (
-            <div className="d-flex flex-wrap gap-1">
-              <button
-                className="btn btn-success btn-sm"
-                onClick={() => openModal()}
-                title="Добавить актив"
-              >
-                <i className="fas fa-plus"></i> Добавить
-              </button>
-              <button
-                className="btn btn-warning btn-sm"
-                onClick={() => openUserModal()}
-                title="Управление пользователями"
-              >
-                <i className="fas fa-users"></i> Пользователи
-              </button>
-              <button
-                className="btn btn-danger btn-sm"
-                onClick={handleClearDatabase}
-                title="Очистить всю базу"
-              >
-                <i className="fas fa-trash-alt"></i> Очистить
-              </button>
-              <button
-                className="btn btn-info btn-sm"
-                onClick={openDeletionLogModal}
-                title="Просмотреть журнал удалений"
-              >
-                <i className="fas fa-history"></i> Журнал удалений
-              </button>
-            </div>
+            <button className="btn-p" onClick={() => openModal()}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Добавить
+            </button>
           )}
+          <div className="tsep"></div>
+          <button className="btn-t" onClick={handleExport}>↓ Экспорт</button>
+          {user.is_admin && (
+            <label className="btn-t" style={{ cursor: 'pointer' }}>
+              ↑ Импорт
+              <input type="file" accept=".xlsx" style={{ display: 'none' }} onChange={handleImport} />
+            </label>
+          )}
+          {user.is_admin && (
+            <>
+              <div className="tsep"></div>
+              <button className="btn-t" onClick={handlePrintAllQRCodes}>⊡ Печать QR</button>
+              <button className="btn-t" onClick={generateWindowsReport}>⊞ Windows отчет</button>
+              <div className="tsep"></div>
+              <button
+                className={`btn-t ${inventorySession && !inventoryMode ? 'lit' : ''}`}
+                onClick={inventoryMode ? undefined : openInventory}
+                disabled={inventoryMode}
+              >
+                {inventorySession && !inventoryMode ? '↺ Продолжить' : '✓ Инвентаризация'}
+              </button>
+            </>
+          )}
+          <div className="tsep"></div>
+          {user.is_admin && (
+            <>
+              <button className="btn-t sm" onClick={() => openUserModal()}>👥 Пользователи</button>
+              <button className="btn-t sm" onClick={openDeletionLogModal}>🕐 Журнал</button>
+            </>
+          )}
+          <button className="btn-t sm" onClick={() => setShowAboutModal(true)}>ℹ О системе</button>
+          <div className="tsp"></div>
+          {user.is_admin && (
+            <>
+              <button className="btn-t danger sm" onClick={handleClearDatabase}>⊠ Очистить БД</button>
+              <div className="tsep"></div>
+            </>
+          )}
+          <div className="search-wrap">
+            <input
+              className="search"
+              placeholder="Поиск…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            {searchQuery && (
+              <button className="search-x" type="button" onClick={() => setSearchQuery('')}>×</button>
+            )}
+          </div>
         </div>
       )}
 
-      {token && (
-        <div className="d-flex flex-wrap align-items-center gap-2 mb-4">
-          {/* АДАПТИВНЫЙ ФИЛЬТР ПО ТИПУ */}
-          {isMobile ? (
-            /* Мобильная версия - выпадающий список */
-            <div className="mobile-type-filter">
-              <select 
-                className="form-select form-select-sm" 
-                value={filter} 
-                onChange={(e) => {
-                  setFilter(e.target.value);
-                  setDisposedFilter(false);
-                  setPage(1);
-                }}
-                style={{ minWidth: '150px' }}
-              >
-                <option value="Все">Все типы ({stats.total})</option>
-                <option value="Монитор">Мониторы ({stats.monitors})</option>
-                <option value="Компьютер">Компьютеры ({stats.computers})</option>
-                <option value="Ноутбук">Ноутбуки ({stats.laptops})</option>
-                <option value="Прочее">Прочее ({stats.other})</option>
-              </select>
-            </div>
-          ) : (
-            /* Десктопная версия */
-            <div className="btn-group" role="group">
-              <button className={`btn btn-outline-primary ${filter === 'Все' ? 'active' : ''}`} onClick={() => { setFilter('Все'); setDisposedFilter(false); setPage(1); }}>
-                Все типы
-              </button>
-              <button className={`btn btn-outline-primary ${filter === 'Монитор' ? 'active' : ''}`} onClick={() => { setFilter('Монитор'); setDisposedFilter(false); setPage(1); }}>
-                Мониторы
-              </button>
-              <button className={`btn btn-outline-primary ${filter === 'Компьютер' ? 'active' : ''}`} onClick={() => { setFilter('Компьютер'); setDisposedFilter(false); setPage(1); }}>
-                Компьютеры
-              </button>
-              <button className={`btn btn-outline-primary ${filter === 'Ноутбук' ? 'active' : ''}`} onClick={() => { setFilter('Ноутбук'); setDisposedFilter(false); setPage(1); }}>
-                Ноутбуки
-              </button>
-              <button className={`btn btn-outline-primary ${filter === 'Прочее' ? 'active' : ''}`} onClick={() => { setFilter('Прочее'); setDisposedFilter(false); setPage(1); }}>
-                Прочее
-              </button>
-            </div>
-          )}
-
-          <div className="btn-group" role="group">
-            <button
-              className={`btn btn-outline-dark ${disposedFilter ? 'active' : ''}`}
-              onClick={() => {
-                setDisposedFilter(!disposedFilter);
-                setFilter('Все');
-                setWarrantyFilter('all');
-                setPage(1);
-                if (activeTab !== 'assets') setActiveTab('assets');
-              }}
-              title="Показать только списанные активы"
-            >
-              <i className="fas fa-trash-alt"></i> Списано
+      {/* FILTER BAR — flat single row */}
+      {token && (() => {
+        const ageCounts = getAssetsByAgeCategory();
+        const hasActive = filter !== 'Все' || disposedFilter || warrantyFilter !== 'all' || ageRangeFilter !== 'all' || searchQuery || selectedUser;
+        return (
+          <div className="fb">
+            <button className={`ft ${filter === 'Все' && !disposedFilter && warrantyFilter === 'all' ? 'on' : ''}`}
+              onClick={() => { setFilter('Все'); setDisposedFilter(false); setWarrantyFilter('all'); setPage(1); if (activeTab !== 'assets') setActiveTab('assets'); }}>
+              Все <span className="n">{stats.total}</span>
             </button>
-          </div>
-          <div className="btn-group" role="group">
-            <button
-              className={`btn btn-outline-success ${warrantyFilter === 'active' ? 'active' : ''}`}
-              onClick={() => {
-                setWarrantyFilter('active');
-                setDisposedFilter(false);
-                setPage(1);
-                if (activeTab !== 'assets') setActiveTab('assets');
-              }}
-              title="Показать активы на гарантии"
-            >
-              <i className="fas fa-shield-alt"></i> На гарантии
+            <button className={`ft ${filter === 'Монитор' ? 'on' : ''}`}
+              onClick={() => { setFilter('Монитор'); setDisposedFilter(false); setWarrantyFilter('all'); setPage(1); if (activeTab !== 'assets') setActiveTab('assets'); }}>
+              Мониторы <span className="n">{stats.monitors}</span>
             </button>
-            <button
-              className={`btn ${activeTab === 'reports' ? 'btn-warning' : 'btn-outline-warning'}`}
-              onClick={() => setActiveTab(activeTab === 'reports' ? 'assets' : 'reports')}
-              title="Показать отчет: гарантия заканчивается"
-            >
-              <i className="fas fa-exclamation-triangle"></i> {activeTab === 'reports' ? 'Вернуться к таблице' : 'Гарантия заканчивается'}
+            <button className={`ft ${filter === 'Компьютер' ? 'on' : ''}`}
+              onClick={() => { setFilter('Компьютер'); setDisposedFilter(false); setWarrantyFilter('all'); setPage(1); if (activeTab !== 'assets') setActiveTab('assets'); }}>
+              Компьютеры <span className="n">{stats.computers}</span>
             </button>
-          </div>
-          <div className="small text-muted">
-            {filter !== 'Все' && `Тип: ${filter}`}
-            {disposedFilter && ` | Списано`}
-            {warrantyFilter !== 'all' && !disposedFilter && ` | Гарантия: ${warrantyFilter === 'active' ? 'активна' : 'заканчивается'}`}
-            {ageRangeFilter !== 'all' && ` | Возраст: ${(() => {
-              const labels = {
-                'new': 'новые',
-                'fresh': 'свежие', 
-                'medium': 'средние',
-                'old': 'старые',
-                'unknown': 'неизвестно'
-              };
-              return labels[ageRangeFilter];
-            })()}`}
-            {(filter !== 'Все' || disposedFilter || warrantyFilter !== 'all' || ageRangeFilter !== 'all') && (
-              <button
-                className="btn btn-sm btn-outline-secondary ms-2"
-                onClick={() => {
-                  setFilter('Все');
-                  setDisposedFilter(false);
-                  setWarrantyFilter('all');
-                  setAgeRangeFilter('all');
-                  setPage(1);
-                }}
-              >
-                Сбросить фильтры
+            <button className={`ft ${filter === 'Ноутбук' ? 'on' : ''}`}
+              onClick={() => { setFilter('Ноутбук'); setDisposedFilter(false); setWarrantyFilter('all'); setPage(1); if (activeTab !== 'assets') setActiveTab('assets'); }}>
+              Ноутбуки <span className="n">{stats.laptops}</span>
+            </button>
+            <button className={`ft ${filter === 'Прочее' ? 'on' : ''}`}
+              onClick={() => { setFilter('Прочее'); setDisposedFilter(false); setWarrantyFilter('all'); setPage(1); if (activeTab !== 'assets') setActiveTab('assets'); }}>
+              Прочее <span className="n">{stats.other}</span>
+            </button>
+            <div className="fsep"></div>
+            <button className={`ft ${disposedFilter ? 'on' : ''}`}
+              onClick={() => { setDisposedFilter(!disposedFilter); setFilter('Все'); setWarrantyFilter('all'); setPage(1); if (activeTab !== 'assets') setActiveTab('assets'); }}>
+              Списано
+            </button>
+            <button className={`ft ${warrantyFilter === 'active' ? 'on' : ''}`}
+              onClick={() => { setWarrantyFilter(warrantyFilter === 'active' ? 'all' : 'active'); setDisposedFilter(false); setPage(1); if (activeTab !== 'assets') setActiveTab('assets'); }}>
+              На гарантии
+            </button>
+            <button className={`ft ${activeTab === 'reports' ? 'warn' : ''}`}
+              onClick={() => setActiveTab(activeTab === 'reports' ? 'assets' : 'reports')}>
+              Гарантия заканчивается
+            </button>
+            <div className="fsep"></div>
+            <button className={`ab ${ageRangeFilter === 'all' ? 'on' : ''}`} onClick={() => setAgeRangeFilter('all')}>Все</button>
+            <button className={`ab ${ageRangeFilter === 'new' ? 'on' : ''}`} onClick={() => setAgeRangeFilter('new')}><span className="n cg">{ageCounts.new}</span>&nbsp;до 1 г.</button>
+            <button className={`ab ${ageRangeFilter === 'fresh' ? 'on' : ''}`} onClick={() => setAgeRangeFilter('fresh')}><span className="n cb">{ageCounts.fresh}</span>&nbsp;1–3 г.</button>
+            <button className={`ab ${ageRangeFilter === 'medium' ? 'on' : ''}`} onClick={() => setAgeRangeFilter('medium')}><span className="n cy">{ageCounts.medium}</span>&nbsp;3–5 л.</button>
+            <button className={`ab ${ageRangeFilter === 'old' ? 'on' : ''}`} onClick={() => setAgeRangeFilter('old')}><span className="n cr">{ageCounts.old}</span>&nbsp;5+ л.</button>
+            <button className={`ab ${ageRangeFilter === 'unknown' ? 'on' : ''}`} onClick={() => setAgeRangeFilter('unknown')}><span className="n cm">{ageCounts.unknown}</span>&nbsp;Не указан</button>
+            <div className="fsp"></div>
+            <select className="fsel" value={selectedUser} onChange={(e) => { setSelectedUser(e.target.value); setPage(1); }}>
+              <option value="">Пользователь: все</option>
+              {uniqueUsers.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
+            </select>
+            {hasActive && (
+              <button className="btn-rst" onClick={() => { setFilter('Все'); setDisposedFilter(false); setWarrantyFilter('all'); setAgeRangeFilter('all'); setSearchQuery(''); setSelectedUser(''); setPage(1); }}>
+                ↺ Сбросить
               </button>
             )}
           </div>
-          <div className="me-2 align-self-center" style={{ minWidth: '200px' }}>
-            <Select
-              options={uniqueUsers}
-              value={selectedUser ? { value: selectedUser, label: selectedUser } : null}
-              onChange={(option) => {
-                setSelectedUser(option ? option.value : '');
-                setPage(1);
-              }}
-              isClearable
-              isSearchable
-              placeholder="Фильтр по пользователю"
-              noOptionsMessage={() => "Нет пользователей"}
-              classNamePrefix="react-select"
-            />
-          </div>
-        </div>
-      )}
-
-      {token && (
-        <div className="age-range-filter mb-4">
-          <div className="card">
-            <div className="card-body py-3">
-              <div className="row align-items-center">
-                <div className="col-md-2">
-                  <label className="form-label mb-0 fw-bold">
-                    <i className="fas fa-hourglass-half me-2"></i>
-                    Фильтр по возрасту:
-                  </label>
-                </div>
-                <div className="col-md-10">
-                  <div className="d-flex gap-2 flex-wrap">
-                    {(() => {
-                      const ageCounts = getAssetsByAgeCategory();
-                      const filterButtons = [
-                        {
-                          key: 'all',
-                          label: 'Все',
-                          icon: 'fas fa-list',
-                          color: 'secondary',
-                          count: ageCounts.all
-                        },
-                        {
-                          key: 'new',
-                          label: 'Новые',
-                          sublabel: 'до 1 года',
-                          icon: 'fas fa-star',
-                          color: 'success',
-                          count: ageCounts.new
-                        },
-                        {
-                          key: 'fresh',
-                          label: 'Свежие',
-                          sublabel: '1-3 года',
-                          icon: 'fas fa-clock',
-                          color: 'info',
-                          count: ageCounts.fresh
-                        },
-                        {
-                          key: 'medium',
-                          label: 'Средние',
-                          sublabel: '3-5 лет',
-                          icon: 'fas fa-exclamation-triangle',
-                          color: 'warning',
-                          count: ageCounts.medium
-                        },
-                        {
-                          key: 'old',
-                          label: 'Старые',
-                          sublabel: '5+ лет',
-                          icon: 'fas fa-calendar-times',
-                          color: 'danger',
-                          count: ageCounts.old
-                        },
-                        {
-                          key: 'unknown',
-                          label: 'Неизвестно',
-                          sublabel: 'без даты',
-                          icon: 'fas fa-question',
-                          color: 'dark',
-                          count: ageCounts.unknown
-                        }
-                      ];
-
-                      return filterButtons.map(button => (
-                        <button
-                          key={button.key}
-                          className={`btn btn-sm ${
-                            ageRangeFilter === button.key 
-                              ? `btn-${button.color}` 
-                              : `btn-outline-${button.color}`
-                          } age-filter-btn`}
-                          onClick={() => setAgeRangeFilter(button.key)}
-                          title={`Показать ${button.label.toLowerCase()} активы${button.sublabel ? ` (${button.sublabel})` : ''}`}
-                        >
-                          <div className="d-flex align-items-center">
-                            <i className={`${button.icon} me-2`}></i>
-                            <div>
-                              <div className="fw-bold">{button.label}</div>
-                              {button.sublabel && (
-                                <small className="d-block" style={{fontSize: '0.7em', marginTop: '-2px'}}>
-                                  {button.sublabel}
-                                </small>
-                              )}
-                            </div>
-                            <span className="badge bg-white text-dark ms-2 fw-bold">
-                              {button.count}
-                            </span>
-                          </div>
-                        </button>
-                      ));
-                    })()}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-
-
-      {token && (
-        <div className="input-group mb-3">
-          <input
-            type="text"
-            className="form-control"
-            placeholder="Введите данные актива для поиска..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          {searchQuery && (
-            <button
-              className="btn btn-outline-secondary"
-              type="button"
-              onClick={() => setSearchQuery('')}
-              style={{ display: 'flex', alignItems: 'center', padding: '0 10px' }}
-              title="Очистить поиск"
-            >
-              <i className="fas fa-times"></i>
-            </button>
-          )}
-        </div>
-      )}
+        );
+      })()}
 
       {/* ───── Режим инвентаризации ───── */}
       {token && inventoryMode && inventorySession && (() => {
@@ -3432,21 +3145,21 @@ function App() {
 
       <React.Fragment>
         {token && activeTab === 'assets' && !isMobile && (
-          <div className="table-container">
-            <div className="table-responsive">
-              <table className="custom-table">
+          <div className="tw">
+            <div className="tw-scroll">
+              <table>
                 <thead>
                   <tr>
-                    <th>ID</th>
-                    <th>Инвентарный номер</th>
-                    <th>Серийный номер</th>
+                    <th style={{ width: '44px' }}>ID</th>
+                    <th>Инв. номер</th>
+                    <th>Серийный №</th>
                     <th>Статус</th>
                     <th>Расположение</th>
                     <th>ФИО пользователя</th>
-		    <th>Возраст</th>
+                    <th>Возраст</th>
                     <th>Комментарий</th>
-                    {warrantyFilter === 'active' && <th>Гарантия до</th>}
-                    <th>Действия</th>
+                    {warrantyFilter === 'active' && <th style={{ color: 'rgba(107,122,153,.5)' }}>Гарантия до *</th>}
+                    <th className="th-r" style={{ width: '180px' }}>Действия</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -3454,12 +3167,12 @@ function App() {
                     paginatedAssets.map((asset) => (
                       <React.Fragment key={asset.id}>
                         <tr>
-                          <td data-label="ID">{asset.id}</td>
-                          <td data-label="Инвентарный номер" onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'inventory_number', asset.inventory_number)}>
+                          <td><span className="cell-id">{asset.id}</span></td>
+                          <td onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'inventory_number', asset.inventory_number)}>
                             {editingCell.assetId === asset.id && editingCell.field === 'inventory_number' ? (
                               <input
                                 type="text"
-                                className="form-control form-control-sm"
+                                className="cell-input"
                                 value={editValue}
                                 onChange={handleEditChange}
                                 onKeyDown={handleEditKeyDown}
@@ -3467,14 +3180,14 @@ function App() {
                                 autoFocus
                               />
                             ) : (
-                              <span className={user?.is_admin ? 'editable-cell' : ''}>{asset.inventory_number || '-'}</span>
+                              <span className={`cell-inv${user?.is_admin ? ' editable-cell' : ''}`}>{asset.inventory_number || '—'}</span>
                             )}
                           </td>
-                          <td data-label="Серийный номер" onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'serial_number', asset.serial_number)}>
+                          <td onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'serial_number', asset.serial_number)}>
                             {editingCell.assetId === asset.id && editingCell.field === 'serial_number' ? (
                               <input
                                 type="text"
-                                className="form-control form-control-sm"
+                                className="cell-input"
                                 value={editValue}
                                 onChange={handleEditChange}
                                 onKeyDown={handleEditKeyDown}
@@ -3482,18 +3195,15 @@ function App() {
                                 autoFocus
                               />
                             ) : (
-                              <span 
-			        className={user?.is_admin ? 'editable-cell' : ''} 
-                                title={asset.serial_number || '-'}
-                              >
-                                {asset.serial_number || '-'}
+                              <span className={`cell-srl${user?.is_admin ? ' editable-cell' : ''}`} title={asset.serial_number || '—'}>
+                                {asset.serial_number || '—'}
                               </span>
                             )}
                           </td>
-                          <td data-label="Статус" onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'status', asset.status)}>
+                          <td onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'status', asset.status)}>
                             {editingCell.assetId === asset.id && editingCell.field === 'status' ? (
                               <select
-                                className="form-select form-select-sm"
+                                className="cell-select"
                                 value={editValue}
                                 onChange={handleEditChange}
                                 onBlur={saveEdit}
@@ -3504,14 +3214,16 @@ function App() {
                                 <option value="списано">списано</option>
                               </select>
                             ) : (
-                              <span className={user?.is_admin ? 'editable-cell' : ''}>{asset.status}</span>
+                              <span className={`pill ${asset.status === 'в эксплуатации' ? 'pill-on' : asset.status === 'списано' ? 'pill-out' : asset.status === 'на ремонте' ? 'pill-fix' : 'pill-off'}${user?.is_admin ? ' editable-cell' : ''}`}>
+                                <span className="pill-dot"></span>{asset.status}
+                              </span>
                             )}
                           </td>
-                          <td data-label="Расположение" onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'location', asset.location)}>
+                          <td onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'location', asset.location)}>
                             {editingCell.assetId === asset.id && editingCell.field === 'location' ? (
                               <input
                                 type="text"
-                                className="form-control form-control-sm"
+                                className="cell-input"
                                 value={editValue}
                                 onChange={handleEditChange}
                                 onKeyDown={handleEditKeyDown}
@@ -3522,11 +3234,11 @@ function App() {
                               <span className={user?.is_admin ? 'editable-cell' : ''}>{asset.location}</span>
                             )}
                           </td>
-                          <td data-label="ФИО пользователя" onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'user_name', asset.user_name)}>
+                          <td onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'user_name', asset.user_name)}>
                             {editingCell.assetId === asset.id && editingCell.field === 'user_name' ? (
                               <input
                                 type="text"
-                                className="form-control form-control-sm"
+                                className="cell-input"
                                 value={editValue}
                                 onChange={handleEditChange}
                                 onKeyDown={handleEditKeyDown}
@@ -3534,39 +3246,34 @@ function App() {
                                 autoFocus
                               />
                             ) : (
-                              <span className={user?.is_admin ? 'editable-cell' : ''}>{asset.user_name || '-'}</span>
+                              <span className={user?.is_admin ? 'editable-cell' : ''}>{asset.user_name || '—'}</span>
                             )}
                           </td>
 
-                          <td data-label="Возраст" 
-                              className={getAgeClass(asset)}
-                              onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'manual_age', asset.manual_age)}
-                          >
+                          <td onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'manual_age', asset.manual_age)}>
                             {editingCell.assetId === asset.id && editingCell.field === 'manual_age' ? (
-                              <input 
-                                type="text" 
-                                className="form-control form-control-sm" 
-                                value={editValue} 
+                              <input
+                                type="text"
+                                className="cell-input"
+                                value={editValue}
                                 onChange={handleEditChange}
-                                onKeyDown={handleEditKeyDown} 
-                                onBlur={saveEdit} 
-                                placeholder="Например: 5 лет" 
-                                autoFocus 
+                                onKeyDown={handleEditKeyDown}
+                                onBlur={saveEdit}
+                                placeholder="Например: 5 лет"
+                                autoFocus
                               />
                             ) : (
-                              <span className={user?.is_admin ? 'editable-cell' : ''}>
+                              <span className={`${getAgeClass(asset)}${user?.is_admin ? ' editable-cell' : ''}`}>
                                 {calculateAssetAge(asset)}
                               </span>
                             )}
-                            {asset.manual_age && (
-                              <i className="fas fa-edit text-muted ms-1" title="Возраст указан вручную" style={{ fontSize: '0.8em' }}></i>
-                            )}
                           </td>
 
-                          <td data-label="Комментарий" onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'comment', asset.comment)}>
+                          <td onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'comment', asset.comment)}>
                             {editingCell.assetId === asset.id && editingCell.field === 'comment' ? (
                               <textarea
-                                className="form-control form-control-sm"
+                                className="cell-input"
+                                style={{ height: '52px', resize: 'vertical', padding: '4px 8px' }}
                                 value={editValue}
                                 onChange={handleEditChange}
                                 onKeyDown={handleEditKeyDown}
@@ -3574,108 +3281,59 @@ function App() {
                                 autoFocus
                               />
                             ) : (
-                              <div className={user?.is_admin ? 'editable-cell comment-cell' : 'comment-cell'}>
+                              <span className={`cell-cmnt${user?.is_admin ? ' editable-cell' : ''}`}>
                                 {asset.comment || ''}
-                              </div>
+                              </span>
                             )}
                           </td>
-                          {warrantyFilter === 'active' && <td data-label="Гарантия до">{asset.warranty_until || '-'}</td>}
-                          <td className="text-center desktop-actions">
-                            <div className="d-flex justify-content-center flex-wrap gap-2">
-                              {/* Кнопки для всех пользователей */}
+                          {warrantyFilter === 'active' && <td style={{ fontSize: '11px', fontVariantNumeric: 'tabular-nums' }}>{asset.warranty_until || '—'}</td>}
+                          <td>
+                            <div className="ra">
                               <button
-                                className="btn btn-sm btn-outline-secondary"
-                                title={showHistory === asset.id ? "Скрыть историю" : "Показать историю"}
-                                onClick={() => {
-                                  if (showHistory === asset.id) {
-                                    setShowHistory(null);
-                                  } else {
-                                    setShowHistory(asset.id);
-                                    setHistoryPage(1);
-                                  }
-                                }}
-                              >
-                                <i className={`fas ${showHistory === asset.id ? 'fa-eye-slash' : 'fa-history'}`}></i>
-                              </button>
-                              
-                              <button
-                                className="btn btn-sm btn-outline-info"
-                                title="Информация о активе"
-                                onClick={() => openAssetInfoModal(asset)}
-                              >
-                                <i className="fas fa-info-circle"></i>
-                              </button>
-
-                              <button 
-                                className="btn btn-sm btn-outline-secondary" 
-                                title="Копировать информацию" 
-                                onClick={() => handleCopyAssetInfo(asset)}
-                              >
-                                <i className="fas fa-copy"></i>
-                              </button>
-
-
-                              {/* Кнопки только для админов */}
+                                className={`ra-btn ${showHistory === asset.id ? 'ra-on' : ''}`}
+                                title={showHistory === asset.id ? "Скрыть историю" : "История"}
+                                onClick={() => { if (showHistory === asset.id) { setShowHistory(null); } else { setShowHistory(asset.id); setHistoryPage(1); } }}
+                              >↺</button>
+                              <button className="ra-btn" title="Информация" onClick={() => openAssetInfoModal(asset)}>i</button>
+                              <button className="ra-btn" title="Копировать" onClick={() => handleCopyAssetInfo(asset)}>⎘</button>
                               {user?.is_admin && (
                                 <>
-                                  <button
-                                    className="btn btn-sm btn-outline-primary"
-                                    title="Редактировать"
-                                    onClick={() => handleEdit(asset)}
-                                  >
-                                    <i className="fas fa-edit"></i>
-                                  </button>
-                                  <button
-                                    className="btn btn-sm btn-outline-danger"
-                                    title="Удалить"
-                                    onClick={() => handleDelete(asset.id)}
-                                  >
-                                    <i className="fas fa-trash"></i>
-                                  </button>
-                                  <button
-                                    className="btn btn-sm btn-outline-warning"
-                                    title="Показать ремонты"
-                                    onClick={() => openRepairsModal(asset.id)}
-                                  >
-                                    <i className="fas fa-wrench"></i>
-                                  </button>
+                                  <button className="ra-btn" title="Редактировать" onClick={() => handleEdit(asset)}>✎</button>
+                                  <button className="ra-btn ra-del" title="Удалить" onClick={() => handleDelete(asset.id)}>⊠</button>
+                                  <button className="ra-btn ra-fix" title="Ремонты" onClick={() => openRepairsModal(asset.id)}>⚙</button>
                                 </>
                               )}
                             </div>
                           </td>
                         </tr>
                         {showHistory === asset.id && asset.history && asset.history.length > 0 && (
-                          <tr>
-                            <td colSpan={(user?.is_admin ? 9 : 8) + (warrantyFilter === 'active' ? 1 : 0)} className="bg-light small p-2" style={{ textAlign: 'left' }}>
-                              <strong>История изменений:</strong>
-                              <HistoryPagination 
-                                history={asset.history} 
-                                historyPage={historyPage} 
-                                setHistoryPage={setHistoryPage} 
-                                historyItemsPerPage={historyItemsPerPage}
-                              />
-		              <ul className="mb-0 ps-3">
-                                {asset.history 
+                          <tr className="hist-row">
+                            <td colSpan={(user?.is_admin ? 9 : 8) + (warrantyFilter === 'active' ? 1 : 0)}>
+                              <div className="hist-inner">
+                                <div className="hist-title">История изменений — {asset.inventory_number}</div>
+                                <HistoryPagination
+                                  history={asset.history}
+                                  historyPage={historyPage}
+                                  setHistoryPage={setHistoryPage}
+                                  historyItemsPerPage={historyItemsPerPage}
+                                />
+                                {asset.history
                                   .slice()
                                   .sort((a, b) => {
-                                    // Сначала по дате, потом по ID в убывающем порядке  
                                     const dateA = new Date(a.changed_at);
                                     const dateB = new Date(b.changed_at);
-    
-                                    if (dateA.getTime() !== dateB.getTime()) {
-                                      return dateB - dateA; // Новые даты сверху
-                                    }
-    
-                                    return b.id - a.id; // При одинаковой дате - новые ID сверху
+                                    if (dateA.getTime() !== dateB.getTime()) return dateB - dateA;
+                                    return b.id - a.id;
                                   })
                                   .slice((historyPage - 1) * historyItemsPerPage, historyPage * historyItemsPerPage)
                                   .map((h, idx) => (
-                                    <li key={idx}>
-                                      ({h.changed_at}) {h.changed_by ? `[${h.changed_by}] ` : ''} 
-                                      {getHumanFieldName(h.field)}: "{h.old_value}" → "{h.new_value}"
-                                    </li>
-                                  ))}	
-                              </ul>
+                                    <div key={idx} className="hist-entry">
+                                      <span className="hist-date">{h.changed_at}</span>
+                                      {h.changed_by && <span className="hist-user">{h.changed_by}</span>}
+                                      <span>{getHumanFieldName(h.field)}: <span className="hist-old">{h.old_value}</span> → <span className="hist-new">{h.new_value}</span></span>
+                                    </div>
+                                  ))}
+                              </div>
                             </td>
                           </tr>
                         )}
@@ -4040,119 +3698,45 @@ function App() {
 
       </React.Fragment>
 
-      {token && activeTab === 'assets' && assets.length > 0 && (
-        <div className="pagination-container d-flex justify-content-center align-items-center mt-3 mb-4 flex-wrap gap-2">
-          <div className="pagination-info text-muted me-auto">
-            Показано {((page - 1) * itemsPerPage) + 1}-{Math.min(page * itemsPerPage, filteredAssets.length)} из {filteredAssets.length} записей
+      {token && activeTab === 'assets' && assets.length > 0 && !isMobile && (
+        <div className="pg">
+          <div className="pg-info">
+            Показано {((page - 1) * itemsPerPage) + 1}–{Math.min(page * itemsPerPage, filteredAssets.length)} из {filteredAssets.length}
           </div>
-
-          <div className="d-flex align-items-center gap-1">
-            <button
-              className="btn btn-outline-primary btn-sm"
-              onClick={() => setPage(1)}
-              disabled={page === 1}
-              title="Первая страница"
-            >
-              <i className="fas fa-angle-double-left"></i>
-              <span className="d-none d-sm-inline ms-1">Первая</span>
-            </button>
-
-            <button
-              className="btn btn-outline-primary btn-sm"
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1}
-              title="Предыдущая страница"
-            >
-              <i className="fas fa-angle-left"></i>
-              <span className="d-none d-sm-inline ms-1">Назад</span>
-            </button>
-
+          <div className="pg-nav">
+            <button className="pg-btn" onClick={() => setPage(1)} disabled={page === 1}>«</button>
+            <button className="pg-btn" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>‹</button>
             {(() => {
               const totalPages = Math.ceil(filteredAssets.length / itemsPerPage);
               const delta = 2;
               const range = [];
-              
-              for (let i = Math.max(2, page - delta); 
-                   i <= Math.min(totalPages - 1, page + delta); 
-                   i++) {
-                range.push(i);
-              }
-              
-              if (page - delta > 2) {
-                range.unshift('...');
-              }
-              if (page + delta < totalPages - 1) {
-                range.push('...');
-              }
-              
+              for (let i = Math.max(2, page - delta); i <= Math.min(totalPages - 1, page + delta); i++) range.push(i);
+              if (page - delta > 2) range.unshift('...');
+              if (page + delta < totalPages - 1) range.push('...');
               range.unshift(1);
-              if (totalPages !== 1) {
-                range.push(totalPages);
-              }
-              
+              if (totalPages !== 1) range.push(totalPages);
               return range.map((pageNum, index) => (
-                <button
-                  key={index}
-                  className={`btn btn-sm ${
-                    pageNum === page 
-                      ? 'btn-primary' 
-                      : pageNum === '...' 
-                        ? 'btn-outline-secondary disabled' 
-                        : 'btn-outline-primary'
-                  }`}
-                  onClick={() => pageNum !== '...' && setPage(pageNum)}
-                  disabled={pageNum === '...' || pageNum === page}
-                  style={{ minWidth: '35px' }}
-                >
-                  {pageNum}
-                </button>
+                pageNum === '...'
+                  ? <span key={index} style={{ color: 'var(--text-muted)', padding: '0 4px', fontSize: '12px' }}>…</span>
+                  : <button key={index} className={`pg-btn ${pageNum === page ? 'cur' : ''}`} onClick={() => setPage(pageNum)} disabled={pageNum === page}>{pageNum}</button>
               ));
             })()}
-
-            <button
-              className="btn btn-outline-primary btn-sm"
-              onClick={() => setPage(p => Math.min(Math.ceil(filteredAssets.length / itemsPerPage), p + 1))}
-              disabled={page === Math.ceil(filteredAssets.length / itemsPerPage) || filteredAssets.length === 0}
-              title="Следующая страница"
-            >
-              <span className="d-none d-sm-inline me-1">Вперёд</span>
-              <i className="fas fa-angle-right"></i>
-            </button>
-
-            <button
-              className="btn btn-outline-primary btn-sm"
-              onClick={() => setPage(Math.ceil(filteredAssets.length / itemsPerPage))}
-              disabled={page === Math.ceil(filteredAssets.length / itemsPerPage) || filteredAssets.length === 0}
-              title="Последняя страница"
-            >
-              <span className="d-none d-sm-inline me-1">Последняя</span>
-              <i className="fas fa-angle-double-right"></i>
-            </button>
+            <button className="pg-btn" onClick={() => setPage(p => Math.min(Math.ceil(filteredAssets.length / itemsPerPage), p + 1))} disabled={page === Math.ceil(filteredAssets.length / itemsPerPage) || filteredAssets.length === 0}>›</button>
+            <button className="pg-btn" onClick={() => setPage(Math.ceil(filteredAssets.length / itemsPerPage))} disabled={page === Math.ceil(filteredAssets.length / itemsPerPage) || filteredAssets.length === 0}>»</button>
           </div>
-
-          <div className="d-flex align-items-center gap-2 ms-auto">
-            <span className="text-muted">Перейти:</span>
+          <div className="pg-jump">
+            Перейти на стр.
             <input
+              className="pg-inp"
               type="number"
               min="1"
               max={Math.ceil(filteredAssets.length / itemsPerPage)}
               value={page}
               onChange={(e) => {
-                const value = e.target.value;
-                if (value === '') {
-                  setPage(1);
-                  return;
-                }
-                const num = parseInt(value, 10);
-                if (num >= 1 && num <= Math.ceil(filteredAssets.length / itemsPerPage)) {
-                  setPage(num);
-                }
+                const num = parseInt(e.target.value, 10);
+                if (num >= 1 && num <= Math.ceil(filteredAssets.length / itemsPerPage)) setPage(num);
               }}
-              className="form-control form-control-sm text-center"
-              style={{ width: '60px' }}
-              title="Введите номер страницы"
             />
-            <span className="text-muted">из {Math.ceil(filteredAssets.length / itemsPerPage)}</span>
           </div>
         </div>
       )}
