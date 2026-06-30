@@ -4130,122 +4130,76 @@ function App() {
       )}
 
       {showRepairsModal && (
-        <div className="modal fade show" style={{ display: 'block' }} tabIndex="-1" role="dialog">
-          <div className="modal-dialog modal-xl" role="document">
+        <div className="modal fade show" style={{ display: 'block' }} tabIndex="-1">
+          <div className="modal-dialog modal-lg">
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title">
-                  История ремонтов (Актив ID: {currentAssetId})
-                </h5>
+                <h5 className="modal-title">Ремонты — актив #{currentAssetId}</h5>
                 <button type="button" className="btn-close" onClick={() => setShowRepairsModal(false)}></button>
               </div>
-              <div className="modal-body">
-                <form onSubmit={editingRepairId ? handleUpdateRepair : handleCreateRepair} className="mb-4 p-3 border rounded">
-                  <h6>{editingRepairId ? 'Редактировать запись' : 'Добавить новую запись'}</h6>
-                  <div className="row g-2">
-                    <div className="col-md-3">
-                      <label className="form-label">Дата ремонта *</label>
-                      <input
-                        type="date"
-                        className="form-control form-control-sm"
-                        name="repair_date"
-                        value={repairFormData.repair_date}
-                        onChange={handleRepairChange}
-                        required
-                      />
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '13px' }}>
+
+                {/* Форма добавления / редактирования */}
+                <form onSubmit={editingRepairId ? handleUpdateRepair : handleCreateRepair} style={{ display: 'flex', flexDirection: 'column', gap: '13px' }}>
+                  <div className="msec" style={{ marginTop: 0, paddingTop: 0, borderTop: 'none' }}>
+                    {editingRepairId ? 'Редактировать запись' : 'Новая запись'}
+                  </div>
+                  <div className="mrow3">
+                    <div className="mf">
+                      <label>Дата ремонта *</label>
+                      <input type="date" name="repair_date" value={repairFormData.repair_date} onChange={handleRepairChange} required />
                     </div>
-                    <div className="col-md-3">
-                      <label className="form-label">Стоимость</label>
-                      <input
-                        type="text"
-                        className="form-control form-control-sm"
-                        name="cost"
-                        value={repairFormData.cost}
-                        onChange={handleRepairChange}
-                        placeholder="Например, 1500 руб."
-                      />
+                    <div className="mf">
+                      <label>Стоимость</label>
+                      <input type="text" name="cost" value={repairFormData.cost} onChange={handleRepairChange} placeholder="1500 руб." />
                     </div>
-                    <div className="col-md-3">
-                      <label className="form-label">Кто выполнил</label>
-                      <input
-                        type="text"
-                        className="form-control form-control-sm"
-                        name="performed_by"
-                        value={repairFormData.performed_by}
-                        onChange={handleRepairChange}
-                        placeholder="ФИО или организация"
-                      />
-                    </div>
-                    <div className="col-12">
-                      <label className="form-label">Описание работ *</label>
-                      <textarea
-                        className="form-control form-control-sm"
-                        name="description"
-                        value={repairFormData.description}
-                        onChange={handleRepairChange}
-                        rows="2"
-                        required
-                      ></textarea>
-                    </div>
-                    <div className="col-12 text-end">
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-secondary me-2"
-                        onClick={() => {
-                          setEditingRepairId(null);
-                          setRepairFormData({
-                            repair_date: '',
-                            description: '',
-                            cost: '',
-                            performed_by: '',
-                          });
-                        }}
-                      >
-                        Отмена
-                      </button>
-                      <button type="submit" className="btn btn-sm btn-success">
-                        {editingRepairId ? 'Сохранить изменения' : 'Добавить запись'}
-                      </button>
+                    <div className="mf">
+                      <label>Кто выполнил</label>
+                      <input type="text" name="performed_by" value={repairFormData.performed_by} onChange={handleRepairChange} placeholder="ФИО или организация" />
                     </div>
                   </div>
+                  <div className="mf">
+                    <label>Описание работ *</label>
+                    <textarea name="description" value={repairFormData.description} onChange={handleRepairChange} required style={{ minHeight: '60px', resize: 'vertical' }} />
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button type="submit" className="btn-ok">
+                      {editingRepairId ? 'Сохранить' : 'Добавить запись'}
+                    </button>
+                    {editingRepairId && (
+                      <button type="button" className="btn-sec" onClick={() => { setEditingRepairId(null); setRepairFormData({ repair_date: '', description: '', cost: '', performed_by: '' }); }}>
+                        Отмена
+                      </button>
+                    )}
+                  </div>
                 </form>
-                <h6>Список записей</h6>
+
+                {/* Список записей */}
+                <div className="msec">История ремонтов</div>
                 {repairsForAsset.length > 0 ? (
-                  <div className="table-responsive">
-                    <table className="table table-striped table-hover table-sm">
+                  <div style={{ border: '1px solid var(--border-color)', borderRadius: '6px', overflow: 'hidden' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                       <thead>
-                        <tr>
-                          <th>Дата</th>
-                          <th>Описание</th>
-                          <th>Стоимость</th>
-                          <th>Кто выполнил</th>
-                          <th>Создано</th>
-                          <th>Действия</th>
+                        <tr style={{ background: 'var(--bg-raised)', borderBottom: '1px solid var(--border-color)' }}>
+                          <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', width: '90px' }}>Дата</th>
+                          <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)' }}>Описание</th>
+                          <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', width: '100px' }}>Стоимость</th>
+                          <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', width: '130px' }}>Кто выполнил</th>
+                          <th style={{ padding: '8px 12px', textAlign: 'right', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', width: '60px' }}>Дейст.</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {repairsForAsset.map((record) => (
-                          <tr key={record.id}>
-                            <td>{record.repair_date}</td>
-                            <td>{record.description}</td>
-                            <td>{record.cost}</td>
-                            <td>{record.performed_by}</td>
-                            <td>{new Date(record.created_at).toLocaleString()}</td>
-                            <td>
-                              <button
-                                className="btn btn-sm btn-outline-primary me-1"
-                                onClick={() => handleEditRepair(record)}
-                                title="Редактировать"
-                              >
-                                <i className="fas fa-edit"></i>
-                              </button>
-                              <button
-                                className="btn btn-sm btn-outline-danger"
-                                onClick={() => handleDeleteRepair(record.id)}
-                                title="Удалить"
-                              >
-                                <i className="fas fa-trash"></i>
-                              </button>
+                        {repairsForAsset.map((record, idx) => (
+                          <tr key={record.id} style={{ borderBottom: idx < repairsForAsset.length - 1 ? '1px solid var(--bg-raised)' : 'none' }}>
+                            <td style={{ padding: '8px 12px', fontSize: '12px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{record.repair_date}</td>
+                            <td style={{ padding: '8px 12px', fontSize: '13px', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={record.description}>{record.description}</td>
+                            <td style={{ padding: '8px 12px', fontSize: '12px', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>{record.cost || '—'}</td>
+                            <td style={{ padding: '8px 12px', fontSize: '12px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={record.performed_by}>{record.performed_by || '—'}</td>
+                            <td style={{ padding: '8px 12px' }}>
+                              <div className="ra-row" style={{ justifyContent: 'flex-end' }}>
+                                <button className="ra-btn" title="Редактировать" onClick={() => handleEditRepair(record)}>✎</button>
+                                <button className="ra-btn ra-del" title="Удалить" onClick={() => handleDeleteRepair(record.id)}>⊠</button>
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -4253,13 +4207,14 @@ function App() {
                     </table>
                   </div>
                 ) : (
-                  <p className="text-muted">Нет записей о ремонте для этого актива.</p>
+                  <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', background: 'var(--bg-raised)', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                    Нет записей о ремонте для этого актива
+                  </div>
                 )}
+
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowRepairsModal(false)}>
-                  Закрыть
-                </button>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowRepairsModal(false)}>Закрыть</button>
               </div>
             </div>
           </div>
