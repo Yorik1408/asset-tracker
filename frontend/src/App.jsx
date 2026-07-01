@@ -140,6 +140,11 @@ function App() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [importFile, setImportFile] = useState(null);
   const [importDragOver, setImportDragOver] = useState(false);
+  // QR preview modal
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [qrScope, setQrScope] = useState('current');
+  const [qrTypes, setQrTypes] = useState(['Компьютер', 'Ноутбук']);
+  const [qrColumns, setQrColumns] = useState(4);
 
   const getStatusColor = (status) => {
     switch(status) {
@@ -559,18 +564,10 @@ function App() {
     setShowDeletionLogModal(true);
   };
 
-  const handlePrintAllQRCodes = () => {
-    if (!assets || assets.length === 0) {
-      showToast.warning("Нет активов для печати");
-      return;
-    }
-
-    const assetsForQR = assets.filter(asset => 
-      asset.type === 'Ноутбук' || asset.type === 'Компьютер'
-    );
-
-    if (assetsForQR.length === 0) {
-      showToast.warning("Нет активов типа 'Ноутбук' или 'Компьютер' для печати QR-кодов");
+  const performPrintQR = (assetsForQR, columns) => {
+    setShowQRModal(false);
+    if (!assetsForQR || assetsForQR.length === 0) {
+      showToast.warning('Нет активов для печати');
       return;
     }
 
@@ -579,140 +576,60 @@ function App() {
         const qr = qrCodeGenerator(0, 'M');
         qr.addData(text);
         qr.make();
-        const svgString = qr.createSvgTag({ cellSize: 3, margin: 2 }); 
-        return svgString;
-      } catch (error) {
-        console.error("Ошибка генерации QR-кода:", error);
-        return `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
-                  <rect width="120" height="120" fill="#f0f0f0" stroke="#ccc"/>
-                  <text x="60" y="60" text-anchor="middle" dominant-baseline="middle" 
-                        font-family="Arial" font-size="12" fill="#999">QR Ошибка</text>
-                </svg>`;
+        return qr.createSvgTag({ cellSize: 3, margin: 2 });
+      } catch {
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="110" height="110"><rect width="110" height="110" fill="#f0f0f0"/><text x="55" y="55" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="11" fill="#999">QR Error</text></svg>`;
       }
     };
 
-    let printContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>QR-коды активов</title>
-        <meta charset="UTF-8">
-        <style>
-          body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background-color: white;
-          }
-          .header {
-            text-align: center;
-            margin-bottom: 30px;
-            color: #333;
-          }
-          .qr-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 20px;
-            margin: 0 auto;
-            max-width: 1200px;
-          }
-          .qr-card {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 15px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            background-color: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            page-break-inside: avoid;
-          }
-          .qr-container {
-            margin-bottom: 12px;
-            width: 120px;
-            height: 120px;
-            background-color: white;
-            border: 1px solid #ccc;
-            overflow: hidden;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-          }
-          .qr-title {
-            font-size: 14px;
-            font-weight: bold;
-            text-align: center;
-            margin-bottom: 5px;
-            color: #333;
-            word-break: break-word;
-          }
-          .qr-inventory {
-            font-size: 12px;
-            color: #666;
-            text-align: center;
-            margin-bottom: 5px;
-          }
-          .qr-id {
-            font-size: 10px;
-            color: #999;
-            text-align: center;
-          }
-          @media print {
-            body {
-              margin: 0;
-              padding: 20px;
-            }
-            .qr-card {
-              border: 1px solid black;
-              box-shadow: none;
-              page-break-inside: avoid;
-            }
-            .header {
-              margin-top: 0;
-            }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>QR-коды активов</h1>
-          <p>Всего кодов: ${assetsForQR.length}</p>
-        </div>
-        <div class="qr-grid">
-    `;
+    const cols = columns || 4;
+    let printContent = `<!DOCTYPE html>
+<html>
+<head>
+  <title>QR-коды активов</title>
+  <meta charset="UTF-8">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: white; padding: 16px; }
+    .header { text-align: center; margin-bottom: 20px; }
+    .header h1 { font-size: 18px; color: #333; margin-bottom: 4px; }
+    .header p { font-size: 12px; color: #666; }
+    .qr-grid { display: grid; grid-template-columns: repeat(${cols}, 1fr); gap: 12px; }
+    .qr-card { display: flex; flex-direction: column; align-items: center; padding: 12px 8px; border: 1px solid #ccc; border-radius: 8px; page-break-inside: avoid; text-align: center; }
+    .qr-card svg { width: 110px; height: 110px; display: block; }
+    .qr-inv { font-size: 11px; font-weight: bold; color: #222; margin-top: 8px; font-family: monospace; }
+    .qr-model { font-size: 10px; color: #666; margin-top: 3px; }
+    @media print {
+      body { padding: 10px; }
+      .qr-card { border-color: #000; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header"><h1>QR-коды активов</h1><p>Всего: ${assetsForQR.length}</p></div>
+  <div class="qr-grid">`;
 
     assetsForQR.forEach(asset => {
       const qrUrl = `${window.location.origin}${window.location.pathname}#asset-info-${asset.id}`;
-      const qrSvg = generateQRCodeSVG(qrUrl);
-      
       printContent += `
-        <div class="qr-card">
-          <div class="qr-container">
-            ${qrSvg}
-          </div>
-          <div class="qr-title">${asset.model || asset.type || 'Актив'}</div>
-          <div class="qr-inventory">${asset.inventory_number || 'Без инв. номера'}</div>
-          <div class="qr-id">ID: ${asset.id}</div>
-        </div>
-      `;
+    <div class="qr-card">
+      ${generateQRCodeSVG(qrUrl)}
+      <div class="qr-inv">${asset.inventory_number || '—'}</div>
+      <div class="qr-model">${asset.model || asset.type || 'Актив'}</div>
+    </div>`;
     });
 
     printContent += `
-        </div>
-        <script>
-          setTimeout(() => {
-            window.print();
-          }, 1000);
-        </script>
-      </body>
-      </html>
-    `;
+  </div>
+  <script>setTimeout(() => window.print(), 600);</script>
+</body>
+</html>`;
 
     const printWindow = window.open('', '_blank', 'width=1200,height=800');
     printWindow.document.write(printContent);
     printWindow.document.close();
     printWindow.focus();
-    
-    showToast.success(`Подготовлено ${assetsForQR.length} QR-кодов для печати`, { icon: '🖨️' });
+    showToast.success(`Подготовлено ${assetsForQR.length} QR-кодов для печати`);
   };
 
   const handlePrintSingleQRCode = (asset) => {
@@ -1097,6 +1014,7 @@ function App() {
       if (e.key === 'Escape') {
         if (showExportModal) setShowExportModal(false);
         if (showImportModal) { setShowImportModal(false); setImportFile(null); }
+        if (showQRModal) setShowQRModal(false);
         if (showAboutModal) setShowAboutModal(false);
         if (isModalOpen || isEditing) closeModal();
         if (showUserModal) {
@@ -1121,7 +1039,7 @@ function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showExportModal, showImportModal, showAboutModal, isModalOpen, isEditing, showUserModal, showDeletionLogModal, showRepairsModal, showAssetInfoModal, showWindowsReportModal, token]);
+  }, [showExportModal, showImportModal, showQRModal, showAboutModal, isModalOpen, isEditing, showUserModal, showDeletionLogModal, showRepairsModal, showAssetInfoModal, showWindowsReportModal, token]);
 
   useEffect(() => {
     if (!token) {
@@ -1861,6 +1779,10 @@ function App() {
   };
 
   const filteredAssets = getFilteredAssets();
+  const qrAssets = (() => {
+    const base = qrScope === 'current' ? filteredAssets : assets;
+    return qrTypes.length > 0 ? base.filter(a => qrTypes.includes(a.type)) : base;
+  })();
   const totalPages = Math.ceil(filteredAssets.length / itemsPerPage);
   const paginatedAssets = filteredAssets.slice(
     (page - 1) * itemsPerPage,
@@ -2683,7 +2605,7 @@ function App() {
             {user.is_admin && (
               <>
                 <div className="tsep"></div>
-                <button className="btn-t" onClick={handlePrintAllQRCodes}>⎙ Печать QR</button>
+                <button className="btn-t" onClick={() => setShowQRModal(true)}>⎙ Печать QR</button>
                 <button className="btn-t" onClick={generateWindowsReport}>⊞ Windows</button>
                 <div className="tsep"></div>
                 <button
@@ -4243,6 +4165,89 @@ function App() {
           <div className="modal-backdrop fade show"></div>
         </>
       )}
+
+      {/* QR PREVIEW MODAL */}
+      {showQRModal && (
+        <div className="modal fade show" style={{ display: 'block' }} onClick={() => setShowQRModal(false)}>
+          <div className="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable" onClick={e => e.stopPropagation()}>
+            <div className="modal-content">
+              <div className="mhdr">
+                <div className="mhdr-left"><div className="mhdr-title">Предпросмотр QR-кодов</div></div>
+                <div className="mhdr-right">
+                  <button className="mclose" onClick={() => setShowQRModal(false)}>×</button>
+                </div>
+              </div>
+
+              {/* Settings bar */}
+              <div className="qr-settings">
+                <div className="qr-setting-group">
+                  <span>Активы:</span>
+                  <button className={`qr-seg-btn${qrScope === 'current' ? ' active' : ''}`} onClick={() => setQrScope('current')}>Текущий фильтр</button>
+                  <button className={`qr-seg-btn${qrScope === 'all' ? ' active' : ''}`} onClick={() => setQrScope('all')}>Все</button>
+                </div>
+                <div className="qr-setting-sep"></div>
+                <div className="qr-setting-group">
+                  <span>Типы:</span>
+                  {['Компьютер', 'Ноутбук'].map(t => (
+                    <label key={t} className="qr-type-chk">
+                      <input
+                        type="checkbox"
+                        checked={qrTypes.includes(t)}
+                        onChange={e => setQrTypes(prev => e.target.checked ? [...prev, t] : prev.filter(x => x !== t))}
+                      />
+                      {t}
+                    </label>
+                  ))}
+                </div>
+                <div className="qr-setting-sep"></div>
+                <div className="qr-setting-group">
+                  <span>Колонки:</span>
+                  {[3, 4, 5].map(n => (
+                    <button key={n} className={`qr-seg-btn${qrColumns === n ? ' active' : ''}`} onClick={() => setQrColumns(n)}>{n}</button>
+                  ))}
+                </div>
+                <span className="qr-count">{qrAssets.length} кодов</span>
+              </div>
+
+              {/* Preview grid */}
+              <div className="qr-preview-body">
+                {qrAssets.length === 0 ? (
+                  <div className="qr-empty">Нет активов под текущие фильтры</div>
+                ) : (
+                  <div className="qr-grid-preview" style={{ gridTemplateColumns: `repeat(${qrColumns}, 1fr)` }}>
+                    {qrAssets.map(asset => (
+                      <div key={asset.id} className="qr-card-preview">
+                        <div className="qr-card-img">
+                          <QRCode
+                            size={96}
+                            value={`${window.location.origin}${window.location.pathname}#asset-info-${asset.id}`}
+                            style={{ display: 'block' }}
+                          />
+                        </div>
+                        <div className="qr-card-inv">{asset.inventory_number || '—'}</div>
+                        <div className="qr-card-model">{asset.model || asset.type}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="mftr">
+                <button className="btn-sec" onClick={() => setShowQRModal(false)}>Отмена</button>
+                <button
+                  className="btn-ok"
+                  onClick={() => performPrintQR(qrAssets, qrColumns)}
+                  disabled={qrAssets.length === 0}
+                  style={qrAssets.length === 0 ? { opacity: 0.5, cursor: 'default' } : {}}
+                >
+                  ⎙ Печать{qrAssets.length > 0 ? ` (${qrAssets.length})` : ''}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {showQRModal && <div className="modal-backdrop fade show"></div>}
 
       {/* EXPORT MODAL */}
       {showExportModal && (
