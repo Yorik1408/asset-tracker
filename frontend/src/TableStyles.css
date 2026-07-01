@@ -2688,6 +2688,29 @@ body {
 }
 
 /* ══════════════════════════════════════════════════════
+   BULK ACTION BAR
+   ══════════════════════════════════════════════════════ */
+.bulk-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 14px;
+  background: var(--bg-active);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+.bulk-count { font-size: 12px; font-weight: 600; color: var(--accent); white-space: nowrap; }
+.bulk-clear {
+  margin-left: auto; height: 26px; padding: 0 10px;
+  background: none; border: 1px solid var(--border-color); border-radius: 5px;
+  color: var(--text-muted); font-size: 11px; cursor: pointer; font-family: inherit;
+  transition: border-color 0.15s, color 0.15s;
+}
+.bulk-clear:hover { border-color: var(--border-hover); color: var(--text-primary); }
+
+.bulk-chk { width: 14px; height: 14px; cursor: pointer; accent-color: var(--accent); }
+.tw td.chk-td { padding: 0; text-overflow: clip; text-align: center; }
+.tw th.chk-td { padding: 6px 4px; text-align: center; }
+
+/* ══════════════════════════════════════════════════════
    QR PREVIEW MODAL
    ══════════════════════════════════════════════════════ */
 .qr-settings {

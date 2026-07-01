@@ -145,6 +145,9 @@ function App() {
   const [qrScope, setQrScope] = useState('current');
   const [qrTypes, setQrTypes] = useState(['Компьютер', 'Ноутбук']);
   const [qrColumns, setQrColumns] = useState(4);
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
 
   const getStatusColor = (status) => {
     switch(status) {
@@ -527,6 +530,11 @@ function App() {
 
   useEffect(() => {
     setPage(1);
+  }, [searchQuery, filter, warrantyFilter, disposedFilter, selectedUser, ageRangeFilter]);
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+    setBulkDeleteConfirm(false);
   }, [searchQuery, filter, warrantyFilter, disposedFilter, selectedUser, ageRangeFilter]);
 
   useEffect(() => {
@@ -1137,7 +1145,8 @@ function App() {
       }
       // exportScope === 'all': no params
 
-      const url = `${API_BASE}/export/excel?${params.toString()}`;
+      const endpoint = exportFormat === 'csv' ? 'csv' : 'excel';
+      const url = `${API_BASE}/export/${endpoint}?${params.toString()}`;
       const res = await apiFetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
       toast.dismiss(loadingToast);
 
@@ -1149,7 +1158,7 @@ function App() {
 
       const blob = await res.blob();
       const filenameMatch = res.headers.get('Content-Disposition')?.match(/filename[^;=\r\n]*=([^;\r\n]*)/);
-      const filename = decodeURIComponent(filenameMatch?.[1]?.replace(/['"]/g, '') || 'активы.xlsx');
+      const filename = decodeURIComponent(filenameMatch?.[1]?.replace(/['"]/g, '') || (exportFormat === 'csv' ? 'активы.csv' : 'активы.xlsx'));
       const urlBlob = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = urlBlob;
@@ -1165,6 +1174,57 @@ function App() {
       showToast.error('Ошибка сети при экспорте');
       console.error(err);
     }
+  };
+
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const performBulkExport = async () => {
+    const ids = [...selectedIds];
+    const loadingToast = showToast.loading(`Экспорт ${ids.length} активов...`);
+    try {
+      const params = new URLSearchParams();
+      params.append('ids', ids.join(','));
+      const url = `${API_BASE}/export/excel?${params.toString()}`;
+      const res = await apiFetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+      toast.dismiss(loadingToast);
+      if (!res.ok) { const error = await res.json().catch(() => ({ detail: 'Ошибка экспорта' })); showToast.error(error.detail); return; }
+      const blob = await res.blob();
+      const filenameMatch = res.headers.get('Content-Disposition')?.match(/filename[^;=\r\n]*=([^;\r\n]*)/);
+      const filename = decodeURIComponent(filenameMatch?.[1]?.replace(/['"]/g, '') || 'активы.xlsx');
+      const urlBlob = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = urlBlob; a.download = filename;
+      document.body.appendChild(a); a.click();
+      window.URL.revokeObjectURL(urlBlob); document.body.removeChild(a);
+      showToast.success(`Экспортировано ${ids.length} активов`);
+    } catch (err) { toast.dismiss(loadingToast); showToast.error('Ошибка сети при экспорте'); console.error(err); }
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = [...selectedIds];
+    setBulkDeleteConfirm(false);
+    const loadingToast = showToast.loading(`Удаление ${ids.length} активов...`);
+    let deleted = 0;
+    for (const id of ids) {
+      try {
+        const res = await apiFetch(`${API_BASE}/assets/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) deleted++;
+      } catch { /* skip */ }
+    }
+    toast.dismiss(loadingToast);
+    showToast.success(`Удалено ${deleted} из ${ids.length} активов`);
+    setSelectedIds(new Set());
+    await fetchAssets();
   };
 
   const performImport = async () => {
@@ -2939,10 +2999,43 @@ function App() {
       <React.Fragment>
         {token && activeTab === 'assets' && !isMobile && (
           <div className="tw">
+            {selectedIds.size > 0 && (
+              <div className="bulk-bar">
+                <span className="bulk-count">{selectedIds.size} выбрано</span>
+                <div className="tsep"></div>
+                <button className="btn-t sm" onClick={performBulkExport}>↓ Экспорт</button>
+                <button className="btn-t sm" onClick={() => performPrintQR(assets.filter(a => selectedIds.has(a.id)), qrColumns)}>⎙ QR</button>
+                {user?.is_admin && (
+                  !bulkDeleteConfirm ? (
+                    <button className="btn-t sm" style={{ color: '#D95252', borderColor: 'rgba(217,82,82,.3)' }} onClick={() => setBulkDeleteConfirm(true)}>
+                      <i className="fas fa-trash-alt"></i> Удалить
+                    </button>
+                  ) : (
+                    <>
+                      <span style={{ fontSize: '11px', color: '#D95252' }}>Удалить {selectedIds.size}?</span>
+                      <button className="btn-t sm" style={{ color: '#D95252', borderColor: 'rgba(217,82,82,.3)' }} onClick={handleBulkDelete}>Да</button>
+                      <button className="btn-t sm" onClick={() => setBulkDeleteConfirm(false)}>Нет</button>
+                    </>
+                  )
+                )}
+                <button className="bulk-clear" onClick={() => { setSelectedIds(new Set()); setBulkDeleteConfirm(false); }}>× Снять</button>
+              </div>
+            )}
             <div className="tw-scroll">
               <table>
                 <thead>
                   <tr>
+                    <th className="chk-td" style={{ width: '32px' }}>
+                      <input
+                        type="checkbox"
+                        className="bulk-chk"
+                        checked={filteredAssets.length > 0 && filteredAssets.every(a => selectedIds.has(a.id))}
+                        onChange={() => {
+                          const isAll = filteredAssets.every(a => selectedIds.has(a.id));
+                          setSelectedIds(isAll ? new Set() : new Set(filteredAssets.map(a => a.id)));
+                        }}
+                      />
+                    </th>
                     <th style={{ width: '44px' }}>ID</th>
                     <th style={{ width: '106px' }}>Инв. номер</th>
                     <th style={{ width: '80px' }}>Серийный №</th>
@@ -2960,6 +3053,14 @@ function App() {
                     paginatedAssets.map((asset) => (
                       <React.Fragment key={asset.id}>
                         <tr>
+                          <td className="chk-td">
+                            <input
+                              type="checkbox"
+                              className="bulk-chk"
+                              checked={selectedIds.has(asset.id)}
+                              onChange={() => toggleSelect(asset.id)}
+                            />
+                          </td>
                           <td><span className="cell-id">{asset.id}</span></td>
                           <td onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'inventory_number', asset.inventory_number)}>
                             {editingCell.assetId === asset.id && editingCell.field === 'inventory_number' ? (

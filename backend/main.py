@@ -520,6 +520,87 @@ def export_to_excel(
         headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"}
     )
 
+# Экспорт в CSV
+@app.get("/export/csv")
+def export_to_csv(
+    type: Optional[str] = None,
+    q: Optional[str] = None,
+    warranty_status: Optional[str] = None,
+    user_name: Optional[str] = None,
+    status: Optional[str] = None,
+    ids: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    query = db.query(models.Asset)
+
+    if type and type in ["Монитор", "Компьютер", "Ноутбук", "Прочее"]:
+        query = query.filter(models.Asset.type == type)
+    if q:
+        search = f"%{q}%"
+        query = query.filter(or_(
+            models.Asset.inventory_number.ilike(search),
+            models.Asset.serial_number.ilike(search),
+            models.Asset.model.ilike(search),
+            models.Asset.location.ilike(search),
+            models.Asset.user_name.ilike(search),
+            models.Asset.comment.ilike(search),
+        ))
+    if user_name:
+        query = query.filter(models.Asset.user_name == user_name)
+    if status:
+        query = query.filter(models.Asset.status == status)
+    if ids:
+        id_list = [int(i) for i in ids.split(',') if i.strip().isdigit()]
+        if id_list:
+            query = query.filter(models.Asset.id.in_(id_list))
+    if warranty_status:
+        today = date.today()
+        if warranty_status == "active":
+            query = query.filter(and_(models.Asset.warranty_until.isnot(None), models.Asset.warranty_until > today))
+        elif warranty_status == "expiring":
+            threshold = today + timedelta(days=30)
+            query = query.filter(and_(
+                models.Asset.warranty_until.isnot(None),
+                models.Asset.warranty_until >= today,
+                models.Asset.warranty_until <= threshold
+            ))
+
+    assets = query.all()
+
+    asset_data = []
+    for asset in assets:
+        asset_data.append({
+            "ID": asset.id,
+            "Инвентарный номер": asset.inventory_number,
+            "Серийный номер": asset.serial_number,
+            "Модель": asset.model,
+            "Тип": asset.type,
+            "Статус": asset.status,
+            "Расположение": asset.location,
+            "ФИО пользователя": asset.user_name,
+            "Дата выдачи": asset.issue_date,
+            "Дата покупки": asset.purchase_date,
+            "Гарантия до": asset.warranty_until,
+            "Мат. плата": asset.motherboard,
+            "Процессор": asset.processor,
+            "ОЗУ": asset.ram,
+            "Комментарий": asset.comment,
+            "Ключ Windows": asset.windows_key,
+            "Тип ОС": asset.os_type,
+            "Возраст (ручной)": asset.manual_age,
+        })
+
+    buffer = BytesIO()
+    pd.DataFrame(asset_data).to_csv(buffer, index=False, encoding='utf-8-sig')
+    buffer.seek(0)
+    filename = "активы.csv"
+    encoded_filename = quote(filename)
+    return StreamingResponse(
+        buffer,
+        media_type='text/csv; charset=utf-8-sig',
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"}
+    )
+
 #Импорт из экселя
 @app.post("/import/excel")
 def import_from_excel(
