@@ -3190,7 +3190,7 @@ function App() {
                                   onClick={() => { if (showHistory === asset.id) { setShowHistory(null); } else { setShowHistory(asset.id); setHistoryPage(1); } }}
                                 >↺</button>
                                 <button className="ra-btn" title="Информация" onClick={() => openAssetInfoModal(asset)}>i</button>
-                                <button className="ra-btn" title="Копировать" onClick={() => handleCopyAssetInfo(asset)}>⎘</button>
+                                <button className="ra-btn" title="Копировать" onClick={() => handleCopyAssetInfo(asset)}><i className="fas fa-clipboard"></i></button>
                               </div>
                               {user?.is_admin && (
                                 <div className="ra-row">
@@ -4623,7 +4623,7 @@ function App() {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                   <span style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-primary)', cursor: user?.is_admin ? 'pointer' : 'default', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{asset.windows_key}</span>
                                   <button className="ra-btn" onClick={() => navigator.clipboard.writeText(asset.windows_key)} title="Скопировать ключ" style={{ flexShrink: 0 }}>
-                                    <i className="fas fa-copy"></i>
+                                    <i className="fas fa-key"></i>
                                   </button>
                                 </div>
                               ) : (
