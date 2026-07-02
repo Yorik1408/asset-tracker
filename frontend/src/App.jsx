@@ -2666,7 +2666,7 @@ function App() {
               <>
                 <div className="tsep"></div>
                 <button className="btn-t" onClick={() => setShowQRModal(true)}>⎙ Печать QR</button>
-                <button className="btn-t" onClick={generateWindowsReport}>⊞ Windows</button>
+                <button className="btn-t" onClick={generateWindowsReport}><i className="fab fa-windows"></i> Windows</button>
                 <div className="tsep"></div>
                 <button
                   className={`btn-t ${inventorySession && !inventoryMode ? 'lit' : ''}`}
@@ -4623,7 +4623,7 @@ function App() {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                   <span style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-primary)', cursor: user?.is_admin ? 'pointer' : 'default', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{asset.windows_key}</span>
                                   <button className="ra-btn" onClick={() => navigator.clipboard.writeText(asset.windows_key)} title="Скопировать ключ" style={{ flexShrink: 0 }}>
-                                    <i className="fas fa-key"></i>
+                                    <i className="fas fa-copy"></i>
                                   </button>
                                 </div>
                               ) : (
