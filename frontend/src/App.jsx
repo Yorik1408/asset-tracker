@@ -2745,6 +2745,10 @@ function App() {
               onClick={() => setActiveTab(activeTab === 'reports' ? 'assets' : 'reports')}>
               Гарантия заканчивается
             </button>
+            <button className={`ft ${activeTab === 'analytics' ? 'warn' : ''}`}
+              onClick={() => setActiveTab(activeTab === 'analytics' ? 'assets' : 'analytics')}>
+              Аналитика
+            </button>
             <div className="fsp"></div>
             <input
               className="fsel-input"
@@ -3722,6 +3726,287 @@ function App() {
           )}
         </div>
       )}
+
+      {activeTab === 'analytics' && token && (() => {
+        const CLR = { good: '#3A9D6E', warn: '#D4882A', danger: '#D95252' };
+
+        const activeAssets = assets.filter(a => a.status !== 'списано');
+        const total = activeAssets.length;
+
+        const parseRamGB = (ram) => {
+          if (!ram) return null;
+          const s = ram.toString().trim().toLowerCase();
+          const n = parseFloat(s);
+          if (isNaN(n)) return null;
+          return (s.includes('мб') || s.includes('mb')) ? n / 1024 : n;
+        };
+
+        const parseStorageGB = (size) => {
+          if (!size) return null;
+          const s = size.toString().trim().toLowerCase();
+          const n = parseFloat(s);
+          if (isNaN(n)) return null;
+          return (s.includes('тб') || s.includes('tb')) ? n * 1024 : n;
+        };
+
+        const getOsGroup = (os_type) => {
+          const s = (os_type || '').toLowerCase();
+          if (!s) return 'unknown';
+          if (s.includes('windows') && s.includes('10')) return 'win10';
+          if (s.includes('windows') && s.includes('11')) return 'win11';
+          return 'other';
+        };
+
+        const ram = { lt8: 0, b8: 0, b16: 0, b32: 0, unk: 0 };
+        activeAssets.forEach(a => {
+          const gb = parseRamGB(a.ram);
+          if (gb === null) ram.unk++;
+          else if (gb < 8) ram.lt8++;
+          else if (gb < 12) ram.b8++;
+          else if (gb < 24) ram.b16++;
+          else ram.b32++;
+        });
+        const maxRam = Math.max(ram.lt8, ram.b8, ram.b16, ram.b32, 1);
+
+        const stor = { ssd: 0, hdd: 0, unk: 0 };
+        activeAssets.forEach(a => {
+          const t = (a.storage_type || '').toLowerCase();
+          if (!t) stor.unk++;
+          else if (t.includes('hdd')) stor.hdd++;
+          else stor.ssd++;
+        });
+        const maxStor = Math.max(stor.ssd, stor.hdd, 1);
+
+        const sizeB = { lt256: 0, mid: 0, big: 0, unk: 0 };
+        activeAssets.forEach(a => {
+          const gb = parseStorageGB(a.storage_size);
+          if (gb === null) sizeB.unk++;
+          else if (gb < 256) sizeB.lt256++;
+          else if (gb <= 512) sizeB.mid++;
+          else sizeB.big++;
+        });
+        const maxSize = Math.max(sizeB.lt256, sizeB.mid, sizeB.big, 1);
+
+        const osB = { win10: 0, win11: 0, other: 0 };
+        activeAssets.forEach(a => {
+          const g = getOsGroup(a.os_type);
+          if (g === 'win10') osB.win10++;
+          else if (g === 'win11') osB.win11++;
+          else osB.other++;
+        });
+        const maxOs = Math.max(osB.win10, osB.win11, osB.other, 1);
+
+        const ageB = { new: 0, fresh: 0, medium: 0, old: 0, unk: 0 };
+        activeAssets.forEach(a => {
+          const cat = getAssetAgeCategory(a);
+          if (cat === 'new') ageB.new++;
+          else if (cat === 'fresh') ageB.fresh++;
+          else if (cat === 'medium') ageB.medium++;
+          else if (cat === 'old') ageB.old++;
+          else ageB.unk++;
+        });
+
+        const attentionCount = activeAssets.filter(a => {
+          const gb = parseRamGB(a.ram);
+          return (gb !== null && gb < 8)
+            || (a.storage_type || '').toLowerCase().includes('hdd')
+            || getOsGroup(a.os_type) === 'win10';
+        }).length;
+
+        const scoreAsset = (a) => {
+          let s = 0;
+          const cat = getAssetAgeCategory(a);
+          const gb = parseRamGB(a.ram);
+          if (cat === 'old') s += 3;
+          else if (cat === 'medium') s += 1;
+          if (gb !== null && gb < 8) s += 3;
+          else if (gb !== null && gb < 12) s += 1;
+          if ((a.storage_type || '').toLowerCase().includes('hdd')) s += 2;
+          if (getOsGroup(a.os_type) === 'win10') s += 2;
+          return s;
+        };
+
+        const priorityList = [...activeAssets]
+          .filter(a => ['Компьютер', 'Ноутбук'].includes(a.type))
+          .map(a => ({ ...a, _score: scoreAsset(a) }))
+          .filter(a => a._score > 0)
+          .sort((a, b) => b._score - a._score)
+          .slice(0, 10);
+
+        const segColor = (v) => v === 'red' ? CLR.danger : v === 'orange' ? CLR.warn : v === 'green' ? CLR.good : '#8899aa';
+        const ageSeg = (a) => { const c = getAssetAgeCategory(a); return c === 'old' ? 'red' : c === 'medium' ? 'orange' : 'green'; };
+        const ramSeg = (a) => { const gb = parseRamGB(a.ram); return gb === null ? 'grey' : gb < 8 ? 'red' : gb < 12 ? 'orange' : 'green'; };
+        const storSeg = (a) => (a.storage_type || '').toLowerCase().includes('hdd') ? 'red' : 'green';
+        const osSeg = (a) => { const g = getOsGroup(a.os_type); return g === 'win10' ? 'red' : g === 'win11' ? 'green' : 'grey'; };
+
+        const barRow = (label, count, max, color) => (
+          <div className="an-bar-row">
+            <div className="an-bar-label">{label}</div>
+            <div className="an-bar-track"><div className="an-bar-fill" style={{ width: `${Math.round(count / max * 100)}%`, background: color }}></div></div>
+            <div className="an-bar-count">{count}</div>
+          </div>
+        );
+
+        const badge = (text, color) => (
+          <span style={{ display: 'inline-block', padding: '2px 7px', borderRadius: '3px', fontSize: '11px', fontWeight: 500, background: `${color}22`, color }}>{text}</span>
+        );
+
+        return (
+          <div style={{ padding: '24px 0' }}>
+            <div className="an-header">
+              <h4>Состояние парка</h4>
+              <span className="an-header-sub">{total} активов в эксплуатации</span>
+            </div>
+
+            <div className="an-stat-row">
+              <div className="an-stat">
+                <div className="an-stat-label">Всего активов</div>
+                <div className="an-stat-value">{total}</div>
+                <div className="an-stat-sub">в эксплуатации</div>
+              </div>
+              <div className="an-stat">
+                <div className="an-stat-label">Требуют внимания</div>
+                <div className="an-stat-value" style={{ color: CLR.warn }}>{attentionCount}</div>
+                <div className="an-stat-sub">RAM &lt;8 ГБ / HDD / Win10</div>
+              </div>
+              <div className="an-stat">
+                <div className="an-stat-label">Критично — Win 10 EOL</div>
+                <div className="an-stat-value" style={{ color: CLR.danger }}>{osB.win10}</div>
+                <div className="an-stat-sub">поддержка прекращена</div>
+              </div>
+              <div className="an-stat">
+                <div className="an-stat-label">Старше 5 лет</div>
+                <div className="an-stat-value" style={{ color: ageB.old > 10 ? CLR.danger : CLR.warn }}>{ageB.old}</div>
+                <div className="an-stat-sub">высокий приоритет замены</div>
+              </div>
+            </div>
+
+            <div className="an-charts">
+              <div className="an-card">
+                <div className="an-card-title">Оперативная память</div>
+                {barRow('< 8 ГБ', ram.lt8, maxRam, CLR.danger)}
+                {barRow('8 ГБ', ram.b8, maxRam, CLR.warn)}
+                {barRow('16 ГБ', ram.b16, maxRam, CLR.good)}
+                {barRow('32 ГБ+', ram.b32, maxRam, 'var(--accent)')}
+                {ram.unk > 0 && barRow('Не указано', ram.unk, maxRam, '#8899aa')}
+                <div className="an-legend">
+                  {[[CLR.danger, 'нужен апгрейд'], [CLR.warn, 'минимум'], [CLR.good, 'норма']].map(([c, l]) => (
+                    <div key={l} className="an-legend-item">
+                      <div style={{ width: '8px', height: '8px', borderRadius: '2px', background: c, flexShrink: 0 }}></div>{l}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="an-card">
+                <div className="an-card-title">Накопитель</div>
+                <div className="an-split">
+                  <div>
+                    <div className="an-split-label">Тип</div>
+                    {barRow('SSD', stor.ssd, maxStor, CLR.good)}
+                    {barRow('HDD', stor.hdd, maxStor, CLR.danger)}
+                    {stor.unk > 0 && barRow('Не указано', stor.unk, maxStor, '#8899aa')}
+                  </div>
+                  <div>
+                    <div className="an-split-label">Объём</div>
+                    {barRow('< 256 ГБ', sizeB.lt256, maxSize, CLR.danger)}
+                    {barRow('256–512 ГБ', sizeB.mid, maxSize, CLR.warn)}
+                    {barRow('512 ГБ+', sizeB.big, maxSize, CLR.good)}
+                    {sizeB.unk > 0 && barRow('Не указано', sizeB.unk, maxSize, '#8899aa')}
+                  </div>
+                </div>
+              </div>
+
+              <div className="an-card">
+                <div className="an-card-title">Операционная система</div>
+                {osB.win10 > 0 && (
+                  <div className="an-os-callout">
+                    <div className="an-os-num">{osB.win10}</div>
+                    <div className="an-os-desc">
+                      <strong>Windows 10 — поддержка прекращена</strong>
+                      Патчи безопасности не выходят с октября 2025.
+                    </div>
+                  </div>
+                )}
+                {barRow('Win 11', osB.win11, maxOs, CLR.good)}
+                {barRow('Win 10', osB.win10, maxOs, CLR.danger)}
+                {osB.other > 0 && barRow('Другое', osB.other, maxOs, '#8899aa')}
+              </div>
+
+              <div className="an-card">
+                <div className="an-card-title">Возраст парка</div>
+                <div className="an-age-grid">
+                  {[
+                    { label: 'до 1 года', value: ageB.new, color: CLR.good },
+                    { label: '1–3 года', value: ageB.fresh, color: CLR.good },
+                    { label: '3–5 лет', value: ageB.medium, color: CLR.warn },
+                    { label: 'старше 5', value: ageB.old, color: CLR.danger },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} className="an-age-cell">
+                      <div className="an-age-num" style={{ color }}>{value}</div>
+                      <div className="an-age-lbl">{label}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="an-age-stack">
+                  {[[ageB.new, CLR.good], [ageB.fresh, '#5ab88a'], [ageB.medium, CLR.warn], [ageB.old, CLR.danger]].map(([v, c], i) => (
+                    <div key={i} style={{ flex: v || 0.001, background: c }}></div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="an-priority-card">
+              <div className="an-priority-head">
+                <span>Приоритет апгрейда</span>
+                <span className="an-priority-note">компьютеры и ноутбуки — наводи на квадраты для подробностей</span>
+              </div>
+              {priorityList.length === 0 ? (
+                <div className="an-empty">Нет компьютеров и ноутбуков с факторами риска</div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="custom-table" style={{ marginBottom: 0 }}>
+                    <thead>
+                      <tr>
+                        <th>Инв. №</th><th>Модель</th><th>Расположение</th><th>Возраст</th><th>RAM</th><th>Накопитель</th><th>ОС</th><th>Факторы</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {priorityList.map(a => {
+                        const gb = parseRamGB(a.ram);
+                        const ageColor = getAssetAgeCategory(a) === 'old' ? CLR.danger : getAssetAgeCategory(a) === 'medium' ? CLR.warn : CLR.good;
+                        const ramColor = gb === null ? '#8899aa' : gb < 8 ? CLR.danger : gb < 12 ? CLR.warn : CLR.good;
+                        const storColor = (a.storage_type || '').toLowerCase().includes('hdd') ? CLR.danger : CLR.good;
+                        const osColor = getOsGroup(a.os_type) === 'win10' ? CLR.danger : getOsGroup(a.os_type) === 'win11' ? CLR.good : '#8899aa';
+                        const ramLabel = gb !== null ? `${Math.round(gb)} ГБ` : '—';
+                        const storLabel = [a.storage_type, a.storage_size].filter(Boolean).join(' ') || '—';
+                        return (
+                          <tr key={a.id}>
+                            <td><span style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-muted)' }}>{a.inventory_number}</span></td>
+                            <td>{a.model || '—'}</td>
+                            <td>{a.location || '—'}</td>
+                            <td>{badge(calculateAssetAge(a), ageColor)}</td>
+                            <td>{badge(ramLabel, ramColor)}</td>
+                            <td>{badge(storLabel, storColor)}</td>
+                            <td>{badge(a.os_type || '—', osColor)}</td>
+                            <td>
+                              <div style={{ display: 'flex', gap: '3px' }}>
+                                {[[segColor(ageSeg(a)), `Возраст: ${calculateAssetAge(a)}`], [segColor(ramSeg(a)), `RAM: ${ramLabel}`], [segColor(storSeg(a)), `Накопитель: ${a.storage_type || 'не указан'}`], [segColor(osSeg(a)), `ОС: ${a.os_type || 'не указана'}`]].map(([color, tip], i) => (
+                                  <div key={i} title={tip} style={{ width: '13px', height: '13px', borderRadius: '2px', background: color, cursor: 'default' }}></div>
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {isModalOpen && (
         <div className="modal fade show" style={{ display: 'block' }} tabIndex="-1" role="dialog">
