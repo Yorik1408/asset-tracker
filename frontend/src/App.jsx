@@ -3190,7 +3190,7 @@ function App() {
                                   onClick={() => { if (showHistory === asset.id) { setShowHistory(null); } else { setShowHistory(asset.id); setHistoryPage(1); } }}
                                 >↺</button>
                                 <button className="ra-btn" title="Информация" onClick={() => openAssetInfoModal(asset)}>i</button>
-                                <button className="ra-btn" title="Копировать" onClick={() => handleCopyAssetInfo(asset)}><i className="fas fa-clipboard"></i></button>
+                                <button className="ra-btn" title="Копировать" onClick={() => handleCopyAssetInfo(asset)}><i className="fas fa-copy"></i></button>
                               </div>
                               {user?.is_admin && (
                                 <div className="ra-row">
