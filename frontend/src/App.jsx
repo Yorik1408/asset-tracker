@@ -3038,7 +3038,7 @@ function App() {
                     </th>
                     <th style={{ width: '44px' }}>ID</th>
                     <th style={{ width: '106px' }}>Инв. номер</th>
-                    <th style={{ width: '80px' }}>Серийный №</th>
+                    <th style={{ width: '100px' }}>Серийный №</th>
                     <th style={{ width: '116px' }}>Статус</th>
                     <th style={{ width: '106px' }}>Расположение</th>
                     <th style={{ width: '130px' }}>ФИО пользователя</th>
