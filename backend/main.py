@@ -320,7 +320,9 @@ def export_to_excel(
         'os_type': 'Тип ОС',
         'windows_key': 'Ключ Windows',
         'manual_age': 'Возраст',
-        'calculated_age': 'Возраст (полный)'
+        'calculated_age': 'Возраст (полный)',
+        'storage_type': 'Тип накопителя',
+        'storage_size': 'Объем накопителя'
     }
     # Формируем запрос с фильтрацией
     # Используем joinedload для предварительной загрузки связанных данных (repairs, history)
@@ -452,8 +454,10 @@ def export_to_excel(
             "Комментарий": asset.comment,
             "Ключ Windows": asset.windows_key,
             "Тип ОС": asset.os_type,
-            "Возраст (ручной)": asset.manual_age,  # ← ДОБАВИТЬ ЭТУ СТРОКУ
-            "Возраст (рассчитанный)": calculate_age(asset)  # ← ДОБАВЬТЕ ЭТУ СТРОКУ
+            "Тип накопителя": asset.storage_type,
+            "Объем накопителя": asset.storage_size,
+            "Возраст (ручной)": asset.manual_age,
+            "Возраст (рассчитанный)": calculate_age(asset)
         })
         # Добавляем историю изменений
         # Так как мы использовали joinedload, asset.history уже загружены
@@ -587,6 +591,8 @@ def export_to_csv(
             "Комментарий": asset.comment,
             "Ключ Windows": asset.windows_key,
             "Тип ОС": asset.os_type,
+            "Тип накопителя": asset.storage_type,
+            "Объем накопителя": asset.storage_size,
             "Возраст (ручной)": asset.manual_age,
         })
 
