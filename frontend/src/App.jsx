@@ -2665,25 +2665,35 @@ function App() {
               </div>
             </div>
             <div className="top-dw">
-              <button
-                className={`top-db${selectedUser ? ' top-db-set' : ''}`}
-                onClick={(e) => { e.stopPropagation(); setOpenTopDrop(openTopDrop === 'user' ? null : 'user'); }}>
-                {selectedUser || 'Пользователь'} <span style={{fontSize:'7px',opacity:.55}}>▼</span>
-              </button>
+              <div className="top-search-wrap">
+                <input
+                  className={`top-db top-db-inp${selectedUser ? ' top-db-set' : ''}`}
+                  placeholder="Пользователь"
+                  value={selectedUser}
+                  onChange={(e) => { setSelectedUser(e.target.value); setPage(1); setOpenTopDrop('user'); }}
+                  onClick={(e) => { e.stopPropagation(); setOpenTopDrop('user'); }}
+                  onFocus={(e) => { e.stopPropagation(); setOpenTopDrop('user'); }}
+                />
+                {selectedUser && (
+                  <button className="top-search-x" onClick={(e) => { e.stopPropagation(); setSelectedUser(''); setOpenTopDrop(null); setPage(1); }}>×</button>
+                )}
+              </div>
               <div className={`top-dm${openTopDrop === 'user' ? ' open' : ''}`}>
                 <div className={`top-do${!selectedUser ? ' top-do-sel' : ''}`}
                   onClick={() => { setSelectedUser(''); setOpenTopDrop(null); setPage(1); }}>
                   Все пользователи
                   {!selectedUser && <span className="top-do-chk">✓</span>}
                 </div>
-                {uniqueUsers.map(u => (
-                  <div key={u.value}
-                    className={`top-do${selectedUser === u.value ? ' top-do-sel' : ''}`}
-                    onClick={() => { setSelectedUser(u.value); setOpenTopDrop(null); setPage(1); }}>
-                    {u.label}
-                    {selectedUser === u.value && <span className="top-do-chk">✓</span>}
-                  </div>
-                ))}
+                {uniqueUsers
+                  .filter(u => !selectedUser || u.label.toLowerCase().includes(selectedUser.toLowerCase()))
+                  .map(u => (
+                    <div key={u.value}
+                      className={`top-do${selectedUser === u.value ? ' top-do-sel' : ''}`}
+                      onClick={() => { setSelectedUser(u.value); setOpenTopDrop(null); setPage(1); }}>
+                      {u.label}
+                      {selectedUser === u.value && <span className="top-do-chk">✓</span>}
+                    </div>
+                  ))}
               </div>
             </div>
             {user?.is_admin && (

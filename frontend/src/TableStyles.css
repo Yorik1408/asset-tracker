@@ -2056,7 +2056,9 @@ body {
   min-width: 28px;
   height: 28px;
   padding: 0 6px;
-  background: none;
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--bg-surface) !important;
   border: 1px solid var(--border-color);
   border-radius: 5px;
   color: var(--text-muted);
@@ -2066,9 +2068,10 @@ body {
   display: grid;
   place-items: center;
   transition: border-color .12s, color .12s, background .12s;
+  box-shadow: none;
 }
-.pg-btn:hover { border-color: var(--accent); color: var(--accent); }
-.pg-btn.cur { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+.pg-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--bg-raised) !important; }
+.pg-btn.cur { border-color: var(--accent); color: var(--accent); background: var(--accent-light) !important; }
 .pg-btn:disabled { opacity: .35; cursor: default; pointer-events: none; }
 .pg-jump { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-muted); }
 .pg-inp {
@@ -2080,10 +2083,14 @@ body {
   color: var(--text-primary);
   font-size: 12px;
   font-family: inherit;
-  padding: 0 8px;
+  padding: 0 4px;
   text-align: center;
   outline: none;
+  appearance: textfield;
+  -moz-appearance: textfield;
 }
+.pg-inp::-webkit-inner-spin-button,
+.pg-inp::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .pg-inp:focus { border-color: var(--accent); }
 
 /* cell type helpers */
@@ -3351,11 +3358,27 @@ body {
     background: var(--bg-surface);
     border: 1px solid var(--border-color);
     border-radius: 6px;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
+    max-height: 264px;
     box-shadow: var(--shadow-md);
     z-index: 100;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-color) transparent;
   }
+  .top-dm::-webkit-scrollbar { width: 4px; }
+  .top-dm::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 2px; }
   .top-dm.open { display: block; }
+  .top-db-inp {
+    display: block;
+    cursor: text;
+    outline: none;
+    padding: 0 24px 0 9px;
+    min-width: 130px;
+    width: 100%;
+  }
+  .top-db-inp::placeholder { color: var(--text-muted); }
+  .top-db-inp:focus { border-color: var(--accent); color: var(--text-primary); }
   .top-do {
     display: flex; align-items: center; justify-content: space-between;
     padding: 7px 11px;
