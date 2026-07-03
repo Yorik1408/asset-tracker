@@ -124,6 +124,7 @@ function App() {
   const [actionMenuUp, setActionMenuUp] = useState(false);
   const [openTopDrop, setOpenTopDrop] = useState(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [userMenuPos, setUserMenuPos] = useState({ left: 0, bottom: 0 });
   const [editingWindowsCell, setEditingWindowsCell] = useState({ assetId: null, field: null });
   const [editingWindowsValue, setEditingWindowsValue] = useState('');
 
@@ -2588,17 +2589,28 @@ function App() {
           </div>
 
           <div className="sb-foot">
-            <div className={`sb-umenu${showUserMenu ? ' open' : ''}`} onClick={e => e.stopPropagation()}>
-              <div className="sb-umenu-info">
-                <div className="sb-umenu-name">{user?.username || 'пользователь'}</div>
-                <div className="sb-umenu-role">{user?.is_admin ? 'Администратор' : 'Пользователь'}</div>
+            {showUserMenu && (
+              <div
+                className="sb-umenu open"
+                style={{ position: 'fixed', left: userMenuPos.left, bottom: userMenuPos.bottom, minWidth: 180 }}
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="sb-umenu-info">
+                  <div className="sb-umenu-name">{user?.username || 'пользователь'}</div>
+                  <div className="sb-umenu-role">{user?.is_admin ? 'Администратор' : 'Пользователь'}</div>
+                </div>
+                <hr className="sb-umenu-hr" />
+                <div className="sb-umenu-out" onClick={handleLogout}>
+                  <i className="fas fa-sign-out-alt" style={{fontSize:'12px',opacity:.7}}></i>Выйти
+                </div>
               </div>
-              <hr className="sb-umenu-hr" />
-              <div className="sb-umenu-out" onClick={handleLogout}>
-                <i className="fas fa-sign-out-alt" style={{fontSize:'12px',opacity:.7}}></i>Выйти
-              </div>
-            </div>
-            <div className="sb-user" title="Меню" onClick={e => { e.stopPropagation(); setShowUserMenu(v => !v); }}>
+            )}
+            <div className="sb-user" title="Меню" onClick={e => {
+              e.stopPropagation();
+              const rect = e.currentTarget.getBoundingClientRect();
+              setUserMenuPos({ left: rect.left, bottom: window.innerHeight - rect.top + 4 });
+              setShowUserMenu(v => !v);
+            }}>
               <div className="sb-av">{(user?.username || 'U')[0].toUpperCase()}</div>
               <span className="sb-uname">{user?.username || 'пользователь'}</span>
               <div className="sb-dot"></div>

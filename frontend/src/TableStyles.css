@@ -3270,15 +3270,12 @@ body {
 
   .sb-umenu {
     display: none;
-    position: absolute;
-    bottom: calc(100% + 4px);
-    left: 4px; right: 4px;
     background: var(--bg-surface);
     border: 1px solid var(--border-color);
     border-radius: 6px;
     box-shadow: var(--shadow-md);
     overflow: hidden;
-    z-index: 300;
+    z-index: 9999;
   }
   .sb-umenu.open { display: block; }
   .sb-umenu-info {
