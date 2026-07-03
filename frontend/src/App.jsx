@@ -54,7 +54,7 @@ function App() {
   const [disposedFilter, setDisposedFilter] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 20;
   const [showDeletionLogModal, setShowDeletionLogModal] = useState(false);
   const [deletionLogs, setDeletionLogs] = useState([]);
   const [deletionLogLoading, setDeletionLogLoading] = useState(false);
@@ -111,6 +111,7 @@ function App() {
   useEffect(() => {
     resetHistoryPagination();
   }, [showHistory]);
+
   const [uniqueUsers, setUniqueUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState('');
   const [expiringWarranty, setExpiringWarranty] = useState([]);
@@ -118,8 +119,27 @@ function App() {
   const [windowsAssets, setWindowsAssets] = useState([]);
   const [showMobileStats, setShowMobileStats] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [openActionMenu, setOpenActionMenu] = useState(null);
+  const [actionMenuUp, setActionMenuUp] = useState(false);
+  const [openTopDrop, setOpenTopDrop] = useState(null);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const [editingWindowsCell, setEditingWindowsCell] = useState({ assetId: null, field: null });
   const [editingWindowsValue, setEditingWindowsValue] = useState('');
+
+  useEffect(() => {
+    if (!openTopDrop && openActionMenu === null) return;
+    const close = () => { setOpenTopDrop(null); setOpenActionMenu(null); };
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [openTopDrop, openActionMenu]);
+
+  useEffect(() => {
+    if (!showUserMenu) return;
+    const close = () => setShowUserMenu(false);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [showUserMenu]);
 
   // Инвентаризация
   const [inventoryMode, setInventoryMode] = useState(false);
@@ -2383,162 +2403,45 @@ function App() {
 
 
   const HistoryPagination = ({ history, historyPage, setHistoryPage, historyItemsPerPage }) => {
-    const historyTotalPages = Math.ceil(history.length / historyItemsPerPage);
+    const total = Math.ceil(history.length / historyItemsPerPage);
     const [inputValue, setInputValue] = useState(historyPage.toString());
-  
-    // Синхронизируем inputValue с historyPage при изменении извне
-    useEffect(() => {
-      setInputValue(historyPage.toString());
-    }, [historyPage]);
-  
-    if (historyTotalPages <= 1) return null;
-  
-    const handleInputChange = (e) => {
-      const value = e.target.value;
-      setInputValue(value); // Всегда обновляем локальное состояние для плавного ввода
-    
-      // Валидируем и обновляем реальную страницу только если значение корректное
-      if (value === '') {
-        setHistoryPage(1);
-        return;
-      }
-    
-      const num = parseInt(value, 10);
-      if (!isNaN(num) && num >= 1 && num <= historyTotalPages) {
-        setHistoryPage(num);
-      }
-    };
-  
-    const handleInputBlur = () => {
-      // При потере фокуса принудительно валидируем и исправляем значение
-      const num = parseInt(inputValue, 10);
-      if (isNaN(num) || num < 1 || num > historyTotalPages) {
-        setInputValue(historyPage.toString()); // Возвращаем корректное значение
-      }
-    };
-  
-    const handleKeyPress = (e) => {
-      if (e.key === 'Enter') {
-        const num = parseInt(inputValue, 10);
-        if (!isNaN(num) && num >= 1 && num <= historyTotalPages) {
-          setHistoryPage(num);
-          e.target.blur(); // Убираем фокус после Enter
-        }
-      }
-    };
-  
-    return (
-      <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-        {/* Информация о странице */}
-        <div className="small text-muted">
-          Показано {((historyPage - 1) * historyItemsPerPage) + 1}—{Math.min(historyPage * historyItemsPerPage, history.length)} из {history.length} записей
-        </div>
-      
-        {/* Кнопки навигации */}
-        <div className="d-flex align-items-center gap-1">
-          {/* К первой странице */}
-          <button
-            className="btn btn-sm btn-outline-secondary"
-            onClick={() => setHistoryPage(1)}
-            disabled={historyPage === 1}
-            title="Первая страница"
-          >
-            <i className="fas fa-angle-double-left"></i>
-          </button>
-        
-          {/* Назад */}
-          <button
-            className="btn btn-sm btn-outline-primary"
-            onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
-            disabled={historyPage === 1}
-            title="Предыдущая страница"
-          >
-            <i className="fas fa-angle-left"></i>
-          </button>
 
-          {/* Номера страниц */}
-          {historyTotalPages <= 5 ? (
-            Array.from({ length: historyTotalPages }, (_, i) => i + 1).map(pageNum => (
-              <button
-                key={pageNum}
-                className={`btn btn-sm ${
-                  pageNum === historyPage ? 'btn-primary' : 'btn-outline-secondary'
-                }`}
-                onClick={() => setHistoryPage(pageNum)}
-                style={{ minWidth: '30px' }}
-              >
-                {pageNum}
-              </button>
-            ))
-          ) : (
-            <>
-              {historyPage > 1 && (
-                <button
-                  className="btn btn-sm btn-outline-secondary"
-                  onClick={() => setHistoryPage(historyPage - 1)}
-                  style={{ minWidth: '30px' }}
-                >
-                  {historyPage - 1}
-                </button>
-              )}
-            
-              <button
-                className="btn btn-sm btn-primary"
-                style={{ minWidth: '30px' }}
-              >
-                {historyPage}
-              </button>
-            
-              {historyPage < historyTotalPages && (
-                <button
-                  className="btn btn-sm btn-outline-secondary"
-                  onClick={() => setHistoryPage(historyPage + 1)}
-                  style={{ minWidth: '30px' }}
-                >
-                  {historyPage + 1}
-                </button>
-              )}
-            </>
+    useEffect(() => { setInputValue(historyPage.toString()); }, [historyPage]);
+
+    if (total <= 1) return null;
+
+    const pages = (() => {
+      const delta = 1, range = [];
+      for (let i = Math.max(2, historyPage - delta); i <= Math.min(total - 1, historyPage + delta); i++) range.push(i);
+      if (historyPage - delta > 2) range.unshift('...');
+      if (historyPage + delta < total - 1) range.push('...');
+      range.unshift(1);
+      if (total !== 1) range.push(total);
+      return range;
+    })();
+
+    return (
+      <div className="hist-pg">
+        <span className="hist-pg-info">
+          {((historyPage - 1) * historyItemsPerPage) + 1}—{Math.min(historyPage * historyItemsPerPage, history.length)} из {history.length}
+        </span>
+        <div className="pg-nav">
+          <button className="pg-btn" onClick={() => setHistoryPage(1)} disabled={historyPage === 1}>«</button>
+          <button className="pg-btn" onClick={() => setHistoryPage(p => Math.max(1, p - 1))} disabled={historyPage === 1}>‹</button>
+          {pages.map((p, i) =>
+            p === '...'
+              ? <span key={i} style={{ color: 'var(--text-muted)', padding: '0 3px', fontSize: '11px' }}>…</span>
+              : <button key={i} className={`pg-btn${p === historyPage ? ' cur' : ''}`} onClick={() => setHistoryPage(p)} disabled={p === historyPage}>{p}</button>
           )}
-        
-          {/* Вперёд */}
-          <button
-            className="btn btn-sm btn-outline-primary"
-            onClick={() => setHistoryPage(p => Math.min(historyTotalPages, p + 1))}
-            disabled={historyPage === historyTotalPages}
-            title="Следующая страница"
-          >
-            <i className="fas fa-angle-right"></i>
-          </button>
-        
-          {/* К последней странице */}
-          <button
-            className="btn btn-sm btn-outline-secondary"
-            onClick={() => setHistoryPage(historyTotalPages)}
-            disabled={historyPage === historyTotalPages}
-            title="Последняя страница"
-          >
-            <i className="fas fa-angle-double-right"></i>
-          </button>
+          <button className="pg-btn" onClick={() => setHistoryPage(p => Math.min(total, p + 1))} disabled={historyPage === total}>›</button>
+          <button className="pg-btn" onClick={() => setHistoryPage(total)} disabled={historyPage === total}>»</button>
         </div>
-      
-        {/* Быстрый переход - ИСПРАВЛЕННАЯ ВЕРСИЯ */}
-        <div className="d-flex align-items-center gap-2">
-          <span className="small text-muted">Перейти:</span>
-          <input
-            type="number"
-            min="1"
-            max={historyTotalPages}
-            value={inputValue} // Используем локальное состояние
-            onChange={handleInputChange} // Новый обработчик
-            onBlur={handleInputBlur} // Валидация при потере фокуса
-            onKeyPress={handleKeyPress} // Обработка Enter
-            className="form-control form-control-sm text-center"
-            style={{ width: '60px' }}
-            title="Введите номер страницы"
-            placeholder={historyPage.toString()}
+        <div className="pg-jump" style={{ fontSize: '11px' }}>
+          Перейти на стр.
+          <input className="pg-inp" type="number" min="1" max={total} value={inputValue}
+            onChange={(e) => { setInputValue(e.target.value); const n = parseInt(e.target.value, 10); if (n >= 1 && n <= total) setHistoryPage(n); }}
+            onBlur={() => { const n = parseInt(inputValue, 10); if (isNaN(n) || n < 1 || n > total) setInputValue(historyPage.toString()); }}
           />
-          <span className="small text-muted">из {historyTotalPages}</span>
         </div>
       </div>
     );
@@ -2547,7 +2450,7 @@ function App() {
 
 
   return (
-    <div className="app-root">
+    <div className={`app-root${token && user ? ' has-sb' : ''}`}>
       {!token && (
         <form
           className="login-form mb-4 p-3 bg-light border rounded"
@@ -2578,9 +2481,224 @@ function App() {
         </form>
       )}
 
+      {/* SIDEBAR — десктоп */}
+      {token && user && (
+        <aside className={`sb${sidebarCollapsed ? ' sb-sm' : ''}`}>
+          <div className="sb-head">
+            <a className="sb-logo" href="#" onClick={e => e.preventDefault()}>
+              <img
+                key={isDarkMode ? 'sbl-d' : 'sbl-l'}
+                src={isDarkMode ? '/asset-logo-blur.png' : '/enhanced_asset-logo2.png'}
+                className="sb-logo-img"
+                alt=""
+              />
+              <span className="sb-name">Asset Tracker</span>
+            </a>
+          </div>
+          <button className="sb-tog" onClick={() => setSidebarCollapsed(c => !c)}>‹</button>
+
+          <div className="sb-body">
+            <div className="sb-lbl">Активы</div>
+            {[
+              { key: 'all',      icon: '≡',  label: 'Все активы',   count: stats.total,     onClick: () => { setFilter('Все'); setDisposedFilter(false); setWarrantyFilter('all'); setActiveTab('assets'); setPage(1); } },
+              { key: 'computer', icon: '🖥', label: 'Компьютеры',   count: stats.computers, onClick: () => { setFilter('Компьютер'); setDisposedFilter(false); setWarrantyFilter('all'); setActiveTab('assets'); setPage(1); } },
+              { key: 'laptop',   icon: '💻', label: 'Ноутбуки',     count: stats.laptops,   onClick: () => { setFilter('Ноутбук'); setDisposedFilter(false); setWarrantyFilter('all'); setActiveTab('assets'); setPage(1); } },
+              { key: 'monitor',  icon: '📺', label: 'Мониторы',     count: stats.monitors,  onClick: () => { setFilter('Монитор'); setDisposedFilter(false); setWarrantyFilter('all'); setActiveTab('assets'); setPage(1); } },
+              { key: 'other',    icon: '📷', label: 'Прочее',       count: stats.other,     onClick: () => { setFilter('Прочее'); setDisposedFilter(false); setWarrantyFilter('all'); setActiveTab('assets'); setPage(1); } },
+            ].map(({ key, icon, label, count, onClick }) => {
+              const isActive = (() => {
+                if (key === 'all')      return activeTab === 'assets' && filter === 'Все' && !disposedFilter && warrantyFilter === 'all';
+                if (key === 'computer') return activeTab === 'assets' && filter === 'Компьютер';
+                if (key === 'laptop')   return activeTab === 'assets' && filter === 'Ноутбук';
+                if (key === 'monitor')  return activeTab === 'assets' && filter === 'Монитор';
+                if (key === 'other')    return activeTab === 'assets' && filter === 'Прочее';
+                return false;
+              })();
+              return (
+                <div key={key} className={`ni${isActive ? ' act' : ''}`} data-tip={label} onClick={onClick}>
+                  <span className="ni-ico">{icon}</span>
+                  <span className="ni-txt">{label}</span>
+                  {count > 0 && <span className="ni-n">{count}</span>}
+                </div>
+              );
+            })}
+
+            <div className="sb-hr"></div>
+            <div className="sb-lbl">Отчёты</div>
+            <div className={`ni${activeTab === 'analytics' ? ' act' : ''}`} data-tip="Аналитика"
+              onClick={() => setActiveTab('analytics')}>
+              <span className="ni-ico">▣</span><span className="ni-txt">Аналитика</span>
+            </div>
+            <div className={`ni${activeTab === 'assets' && disposedFilter ? ' act' : ''}`} data-tip="Списано"
+              onClick={() => { setDisposedFilter(true); setFilter('Все'); setWarrantyFilter('all'); setActiveTab('assets'); setPage(1); }}>
+              <span className="ni-ico">✕</span><span className="ni-txt">Списано</span>
+              {stats.retired > 0 && <span className="ni-n">{stats.retired}</span>}
+            </div>
+            <div className={`ni${activeTab === 'assets' && warrantyFilter === 'active' ? ' act' : ''}`} data-tip="На гарантии"
+              onClick={() => { setWarrantyFilter('active'); setDisposedFilter(false); setActiveTab('assets'); setPage(1); }}>
+              <span className="ni-ico">✓</span><span className="ni-txt">На гарантии</span>
+              {stats.underWarranty > 0 && <span className="ni-n">{stats.underWarranty}</span>}
+            </div>
+            <div className={`ni${activeTab === 'reports' ? ' act' : ''}`} data-tip="Гарантия заканчивается"
+              onClick={() => setActiveTab('reports')}>
+              <span className="ni-ico">⏱</span><span className="ni-txt">Гарантия заканчивается</span>
+              {stats.expiringWarranty > 0 && <span className="ni-n" style={{color:'#D4882A'}}>{stats.expiringWarranty}</span>}
+            </div>
+            <div className="ni" data-tip="Активы Windows" onClick={() => generateWindowsReport()}>
+              <span className="ni-ico">🪟</span><span className="ni-txt">Активы Windows</span>
+            </div>
+            <div className="ni" data-tip="Экспорт" onClick={() => setShowExportModal(true)}>
+              <span className="ni-ico">↓</span><span className="ni-txt">Экспорт</span>
+            </div>
+            {user?.is_admin && (
+              <div className="ni" data-tip="Импорт" onClick={() => { setImportFile(null); setShowImportModal(true); }}>
+                <span className="ni-ico">↑</span><span className="ni-txt">Импорт</span>
+              </div>
+            )}
+
+            {user?.is_admin && (
+              <>
+                <div className="sb-hr"></div>
+                <div className="sb-lbl">Управление</div>
+                <div className={`ni${inventorySession && !inventoryMode ? ' ni-lit' : ''}`} data-tip="Инвентаризация"
+                  onClick={inventoryMode ? undefined : openInventory}>
+                  <span className="ni-ico">✔</span><span className="ni-txt">Инвентаризация</span>
+                </div>
+                <div className="ni" data-tip="Печать QR" onClick={() => setShowQRModal(true)}>
+                  <span className="ni-ico">⎙</span><span className="ni-txt">Печать QR</span>
+                </div>
+                <div className="ni" data-tip="Пользователи" onClick={() => openUserModal()}>
+                  <span className="ni-ico">👥</span><span className="ni-txt">Пользователи</span>
+                </div>
+                <div className="ni" data-tip="Журнал" onClick={() => openDeletionLogModal()}>
+                  <span className="ni-ico">📄</span><span className="ni-txt">Журнал</span>
+                </div>
+              </>
+            )}
+
+            <div className="sb-hr"></div>
+            <div className="sb-lbl">Система</div>
+            <div className="ni" data-tip="Тема" onClick={toggleTheme}>
+              <span className="ni-ico">{isDarkMode ? '☀' : '🌙'}</span><span className="ni-txt">Тема</span>
+            </div>
+            <div className="ni" data-tip="О системе" onClick={() => setShowAboutModal(true)}>
+              <span className="ni-ico" style={{fontStyle:'italic',fontSize:'11px',opacity:1}}>i</span>
+              <span className="ni-txt">О системе</span>
+            </div>
+          </div>
+
+          <div className="sb-foot">
+            <div className={`sb-umenu${showUserMenu ? ' open' : ''}`} onClick={e => e.stopPropagation()}>
+              <div className="sb-umenu-info">
+                <div className="sb-umenu-name">{user?.username || 'пользователь'}</div>
+                <div className="sb-umenu-role">{user?.is_admin ? 'Администратор' : 'Пользователь'}</div>
+              </div>
+              <hr className="sb-umenu-hr" />
+              <div className="sb-umenu-out" onClick={handleLogout}>
+                <i className="fas fa-sign-out-alt" style={{fontSize:'12px',opacity:.7}}></i>Выйти
+              </div>
+            </div>
+            <div className="sb-user" title="Меню" onClick={e => { e.stopPropagation(); setShowUserMenu(v => !v); }}>
+              <div className="sb-av">{(user?.username || 'U')[0].toUpperCase()}</div>
+              <span className="sb-uname">{user?.username || 'пользователь'}</span>
+              <div className="sb-dot"></div>
+            </div>
+          </div>
+        </aside>
+      )}
+
+      <div className="app-main">
+
+      {/* DESKTOP TOPBAR */}
+      {token && user && (() => {
+        const desktopTitle =
+          activeTab === 'analytics' ? 'Аналитика' :
+          activeTab === 'reports'   ? 'Гарантия заканчивается' :
+          disposedFilter            ? 'Списано' :
+          warrantyFilter === 'active' ? 'На гарантии' :
+          filter === 'Компьютер'    ? 'Компьютеры' :
+          filter === 'Ноутбук'      ? 'Ноутбуки' :
+          filter === 'Монитор'      ? 'Мониторы' :
+          filter === 'Прочее'       ? 'Прочее' : 'Все активы';
+        const ageCounts = getAssetsByAgeCategory();
+        return (
+          <div className="top-desk desk-only">
+            <span className="top-title">{desktopTitle}</span>
+            <span className="top-count">{filteredAssets.length}</span>
+            <div className="top-gap"></div>
+            <div className="top-search-wrap">
+              <input
+                className="top-search"
+                placeholder="Поиск…"
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+              />
+              {searchQuery && (
+                <button className="top-search-x" type="button" onClick={() => setSearchQuery('')}>×</button>
+              )}
+            </div>
+            <div className="top-dw">
+              <button
+                className={`top-db${ageRangeFilter !== 'all' ? ' top-db-set' : ''}`}
+                onClick={(e) => { e.stopPropagation(); setOpenTopDrop(openTopDrop === 'age' ? null : 'age'); }}>
+                Возраст <span style={{fontSize:'7px',opacity:.55}}>▼</span>
+              </button>
+              <div className={`top-dm${openTopDrop === 'age' ? ' open' : ''}`}>
+                {[
+                  { key: 'all',     label: 'Все',          color: 'var(--text-muted)' },
+                  { key: 'new',     label: 'до 1 года',    color: '#3A9D6E' },
+                  { key: 'fresh',   label: '1–3 года',     color: 'var(--accent)' },
+                  { key: 'medium',  label: '3–5 лет',      color: '#D4882A' },
+                  { key: 'old',     label: 'старше 5 лет', color: '#D95252' },
+                  { key: 'unknown', label: 'Не указан',    color: 'var(--text-muted)' },
+                ].map(({ key, label, color }) => (
+                  <div key={key}
+                    className={`top-do${ageRangeFilter === key ? ' top-do-sel' : ''}`}
+                    onClick={() => { setAgeRangeFilter(key); setOpenTopDrop(null); setPage(1); }}>
+                    <div className="top-do-l">
+                      <span className="top-do-dot" style={{background: color}}></span>
+                      {label}
+                    </div>
+                    {ageRangeFilter === key && <span className="top-do-chk">✓</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="top-dw">
+              <button
+                className={`top-db${selectedUser ? ' top-db-set' : ''}`}
+                onClick={(e) => { e.stopPropagation(); setOpenTopDrop(openTopDrop === 'user' ? null : 'user'); }}>
+                {selectedUser || 'Пользователь'} <span style={{fontSize:'7px',opacity:.55}}>▼</span>
+              </button>
+              <div className={`top-dm${openTopDrop === 'user' ? ' open' : ''}`}>
+                <div className={`top-do${!selectedUser ? ' top-do-sel' : ''}`}
+                  onClick={() => { setSelectedUser(''); setOpenTopDrop(null); setPage(1); }}>
+                  Все пользователи
+                  {!selectedUser && <span className="top-do-chk">✓</span>}
+                </div>
+                {uniqueUsers.map(u => (
+                  <div key={u.value}
+                    className={`top-do${selectedUser === u.value ? ' top-do-sel' : ''}`}
+                    onClick={() => { setSelectedUser(u.value); setOpenTopDrop(null); setPage(1); }}>
+                    {u.label}
+                    {selectedUser === u.value && <span className="top-do-chk">✓</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+            {user?.is_admin && (
+              <>
+                <span className="top-div"></span>
+                <button className="top-add" onClick={() => openModal()}>+ Добавить</button>
+              </>
+            )}
+          </div>
+        );
+      })()}
+
       {/* HEADER */}
       {token && (
-        <header className="hdr">
+        <header className="hdr mob-only">
           <div className="logo-wrap">
             <img
               key={isDarkMode ? 'logo-dark' : 'logo-light'}
@@ -2603,7 +2721,7 @@ function App() {
 
       {/* STATS BAR — desktop */}
       {token && !isMobile && stats.total > 0 && (
-        <div className="stats-bar">
+        <div className="stats-bar mob-only">
           <div className="sc sc-ac"><div className="sc-n">{stats.total}</div><div className="sc-l">Всего активов</div></div>
           <div className="sc"><div className="sc-n">{stats.laptops}</div><div className="sc-l">Ноутбуки</div></div>
           <div className="sc"><div className="sc-n">{stats.computers}</div><div className="sc-l">Компьютеры</div></div>
@@ -2648,7 +2766,7 @@ function App() {
 
       {/* TOOLBAR */}
       {token && user && (
-        <div className="tb">
+        <div className="tb mob-only">
           {/* tb-scroll-line: all action buttons — scrollable on mobile */}
           <div className="tb-scroll-line">
             {user.is_admin && (
@@ -2711,7 +2829,7 @@ function App() {
         const hasActive = filter !== 'Все' || disposedFilter || warrantyFilter !== 'all' || ageRangeFilter !== 'all' || searchQuery || selectedUser;
         return (
           <>
-          <div className="fb">
+          <div className="fb mob-only">
             <button className={`ft ${filter === 'Все' && !disposedFilter && warrantyFilter === 'all' ? 'on' : ''}`}
               onClick={() => { setFilter('Все'); setDisposedFilter(false); setWarrantyFilter('all'); setPage(1); if (activeTab !== 'assets') setActiveTab('assets'); }}>
               Все <span className="n">{stats.total}</span>
@@ -2767,7 +2885,7 @@ function App() {
               </button>
             )}
           </div>
-          <div className="fb2">
+          <div className="fb2 mob-only">
             <span className="fb2-lbl">Возраст</span>
             <button className={`ab2 ${ageRangeFilter === 'all' ? 'on' : ''}`} onClick={() => setAgeRangeFilter('all')}>Все</button>
             {[
@@ -3002,6 +3120,7 @@ function App() {
 
       <React.Fragment>
         {token && activeTab === 'assets' && !isMobile && (
+          <div className="tw-wrap">
           <div className="tw">
             {selectedIds.size > 0 && (
               <div className="bulk-bar">
@@ -3049,7 +3168,7 @@ function App() {
                     <th style={{ width: '95px' }}>Возраст</th>
                     <th>Комментарий</th>
                     {warrantyFilter === 'active' && <th style={{ width: '90px', color: 'rgba(107,122,153,.5)' }}>Гарантия до *</th>}
-                    <th className="th-r" style={{ width: '106px' }}>Действия</th>
+                    <th className="th-r" style={{ width: '136px' }}>Действия</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -3186,23 +3305,42 @@ function App() {
                           </td>
                           {warrantyFilter === 'active' && <td style={{ fontSize: '11px', fontVariantNumeric: 'tabular-nums' }}>{asset.warranty_until || '—'}</td>}
                           <td className="td-actions">
-                            <div className="ra">
-                              <div className="ra-row">
-                                <button
-                                  className={`ra-btn ${showHistory === asset.id ? 'ra-on' : ''}`}
-                                  title={showHistory === asset.id ? "Скрыть историю" : "История"}
-                                  onClick={() => { if (showHistory === asset.id) { setShowHistory(null); } else { setShowHistory(asset.id); setHistoryPage(1); } }}
-                                >↺</button>
-                                <button className="ra-btn" title="Информация" onClick={() => openAssetInfoModal(asset)}>i</button>
-                                <button className="ra-btn" title="Копировать" onClick={() => handleCopyAssetInfo(asset)}><i className="fas fa-copy"></i></button>
-                              </div>
+                            <div className="ra-new">
+                              <button
+                                className={`ra-nb${showHistory === asset.id ? ' ra-nb-on' : ''}`}
+                                title="История изменений"
+                                onClick={() => { if (showHistory === asset.id) { setShowHistory(null); } else { setShowHistory(asset.id); setHistoryPage(1); } }}
+                              >↺</button>
+                              <button className="ra-nb" title="Информация" onClick={() => openAssetInfoModal(asset)}>i</button>
                               {user?.is_admin && (
-                                <div className="ra-row">
-                                  <button className="ra-btn" title="Редактировать" onClick={() => handleEdit(asset)}>✎</button>
-                                  <button className="ra-btn ra-del" title="Удалить" onClick={() => handleDelete(asset.id)}><i className="fas fa-trash-alt"></i></button>
-                                  <button className="ra-btn ra-fix" title="Ремонты" onClick={() => openRepairsModal(asset.id)}><i className="fas fa-cog"></i></button>
-                                </div>
+                                <button className="ra-nb" title="Редактировать" onClick={() => handleEdit(asset)}>✎</button>
                               )}
+                              <span className="ra-sep2"></span>
+                              <div className="ra-mw">
+                                <button className="ra-nb" title="Ещё"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    setActionMenuUp(window.innerHeight - rect.bottom < 160);
+                                    setOpenActionMenu(prev => prev === asset.id ? null : asset.id);
+                                  }}>···</button>
+                                <div className={`ra-m${openActionMenu === asset.id ? ' open' : ''}${openActionMenu === asset.id && actionMenuUp ? ' ra-m-up' : ''}`}>
+                                  <div className="ra-mi" onClick={() => { handleCopyAssetInfo(asset); setOpenActionMenu(null); }}>
+                                    <span className="ra-mi-ico"><i className="fas fa-copy"></i></span>Копировать
+                                  </div>
+                                  <div className="ra-mi" onClick={() => { openRepairsModal(asset.id); setOpenActionMenu(null); }}>
+                                    <span className="ra-mi-ico"><i className="fas fa-cog"></i></span>История ремонтов
+                                  </div>
+                                  {user?.is_admin && (
+                                    <>
+                                      <hr className="ra-mhr" />
+                                      <div className="ra-mi ra-mi-d" onClick={() => { handleDelete(asset.id); setOpenActionMenu(null); }}>
+                                        <span className="ra-mi-ico"><i className="fas fa-trash-alt"></i></span>Удалить
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                           </td>
                         </tr>
@@ -3247,6 +3385,49 @@ function App() {
                 </tbody>
               </table>
             </div>
+          </div>
+          {assets.length > 0 && (
+            <div className="pg">
+              <div className="pg-info">
+                Показано {((page - 1) * itemsPerPage) + 1}–{Math.min(page * itemsPerPage, filteredAssets.length)} из {filteredAssets.length}
+              </div>
+              <div className="pg-nav">
+                <button className="pg-btn" onClick={() => setPage(1)} disabled={page === 1}>«</button>
+                <button className="pg-btn" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>‹</button>
+                {(() => {
+                  const totalPages = Math.ceil(filteredAssets.length / itemsPerPage);
+                  const delta = 2;
+                  const range = [];
+                  for (let i = Math.max(2, page - delta); i <= Math.min(totalPages - 1, page + delta); i++) range.push(i);
+                  if (page - delta > 2) range.unshift('...');
+                  if (page + delta < totalPages - 1) range.push('...');
+                  range.unshift(1);
+                  if (totalPages !== 1) range.push(totalPages);
+                  return range.map((pageNum, index) => (
+                    pageNum === '...'
+                      ? <span key={index} style={{ color: 'var(--text-muted)', padding: '0 4px', fontSize: '12px' }}>…</span>
+                      : <button key={index} className={`pg-btn ${pageNum === page ? 'cur' : ''}`} onClick={() => setPage(pageNum)} disabled={pageNum === page}>{pageNum}</button>
+                  ));
+                })()}
+                <button className="pg-btn" onClick={() => setPage(p => Math.min(Math.ceil(filteredAssets.length / itemsPerPage), p + 1))} disabled={page === Math.ceil(filteredAssets.length / itemsPerPage) || filteredAssets.length === 0}>›</button>
+                <button className="pg-btn" onClick={() => setPage(Math.ceil(filteredAssets.length / itemsPerPage))} disabled={page === Math.ceil(filteredAssets.length / itemsPerPage) || filteredAssets.length === 0}>»</button>
+              </div>
+              <div className="pg-jump">
+                Перейти на стр.
+                <input
+                  className="pg-inp"
+                  type="number"
+                  min="1"
+                  max={Math.ceil(filteredAssets.length / itemsPerPage)}
+                  value={page}
+                  onChange={(e) => {
+                    const num = parseInt(e.target.value, 10);
+                    if (num >= 1 && num <= Math.ceil(filteredAssets.length / itemsPerPage)) setPage(num);
+                  }}
+                />
+              </div>
+            </div>
+          )}
           </div>
         )}
 
@@ -3598,48 +3779,6 @@ function App() {
 
       </React.Fragment>
 
-      {token && activeTab === 'assets' && assets.length > 0 && !isMobile && (
-        <div className="pg">
-          <div className="pg-info">
-            Показано {((page - 1) * itemsPerPage) + 1}–{Math.min(page * itemsPerPage, filteredAssets.length)} из {filteredAssets.length}
-          </div>
-          <div className="pg-nav">
-            <button className="pg-btn" onClick={() => setPage(1)} disabled={page === 1}>«</button>
-            <button className="pg-btn" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>‹</button>
-            {(() => {
-              const totalPages = Math.ceil(filteredAssets.length / itemsPerPage);
-              const delta = 2;
-              const range = [];
-              for (let i = Math.max(2, page - delta); i <= Math.min(totalPages - 1, page + delta); i++) range.push(i);
-              if (page - delta > 2) range.unshift('...');
-              if (page + delta < totalPages - 1) range.push('...');
-              range.unshift(1);
-              if (totalPages !== 1) range.push(totalPages);
-              return range.map((pageNum, index) => (
-                pageNum === '...'
-                  ? <span key={index} style={{ color: 'var(--text-muted)', padding: '0 4px', fontSize: '12px' }}>…</span>
-                  : <button key={index} className={`pg-btn ${pageNum === page ? 'cur' : ''}`} onClick={() => setPage(pageNum)} disabled={pageNum === page}>{pageNum}</button>
-              ));
-            })()}
-            <button className="pg-btn" onClick={() => setPage(p => Math.min(Math.ceil(filteredAssets.length / itemsPerPage), p + 1))} disabled={page === Math.ceil(filteredAssets.length / itemsPerPage) || filteredAssets.length === 0}>›</button>
-            <button className="pg-btn" onClick={() => setPage(Math.ceil(filteredAssets.length / itemsPerPage))} disabled={page === Math.ceil(filteredAssets.length / itemsPerPage) || filteredAssets.length === 0}>»</button>
-          </div>
-          <div className="pg-jump">
-            Перейти на стр.
-            <input
-              className="pg-inp"
-              type="number"
-              min="1"
-              max={Math.ceil(filteredAssets.length / itemsPerPage)}
-              value={page}
-              onChange={(e) => {
-                const num = parseInt(e.target.value, 10);
-                if (num >= 1 && num <= Math.ceil(filteredAssets.length / itemsPerPage)) setPage(num);
-              }}
-            />
-          </div>
-        </div>
-      )}
 
 
       {activeTab === 'reports' && token && (
@@ -4945,6 +5084,7 @@ function App() {
         <div className="modal-backdrop fade show"></div>
       )}
 
+      </div>{/* /app-main */}
     </div>
   );
 }
