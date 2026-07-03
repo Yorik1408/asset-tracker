@@ -2501,11 +2501,11 @@ function App() {
           <div className="sb-body">
             <div className="sb-lbl">Активы</div>
             {[
-              { key: 'all',      icon: '≡',  label: 'Все активы',   count: stats.total,     onClick: () => { setFilter('Все'); setDisposedFilter(false); setWarrantyFilter('all'); setActiveTab('assets'); setPage(1); } },
-              { key: 'computer', icon: '🖥', label: 'Компьютеры',   count: stats.computers, onClick: () => { setFilter('Компьютер'); setDisposedFilter(false); setWarrantyFilter('all'); setActiveTab('assets'); setPage(1); } },
-              { key: 'laptop',   icon: '💻', label: 'Ноутбуки',     count: stats.laptops,   onClick: () => { setFilter('Ноутбук'); setDisposedFilter(false); setWarrantyFilter('all'); setActiveTab('assets'); setPage(1); } },
-              { key: 'monitor',  icon: '📺', label: 'Мониторы',     count: stats.monitors,  onClick: () => { setFilter('Монитор'); setDisposedFilter(false); setWarrantyFilter('all'); setActiveTab('assets'); setPage(1); } },
-              { key: 'other',    icon: '📷', label: 'Прочее',       count: stats.other,     onClick: () => { setFilter('Прочее'); setDisposedFilter(false); setWarrantyFilter('all'); setActiveTab('assets'); setPage(1); } },
+              { key: 'all',      icon: 'fa-layer-group',  label: 'Все активы',   count: stats.total,     onClick: () => { setFilter('Все'); setDisposedFilter(false); setWarrantyFilter('all'); setActiveTab('assets'); setPage(1); } },
+              { key: 'computer', icon: 'fa-desktop',       label: 'Компьютеры',   count: stats.computers, onClick: () => { setFilter('Компьютер'); setDisposedFilter(false); setWarrantyFilter('all'); setActiveTab('assets'); setPage(1); } },
+              { key: 'laptop',   icon: 'fa-laptop',        label: 'Ноутбуки',     count: stats.laptops,   onClick: () => { setFilter('Ноутбук'); setDisposedFilter(false); setWarrantyFilter('all'); setActiveTab('assets'); setPage(1); } },
+              { key: 'monitor',  icon: 'fa-tv',            label: 'Мониторы',     count: stats.monitors,  onClick: () => { setFilter('Монитор'); setDisposedFilter(false); setWarrantyFilter('all'); setActiveTab('assets'); setPage(1); } },
+              { key: 'other',    icon: 'fa-box',           label: 'Прочее',       count: stats.other,     onClick: () => { setFilter('Прочее'); setDisposedFilter(false); setWarrantyFilter('all'); setActiveTab('assets'); setPage(1); } },
             ].map(({ key, icon, label, count, onClick }) => {
               const isActive = (() => {
                 if (key === 'all')      return activeTab === 'assets' && filter === 'Все' && !disposedFilter && warrantyFilter === 'all';
@@ -2517,7 +2517,7 @@ function App() {
               })();
               return (
                 <div key={key} className={`ni${isActive ? ' act' : ''}`} data-tip={label} onClick={onClick}>
-                  <span className="ni-ico">{icon}</span>
+                  <span className="ni-ico"><i className={`fas ${icon}`}></i></span>
                   <span className="ni-txt">{label}</span>
                   {count > 0 && <span className="ni-n">{count}</span>}
                 </div>
@@ -2528,32 +2528,32 @@ function App() {
             <div className="sb-lbl">Отчёты</div>
             <div className={`ni${activeTab === 'analytics' ? ' act' : ''}`} data-tip="Аналитика"
               onClick={() => setActiveTab('analytics')}>
-              <span className="ni-ico">▣</span><span className="ni-txt">Аналитика</span>
+              <span className="ni-ico"><i className="fas fa-chart-bar"></i></span><span className="ni-txt">Аналитика</span>
             </div>
             <div className={`ni${activeTab === 'assets' && disposedFilter ? ' act' : ''}`} data-tip="Списано"
               onClick={() => { setDisposedFilter(true); setFilter('Все'); setWarrantyFilter('all'); setActiveTab('assets'); setPage(1); }}>
-              <span className="ni-ico">✕</span><span className="ni-txt">Списано</span>
+              <span className="ni-ico"><i className="fas fa-ban"></i></span><span className="ni-txt">Списано</span>
               {stats.retired > 0 && <span className="ni-n">{stats.retired}</span>}
             </div>
             <div className={`ni${activeTab === 'assets' && warrantyFilter === 'active' ? ' act' : ''}`} data-tip="На гарантии"
               onClick={() => { setWarrantyFilter('active'); setDisposedFilter(false); setActiveTab('assets'); setPage(1); }}>
-              <span className="ni-ico">✓</span><span className="ni-txt">На гарантии</span>
+              <span className="ni-ico"><i className="fas fa-shield-alt"></i></span><span className="ni-txt">На гарантии</span>
               {stats.underWarranty > 0 && <span className="ni-n">{stats.underWarranty}</span>}
             </div>
             <div className={`ni${activeTab === 'reports' ? ' act' : ''}`} data-tip="Гарантия заканчивается"
               onClick={() => setActiveTab('reports')}>
-              <span className="ni-ico">⏱</span><span className="ni-txt">Гарантия заканчивается</span>
+              <span className="ni-ico"><i className="fas fa-clock"></i></span><span className="ni-txt">Гарантия заканчивается</span>
               {stats.expiringWarranty > 0 && <span className="ni-n" style={{color:'#D4882A'}}>{stats.expiringWarranty}</span>}
             </div>
             <div className="ni" data-tip="Активы Windows" onClick={() => generateWindowsReport()}>
-              <span className="ni-ico">🪟</span><span className="ni-txt">Активы Windows</span>
+              <span className="ni-ico"><i className="fab fa-windows"></i></span><span className="ni-txt">Активы Windows</span>
             </div>
             <div className="ni" data-tip="Экспорт" onClick={() => setShowExportModal(true)}>
-              <span className="ni-ico">↓</span><span className="ni-txt">Экспорт</span>
+              <span className="ni-ico"><i className="fas fa-download"></i></span><span className="ni-txt">Экспорт</span>
             </div>
             {user?.is_admin && (
               <div className="ni" data-tip="Импорт" onClick={() => { setImportFile(null); setShowImportModal(true); }}>
-                <span className="ni-ico">↑</span><span className="ni-txt">Импорт</span>
+                <span className="ni-ico"><i className="fas fa-upload"></i></span><span className="ni-txt">Импорт</span>
               </div>
             )}
 
@@ -2563,16 +2563,16 @@ function App() {
                 <div className="sb-lbl">Управление</div>
                 <div className={`ni${inventorySession && !inventoryMode ? ' ni-lit' : ''}`} data-tip="Инвентаризация"
                   onClick={inventoryMode ? undefined : openInventory}>
-                  <span className="ni-ico">✔</span><span className="ni-txt">Инвентаризация</span>
+                  <span className="ni-ico"><i className="fas fa-clipboard-check"></i></span><span className="ni-txt">Инвентаризация</span>
                 </div>
                 <div className="ni" data-tip="Печать QR" onClick={() => setShowQRModal(true)}>
-                  <span className="ni-ico">⎙</span><span className="ni-txt">Печать QR</span>
+                  <span className="ni-ico"><i className="fas fa-qrcode"></i></span><span className="ni-txt">Печать QR</span>
                 </div>
                 <div className="ni" data-tip="Пользователи" onClick={() => openUserModal()}>
-                  <span className="ni-ico">👥</span><span className="ni-txt">Пользователи</span>
+                  <span className="ni-ico"><i className="fas fa-users"></i></span><span className="ni-txt">Пользователи</span>
                 </div>
                 <div className="ni" data-tip="Журнал" onClick={() => openDeletionLogModal()}>
-                  <span className="ni-ico">📄</span><span className="ni-txt">Журнал</span>
+                  <span className="ni-ico"><i className="fas fa-file-alt"></i></span><span className="ni-txt">Журнал</span>
                 </div>
               </>
             )}
@@ -2580,10 +2580,10 @@ function App() {
             <div className="sb-hr"></div>
             <div className="sb-lbl">Система</div>
             <div className="ni" data-tip="Тема" onClick={toggleTheme}>
-              <span className="ni-ico">{isDarkMode ? '☀' : '🌙'}</span><span className="ni-txt">Тема</span>
+              <span className="ni-ico"><i className={isDarkMode ? 'fas fa-sun' : 'fas fa-moon'}></i></span><span className="ni-txt">Тема</span>
             </div>
             <div className="ni" data-tip="О системе" onClick={() => setShowAboutModal(true)}>
-              <span className="ni-ico" style={{fontStyle:'italic',fontSize:'11px',opacity:1}}>i</span>
+              <span className="ni-ico"><i className="fas fa-info-circle"></i></span>
               <span className="ni-txt">О системе</span>
             </div>
           </div>
