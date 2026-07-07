@@ -1308,6 +1308,8 @@ body {
 .reports-section {
   background: var(--bg-app) !important;
   color: var(--text-primary) !important;
+  padding: 20px 24px;
+  overflow-y: auto;
 }
 
 .reports-section .custom-table {
