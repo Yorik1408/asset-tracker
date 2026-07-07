@@ -3911,6 +3911,20 @@ function App() {
             ) : (
               <div className="text-center p-3">Нет данных</div>
             )}
+            {filteredAssets.length > itemsPerPage && (
+              <div className="pg mob-pg">
+                <div className="pg-info">
+                  {((page - 1) * itemsPerPage) + 1}–{Math.min(page * itemsPerPage, filteredAssets.length)} из {filteredAssets.length}
+                </div>
+                <div className="pg-nav">
+                  <button className="pg-btn" onClick={() => setPage(1)} disabled={page === 1}>«</button>
+                  <button className="pg-btn" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>‹</button>
+                  <span className="pg-btn cur" style={{ minWidth: 48 }}>{page} / {Math.ceil(filteredAssets.length / itemsPerPage)}</span>
+                  <button className="pg-btn" onClick={() => setPage(p => Math.min(Math.ceil(filteredAssets.length / itemsPerPage), p + 1))} disabled={page === Math.ceil(filteredAssets.length / itemsPerPage)}>›</button>
+                  <button className="pg-btn" onClick={() => setPage(Math.ceil(filteredAssets.length / itemsPerPage))} disabled={page === Math.ceil(filteredAssets.length / itemsPerPage)}>»</button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -4544,8 +4558,8 @@ function App() {
                 {user?.is_admin && (
                   <>
                     <div className="msec">Список пользователей</div>
-                    <div style={{ border: '1px solid var(--border-color)', borderRadius: '6px', overflow: 'hidden' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <div style={{ border: '1px solid var(--border-color)', borderRadius: '6px', overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '420px' }}>
                         <thead>
                           <tr style={{ background: 'var(--bg-raised)', borderBottom: '1px solid var(--border-color)' }}>
                             <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', width: '44px' }}>ID</th>
@@ -4703,8 +4717,8 @@ function App() {
                     Загрузка...
                   </div>
                 ) : deletionLogs.length > 0 ? (
-                  <div style={{ border: '1px solid var(--border-color)', borderRadius: '6px', overflow: 'hidden' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                  <div style={{ border: '1px solid var(--border-color)', borderRadius: '6px', overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', minWidth: '560px' }}>
                       <thead>
                         <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'var(--bg-raised)' }}>
                           <th style={{ width: '150px', padding: '7px 10px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--text-muted)', textAlign: 'left' }}>Дата/Время</th>
@@ -5149,11 +5163,17 @@ function App() {
                     Активы с Windows не найдены
                   </div>
                 ) : (
-                  <div style={{ border: '1px solid var(--border-color)', borderRadius: '6px', overflow: 'hidden' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                  <div style={{ border: '1px solid var(--border-color)', borderRadius: '6px', overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', minWidth: isMobile ? '540px' : '700px' }}>
                       <thead>
                         <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'var(--bg-raised)' }}>
-                          {[
+                          {(isMobile ? [
+                            { label: 'Инв. номер', w: '95px' },
+                            { label: 'Модель', w: '115px' },
+                            { label: 'Пользователь', w: '105px' },
+                            { label: 'Ключ Windows', w: '185px' },
+                            { label: '', w: '40px' },
+                          ] : [
                             { label: 'Инв. номер', w: '11%' },
                             { label: 'Модель', w: '12%' },
                             { label: 'Расположение', w: '11%' },
@@ -5161,7 +5181,7 @@ function App() {
                             { label: 'Версия', w: '13%' },
                             { label: 'Ключ Windows', w: '26%' },
                             { label: 'Статус', w: '15%' },
-                          ].map(({ label, w }) => (
+                          ]).map(({ label, w }) => (
                             <th key={label} style={{ width: w, padding: '7px 10px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--text-muted)', textAlign: 'left' }}>{label}</th>
                           ))}
                         </tr>
@@ -5171,9 +5191,9 @@ function App() {
                           <tr key={asset.id} style={{ borderBottom: idx < windowsAssets.length - 1 ? '1px solid var(--bg-raised)' : 'none', background: isWindowsKeyMissing(asset) ? 'rgba(248,113,113,.05)' : 'transparent' }}>
                             <td style={{ padding: '7px 10px', fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={asset.inventory_number}>{asset.inventory_number}</td>
                             <td style={{ padding: '7px 10px', fontSize: '12px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={asset.model || ''}>{asset.model || '—'}</td>
-                            <td style={{ padding: '7px 10px', fontSize: '12px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={asset.location || ''}>{asset.location || '—'}</td>
+                            {!isMobile && <td style={{ padding: '7px 10px', fontSize: '12px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={asset.location || ''}>{asset.location || '—'}</td>}
                             <td style={{ padding: '7px 10px', fontSize: '12px', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={asset.user_name || ''}>{asset.user_name || <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
-                            <td style={{ padding: '7px 10px', fontSize: '11px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={asset.os_type || ''}>{asset.os_type || '—'}</td>
+                            {!isMobile && <td style={{ padding: '7px 10px', fontSize: '11px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={asset.os_type || ''}>{asset.os_type || '—'}</td>}
                             <td style={{ padding: '6px 10px' }} onDoubleClick={() => user?.is_admin && startEditingWindows(asset.id, 'windows_key', asset.windows_key)}>
                               {editingWindowsCell.assetId === asset.id && editingWindowsCell.field === 'windows_key' ? (
                                 <input
@@ -5199,11 +5219,17 @@ function App() {
                                 </span>
                               )}
                             </td>
-                            <td style={{ padding: '7px 10px' }}>
-                              <span className={`pill ${asset.status === 'в эксплуатации' ? 'pill-on' : asset.status === 'списано' ? 'pill-out' : asset.status === 'на ремонте' ? 'pill-fix' : 'pill-off'}`}>
-                                <span className="pill-dot"></span>{asset.status}
-                              </span>
-                            </td>
+                            {isMobile ? (
+                              <td style={{ padding: '7px 8px', textAlign: 'center' }} title={asset.status}>
+                                <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: asset.status === 'в эксплуатации' ? '#3A9D6E' : asset.status === 'списано' ? '#D95252' : asset.status === 'на ремонте' ? '#D4882A' : 'var(--text-muted)', flexShrink: 0 }}></span>
+                              </td>
+                            ) : (
+                              <td style={{ padding: '7px 10px' }}>
+                                <span className={`pill ${asset.status === 'в эксплуатации' ? 'pill-on' : asset.status === 'списано' ? 'pill-out' : asset.status === 'на ремонте' ? 'pill-fix' : 'pill-off'}`}>
+                                  <span className="pill-dot"></span>{asset.status}
+                                </span>
+                              </td>
+                            )}
                           </tr>
                         ))}
                       </tbody>
