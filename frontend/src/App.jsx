@@ -1,5 +1,5 @@
 ﻿// app.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import QRCode from "react-qr-code";
 import qrCodeGenerator from 'qrcode-generator';
 import './TableStyles.css';
@@ -63,6 +63,8 @@ function App() {
   const [assetIdFromUrlHash, setAssetIdFromUrlHash] = useState(null);
   const [showAssetInfoModal, setShowAssetInfoModal] = useState(false);
   const [assetInfo, setAssetInfo] = useState(null);
+  const rowClickTimer = useRef(null);
+  const [statusPopover, setStatusPopover] = useState({ assetId: null, asset: null, above: false });
   const [loginData, setLoginData] = useState({ username: '', password: '' });
   const [showAboutModal, setShowAboutModal] = useState(false);
   const [ageRangeFilter, setAgeRangeFilter] = useState('all');
@@ -169,6 +171,8 @@ function App() {
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
+  const [bulkField, setBulkField] = useState(null); // 'status' | 'user_name' | null
+  const [bulkValue, setBulkValue] = useState('');
 
   const getStatusColor = (status) => {
     switch(status) {
@@ -1071,6 +1075,13 @@ function App() {
   }, [showExportModal, showImportModal, showQRModal, showAboutModal, isModalOpen, isEditing, showUserModal, showDeletionLogModal, showRepairsModal, showAssetInfoModal, showWindowsReportModal, token]);
 
   useEffect(() => {
+    if (!statusPopover.assetId) return;
+    const close = () => setStatusPopover({ assetId: null, asset: null, above: false });
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [statusPopover.assetId]);
+
+  useEffect(() => {
     if (!token) {
       setUser(null);
       setUsers([]);
@@ -1715,6 +1726,75 @@ function App() {
   const cancelEdit = () => {
     setEditingCell({ assetId: null, field: null });
     setEditValue('');
+  };
+
+  const saveEditDirect = async (assetId, field, newValue) => {
+    cancelEdit();
+    const assetToEdit = assets.find(a => a.id === assetId);
+    if (!assetToEdit || assetToEdit[field] == newValue) return;
+    const updatedAssetData = { ...assetToEdit, [field]: newValue || null };
+    delete updatedAssetData.id;
+    delete updatedAssetData.history;
+    const loadingToast = showToast.loading('Сохранение...');
+    try {
+      const res = await apiFetch(`${API_BASE}/assets/${assetId}`, {
+        method: 'PUT',
+        body: JSON.stringify(updatedAssetData)
+      });
+      toast.dismiss(loadingToast);
+      if (res.ok) {
+        const updated = await res.json();
+        setAssets(prev => prev.map(a => a.id === updated.id ? updated : a));
+        fetchAssets();
+        showToast.success('Поле обновлено', { icon: '✏️', duration: 2000 });
+      } else {
+        showToast.error('Ошибка обновления');
+      }
+    } catch (err) {
+      toast.dismiss(loadingToast);
+      showToast.error('Ошибка сети');
+    }
+  };
+
+  const openStatusPopover = (e, asset) => {
+    if (!user?.is_admin) return;
+    e.stopPropagation();
+    clearTimeout(rowClickTimer.current);
+    const rect = e.currentTarget.getBoundingClientRect();
+    const above = window.innerHeight - rect.bottom < 130;
+    setStatusPopover({ assetId: asset.id, asset, above });
+  };
+
+  const applyBulkField = async (field, value) => {
+    const ids = [...selectedIds];
+    if (!ids.length) return;
+    const loadingToast = showToast.loading(`Обновление ${ids.length} активов...`);
+    try {
+      const results = await Promise.all(ids.map(async (id) => {
+        const a = assets.find(x => x.id === id);
+        if (!a) return null;
+        const payload = { ...a, [field]: value || null };
+        delete payload.id;
+        delete payload.history;
+        const res = await apiFetch(`${API_BASE}/assets/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload)
+        });
+        return res.ok ? res.json() : null;
+      }));
+      toast.dismiss(loadingToast);
+      const updated = results.filter(Boolean);
+      if (updated.length) {
+        setAssets(prev => prev.map(a => { const u = updated.find(u => u.id === a.id); return u || a; }));
+        fetchAssets();
+      }
+      showToast.success(`Обновлено: ${updated.length} из ${ids.length}`, { icon: '✏️' });
+    } catch (err) {
+      toast.dismiss(loadingToast);
+      showToast.error('Ошибка при массовом обновлении');
+    }
+    setBulkField(null);
+    setBulkValue('');
   };
 
   const startEditingWindows = (assetId, field, currentValue) => {
@@ -3151,19 +3231,47 @@ function App() {
                 <button className="btn-t sm" onClick={performBulkExport}>↓ Экспорт</button>
                 <button className="btn-t sm" onClick={() => performPrintQR(assets.filter(a => selectedIds.has(a.id)), qrColumns)}>⎙ QR</button>
                 {user?.is_admin && (
-                  !bulkDeleteConfirm ? (
-                    <button className="btn-t sm" style={{ color: '#D95252', borderColor: 'rgba(217,82,82,.3)' }} onClick={() => setBulkDeleteConfirm(true)}>
-                      <i className="fas fa-trash-alt"></i> Удалить
-                    </button>
-                  ) : (
-                    <>
-                      <span style={{ fontSize: '11px', color: '#D95252' }}>Удалить {selectedIds.size}?</span>
-                      <button className="btn-t sm" style={{ color: '#D95252', borderColor: 'rgba(217,82,82,.3)' }} onClick={handleBulkDelete}>Да</button>
-                      <button className="btn-t sm" onClick={() => setBulkDeleteConfirm(false)}>Нет</button>
-                    </>
-                  )
+                  <>
+                    {bulkField === 'status' ? (
+                      <>
+                        <select className="bulk-field-select" value={bulkValue} onChange={e => setBulkValue(e.target.value)} autoFocus onKeyDown={e => e.key === 'Escape' && (setBulkField(null), setBulkValue(''))}>
+                          <option value="">— статус —</option>
+                          <option value="в эксплуатации">в эксплуатации</option>
+                          <option value="на ремонте">на ремонте</option>
+                          <option value="списано">списано</option>
+                        </select>
+                        <button className="btn-t sm" disabled={!bulkValue} onClick={() => applyBulkField('status', bulkValue)}>Применить</button>
+                        <button className="btn-t sm" onClick={() => { setBulkField(null); setBulkValue(''); }}>×</button>
+                      </>
+                    ) : bulkField === 'user_name' ? (
+                      <>
+                        <input className="bulk-field-input" placeholder="ФИО пользователя..." value={bulkValue} onChange={e => setBulkValue(e.target.value)} autoFocus
+                          onKeyDown={e => { if (e.key === 'Enter') applyBulkField('user_name', bulkValue); if (e.key === 'Escape') { setBulkField(null); setBulkValue(''); } }} />
+                        <button className="btn-t sm" onClick={() => applyBulkField('user_name', bulkValue)}>Применить</button>
+                        <button className="btn-t sm" onClick={() => { setBulkField(null); setBulkValue(''); }}>×</button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="tsep"></div>
+                        <button className="btn-t sm" onClick={() => { setBulkField('status'); setBulkValue(''); setBulkDeleteConfirm(false); }}>Статус</button>
+                        <button className="btn-t sm" onClick={() => { setBulkField('user_name'); setBulkValue(''); setBulkDeleteConfirm(false); }}>Пользователь</button>
+                        <div className="tsep"></div>
+                        {!bulkDeleteConfirm ? (
+                          <button className="btn-t sm" style={{ color: '#D95252', borderColor: 'rgba(217,82,82,.3)' }} onClick={() => setBulkDeleteConfirm(true)}>
+                            <i className="fas fa-trash-alt"></i> Удалить
+                          </button>
+                        ) : (
+                          <>
+                            <span style={{ fontSize: '11px', color: '#D95252' }}>Удалить {selectedIds.size}?</span>
+                            <button className="btn-t sm" style={{ color: '#D95252', borderColor: 'rgba(217,82,82,.3)' }} onClick={handleBulkDelete}>Да</button>
+                            <button className="btn-t sm" onClick={() => setBulkDeleteConfirm(false)}>Нет</button>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </>
                 )}
-                <button className="bulk-clear" onClick={() => { setSelectedIds(new Set()); setBulkDeleteConfirm(false); }}>× Снять</button>
+                <button className="bulk-clear" onClick={() => { setSelectedIds(new Set()); setBulkDeleteConfirm(false); setBulkField(null); setBulkValue(''); }}>× Снять</button>
               </div>
             )}
             <div className="tw-scroll">
@@ -3197,7 +3305,17 @@ function App() {
                   {paginatedAssets.length > 0 ? (
                     paginatedAssets.map((asset) => (
                       <React.Fragment key={asset.id}>
-                        <tr>
+                        <tr
+                          className="tr-clickable"
+                          onClick={(e) => {
+                            if (e.target.closest('.td-actions') || e.target.closest('.chk-td')) return;
+                            if (['INPUT','TEXTAREA','BUTTON','SELECT'].includes(e.target.tagName)) return;
+                            if (editingCell.assetId === asset.id) return;
+                            clearTimeout(rowClickTimer.current);
+                            rowClickTimer.current = setTimeout(() => openAssetInfoModal(asset), 220);
+                          }}
+                          onDoubleClick={() => clearTimeout(rowClickTimer.current)}
+                        >
                           <td className="chk-td">
                             <input
                               type="checkbox"
@@ -3239,23 +3357,28 @@ function App() {
                               </span>
                             )}
                           </td>
-                          <td onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'status', asset.status)}>
-                            {editingCell.assetId === asset.id && editingCell.field === 'status' ? (
-                              <select
-                                className="cell-select"
-                                value={editValue}
-                                onChange={handleEditChange}
-                                onBlur={saveEdit}
-                                autoFocus
-                              >
-                                <option value="в эксплуатации">в эксплуатации</option>
-                                <option value="на ремонте">на ремонте</option>
-                                <option value="списано">списано</option>
-                              </select>
-                            ) : (
-                              <span className={`pill ${asset.status === 'в эксплуатации' ? 'pill-on' : asset.status === 'списано' ? 'pill-out' : asset.status === 'на ремонте' ? 'pill-fix' : 'pill-off'}${user?.is_admin ? ' editable-cell' : ''}`}>
-                                <span className="pill-dot"></span>{asset.status}
-                              </span>
+                          <td
+                            className={`status-td${statusPopover.assetId === asset.id ? ' status-td-open' : ''}`}
+                            onClick={(e) => openStatusPopover(e, asset)}
+                          >
+                            <span className={`pill ${asset.status === 'в эксплуатации' ? 'pill-on' : asset.status === 'списано' ? 'pill-out' : asset.status === 'на ремонте' ? 'pill-fix' : 'pill-off'}${user?.is_admin ? ' editable-cell' : ''}`}>
+                              <span className="pill-dot"></span>{asset.status}
+                            </span>
+                            {statusPopover.assetId === asset.id && (
+                              <div className={`status-pop${statusPopover.above ? ' status-pop-up' : ''}`} onClick={e => e.stopPropagation()}>
+                                {['в эксплуатации', 'на ремонте', 'списано'].map(s => (
+                                  <div key={s}
+                                    className={`status-pop-item${asset.status === s ? ' cur' : ''}`}
+                                    onClick={() => {
+                                      saveEditDirect(asset.id, 'status', s);
+                                      setStatusPopover({ assetId: null, asset: null, above: false });
+                                    }}>
+                                    <span className={`pill ${s === 'в эксплуатации' ? 'pill-on' : s === 'списано' ? 'pill-out' : 'pill-fix'}`}>
+                                      <span className="pill-dot"></span>{s}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
                             )}
                           </td>
                           <td onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'location', asset.location)}>
@@ -3800,8 +3923,6 @@ function App() {
 
 
       </React.Fragment>
-
-
 
       {activeTab === 'reports' && token && (
         <div className="reports-section">

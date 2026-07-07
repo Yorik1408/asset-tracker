@@ -1955,6 +1955,7 @@ body {
 .tw tbody tr:last-child td { border-bottom: none; }
 .tw tbody tr:hover td { background: var(--bg-hover); }
 .tw tbody tr.tr-editing td { background: var(--bg-active); }
+.tw tbody tr.tr-clickable { cursor: pointer; }
 
 /* ── INLINE EDIT IN TW ── */
 .tw .cell-input {
@@ -2728,6 +2729,41 @@ body {
 .bulk-clear:hover { border-color: var(--border-hover); color: var(--text-primary); }
 
 .bulk-chk { width: 14px; height: 14px; cursor: pointer; accent-color: var(--accent); }
+
+.bulk-field-select, .bulk-field-input {
+  height: 26px; padding: 0 8px; font-size: 12px; font-family: inherit;
+  background: var(--bg-input); border: 1px solid var(--border-hover);
+  border-radius: 5px; color: var(--text-primary); outline: none;
+}
+.bulk-field-select { min-width: 148px; }
+.bulk-field-input  { min-width: 180px; }
+.bulk-field-select:focus, .bulk-field-input:focus { border-color: var(--accent); }
+
+.status-td { position: relative; }
+.status-td.status-td-open { overflow: visible !important; z-index: 50; }
+
+.status-pop {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  z-index: 200;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  min-width: 152px;
+}
+.status-pop.status-pop-up { top: auto; bottom: calc(100% + 2px); }
+.status-pop-item {
+  display: flex; align-items: center;
+  padding: 7px 12px;
+  cursor: pointer;
+  transition: background .1s;
+}
+.status-pop-item:hover { background: var(--bg-raised); }
+.status-pop-item.cur  { background: var(--bg-raised); }
+
 .tw td.chk-td { padding: 0; text-overflow: clip; text-align: center; }
 .tw th.chk-td { padding: 6px 4px; text-align: center; }
 
