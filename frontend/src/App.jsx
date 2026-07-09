@@ -45,6 +45,8 @@ function App() {
     manual_age: '',
     storage_type: '',
     storage_size: '',
+    purchase_price: '',
+    market_value: '',
   });
   const [isEditing, setIsEditing] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -173,6 +175,12 @@ function App() {
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
   const [bulkField, setBulkField] = useState(null); // 'status' | 'user_name' | null
   const [bulkValue, setBulkValue] = useState('');
+  const [deprRates, setDeprRates] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('deprRates')) || { Компьютер: 25, Ноутбук: 30, Монитор: 15, Прочее: 20 }; }
+    catch { return { Компьютер: 25, Ноутбук: 30, Монитор: 15, Прочее: 20 }; }
+  });
+  const [showDeprSettings, setShowDeprSettings] = useState(false);
+  const [deprRatesForm, setDeprRatesForm] = useState({ Компьютер: 25, Ноутбук: 30, Монитор: 15, Прочее: 20 });
 
   const getStatusColor = (status) => {
     switch(status) {
@@ -522,6 +530,34 @@ function App() {
     if (ageYears < 3) return 'fresh';
     if (ageYears < 5) return 'medium';
     return 'old';
+  };
+
+  const DEPR_MIN_RATIO = 0.10;
+
+  const calcCurrentValue = (asset) => {
+    const price = parseInt(asset.purchase_price);
+    if (!price || isNaN(price)) return null;
+
+    if (asset.market_value && parseInt(asset.market_value)) {
+      return { value: parseInt(asset.market_value), source: 'manual' };
+    }
+
+    const rate = (deprRates[asset.type] || 20) / 100;
+    let years = 0;
+    if (asset.purchase_date) {
+      years = (Date.now() - new Date(asset.purchase_date).getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+    } else if (asset.manual_age) {
+      const m = (asset.manual_age || '').match(/(\d+(\.\d+)?)/);
+      if (m) years = parseFloat(m[1]);
+    }
+
+    const ratio = Math.max(DEPR_MIN_RATIO, Math.pow(1 - rate, Math.max(0, years)));
+    return { value: Math.round(price * ratio), source: 'auto', years: Math.round(years * 10) / 10 };
+  };
+
+  const formatPrice = (n) => {
+    if (!n && n !== 0) return '—';
+    return '₽ ' + Math.round(n).toLocaleString('ru-RU');
   };
 
   const getAssetsByAgeCategory = () => {
@@ -1177,6 +1213,10 @@ function App() {
       }
       // exportScope === 'all': no params
 
+      params.append('depr_pc', deprRates['Компьютер'] || 25);
+      params.append('depr_lt', deprRates['Ноутбук'] || 30);
+      params.append('depr_mn', deprRates['Монитор'] || 15);
+      params.append('depr_ot', deprRates['Прочее'] || 20);
       const endpoint = exportFormat === 'csv' ? 'csv' : 'excel';
       const url = `${API_BASE}/export/${endpoint}?${params.toString()}`;
       const res = await apiFetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
@@ -1223,6 +1263,10 @@ function App() {
     try {
       const params = new URLSearchParams();
       params.append('ids', ids.join(','));
+      params.append('depr_pc', deprRates['Компьютер'] || 25);
+      params.append('depr_lt', deprRates['Ноутбук'] || 30);
+      params.append('depr_mn', deprRates['Монитор'] || 15);
+      params.append('depr_ot', deprRates['Прочее'] || 20);
       const url = `${API_BASE}/export/excel?${params.toString()}`;
       const res = await apiFetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
       toast.dismiss(loadingToast);
@@ -1432,6 +1476,8 @@ function App() {
         manual_age: asset.manual_age || '',
         storage_type: asset.storage_type || '',
         storage_size: asset.storage_size || '',
+        purchase_price: asset.purchase_price || '',
+        market_value: asset.market_value || '',
       });
       setIsEditing(true);
     } else {
@@ -1455,6 +1501,8 @@ function App() {
         manual_age: '',
         storage_type: '',
         storage_size: '',
+        purchase_price: '',
+        market_value: '',
       });
       setIsEditing(false);
     }
@@ -1475,6 +1523,8 @@ function App() {
       const value = formData[key];
       if (['purchase_date', 'warranty_until', 'issue_date'].includes(key)) {
         payload[key] = value ? value : null;
+      } else if (['purchase_price', 'market_value'].includes(key)) {
+        payload[key] = (value !== '' && value !== null && value !== undefined) ? (parseInt(value) || null) : null;
       } else if (value !== null && value !== undefined) {
         payload[key] = value;
       }
@@ -1592,6 +1642,8 @@ function App() {
       windows_key: 'Ключ Windows',
       purchase_date: 'Дата покупки',
       warranty_until: 'Гарантия до',
+      purchase_price: 'Закупочная стоимость',
+      market_value: 'Рыночная стоимость',
       issue_date: 'Дата выдачи',
       comment: 'Комментарий',
       created: 'Создание',
@@ -2604,6 +2656,7 @@ function App() {
               );
             })}
 
+
             <div className="sb-hr"></div>
             <div className="sb-lbl">Отчёты</div>
             <div className={`ni${activeTab === 'analytics' ? ' act' : ''}`} data-tip="Аналитика"
@@ -2623,7 +2676,7 @@ function App() {
             <div className={`ni${activeTab === 'reports' ? ' act' : ''}`} data-tip="Гарантия заканчивается"
               onClick={() => setActiveTab('reports')}>
               <span className="ni-ico"><i className="fas fa-clock"></i></span><span className="ni-txt">Гарантия заканчивается</span>
-              {stats.expiringWarranty > 0 && <span className="ni-n" style={{color:'#D4882A'}}>{stats.expiringWarranty}</span>}
+              {stats.expiringWarranty > 0 && <span className="ni-n" style={{color:'#D4882A', background:'rgba(212,136,42,.15)'}}>{stats.expiringWarranty}</span>}
             </div>
             <div className="ni" data-tip="Активы Windows" onClick={() => generateWindowsReport()}>
               <span className="ni-ico"><i className="fab fa-windows"></i></span><span className="ni-txt">Активы Windows</span>
@@ -2662,6 +2715,9 @@ function App() {
             <div className="ni" data-tip="Тема" onClick={toggleTheme}>
               <span className="ni-ico"><i className={isDarkMode ? 'fas fa-sun' : 'fas fa-moon'}></i></span><span className="ni-txt">Тема</span>
             </div>
+            {user?.is_admin && <div className="ni" data-tip="Ставки амортизации" onClick={() => { setDeprRatesForm({...deprRates}); setShowDeprSettings(true); }}>
+              <span className="ni-ico"><i className="fas fa-percent"></i></span><span className="ni-txt">Амортизация</span>
+            </div>}
             <div className="ni" data-tip="О системе" onClick={() => setShowAboutModal(true)}>
               <span className="ni-ico"><i className="fas fa-info-circle"></i></span>
               <span className="ni-txt">О системе</span>
@@ -4147,12 +4203,81 @@ function App() {
           <span style={{ display: 'inline-block', padding: '2px 7px', borderRadius: '3px', fontSize: '11px', fontWeight: 500, background: `${color}22`, color }}>{text}</span>
         );
 
+        const pricedAssets = assets.filter(a => a.purchase_price);
+        const finTotalPurchase = pricedAssets.reduce((s, a) => s + (parseInt(a.purchase_price) || 0), 0);
+        const finTotalCurrent = pricedAssets.reduce((s, a) => { const cv = calcCurrentValue(a); return s + (cv ? cv.value : 0); }, 0);
+        const finActive = pricedAssets.filter(a => a.status !== 'списано');
+        const finRetired = pricedAssets.filter(a => a.status === 'списано');
+        const finActiveCurrent = finActive.reduce((s, a) => { const cv = calcCurrentValue(a); return s + (cv ? cv.value : 0); }, 0);
+        const finRetiredCurrent = finRetired.reduce((s, a) => { const cv = calcCurrentValue(a); return s + (cv ? cv.value : 0); }, 0);
+        const finByType = ['Компьютер', 'Ноутбук', 'Монитор', 'Прочее'].map(t => {
+          const ta = pricedAssets.filter(a => a.type === t);
+          if (!ta.length) return null;
+          const purch = ta.reduce((s, a) => s + (parseInt(a.purchase_price) || 0), 0);
+          const curr = ta.reduce((s, a) => { const cv = calcCurrentValue(a); return s + (cv ? cv.value : 0); }, 0);
+          const deprPct = purch > 0 ? Math.round((1 - curr / purch) * 100) : 0;
+          return { type: t, count: ta.length, purchase: purch, current: curr, deprPct };
+        }).filter(Boolean);
+
         return (
           <div className="an-scroll">
             <div className="an-header">
               <h4>Состояние парка</h4>
               <span className="an-header-sub">{total} активов в эксплуатации</span>
             </div>
+
+            {user?.is_admin && pricedAssets.length > 0 && (
+              <div className="an-finance">
+                <div className="an-finance-head">
+                  <span>Стоимость парка</span>
+                  {pricedAssets.length < assets.length && (
+                    <span className="an-finance-cov">данные по {pricedAssets.length} из {assets.length} активов</span>
+                  )}
+                </div>
+                <div className="an-stat-row" style={{ padding: '16px 16px 8px' }}>
+                  <div className="an-stat">
+                    <div className="an-stat-label">Закупочная стоимость</div>
+                    <div className="an-stat-value" style={{ fontSize: '17px' }}>{formatPrice(finTotalPurchase)}</div>
+                    <div className="an-stat-sub">все активы с ценой</div>
+                  </div>
+                  <div className="an-stat">
+                    <div className="an-stat-label">Текущая стоимость</div>
+                    <div className="an-stat-value" style={{ fontSize: '17px' }}>{formatPrice(finTotalCurrent)}</div>
+                    <div className="an-stat-sub">с учётом амортизации</div>
+                  </div>
+                  <div className="an-stat">
+                    <div className="an-stat-label">Активные</div>
+                    <div className="an-stat-value" style={{ fontSize: '17px', color: CLR.good }}>{formatPrice(finActiveCurrent)}</div>
+                    <div className="an-stat-sub">в эксплуатации</div>
+                  </div>
+                  <div className="an-stat">
+                    <div className="an-stat-label">Списано</div>
+                    <div className="an-stat-value" style={{ fontSize: '17px', color: CLR.danger }}>{formatPrice(finRetiredCurrent)}</div>
+                    <div className="an-stat-sub">остаточная стоимость</div>
+                  </div>
+                </div>
+                {finByType.length > 0 && (
+                  <div style={{ overflowX: 'auto', padding: '0 16px 16px' }}>
+                    <table className="custom-table" style={{ marginBottom: 0 }}>
+                      <thead>
+                        <tr><th>Тип</th><th>Кол-во</th><th>Закупочная</th><th>Текущая</th><th>Амортизация</th></tr>
+                      </thead>
+                      <tbody>
+                        {finByType.map(d => (
+                          <tr key={d.type}>
+                            <td>{d.type}</td>
+                            <td>{d.count}</td>
+                            <td>{formatPrice(d.purchase)}</td>
+                            <td>{formatPrice(d.current)}</td>
+                            <td><span style={{ color: d.deprPct > 50 ? CLR.danger : d.deprPct > 30 ? CLR.warn : CLR.good }}>−{d.deprPct}%</span></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="an-stat-row">
               <div className="an-stat">
@@ -4381,6 +4506,25 @@ function App() {
                       <input type="date" name="warranty_until" value={formData.warranty_until || ''} onChange={handleChange} />
                     </div>
                   </div>
+
+                  {user?.is_admin && (
+                  <div className="mrow">
+                    <div className="mf">
+                      <label>Закупочная стоимость, ₽</label>
+                      <input type="number" name="purchase_price" value={formData.purchase_price || ''} onChange={handleChange} placeholder="0" min="0" />
+                    </div>
+                    <div className="mf">
+                      <label>
+                        Рыночная стоимость, ₽
+                        {formData.purchase_price && !formData.market_value && (() => {
+                          const cv = calcCurrentValue(formData);
+                          return cv ? <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: 6, fontSize: 11 }}>авто: {formatPrice(cv.value)}</span> : null;
+                        })()}
+                      </label>
+                      <input type="number" name="market_value" value={formData.market_value || ''} onChange={handleChange} placeholder="оставить пустым — рассчитается автоматически" min="0" />
+                    </div>
+                  </div>
+                  )}
 
                   <div className="mf">
                     <label>Комментарий</label>
@@ -4801,6 +4945,24 @@ function App() {
                     <div className="ai-row"><span className="ai-lbl">Возраст</span><span className={`ai-val ${getAgeClass(assetInfo)}`}>{calculateAssetAge(assetInfo)}</span></div>
                     {assetInfo.purchase_date && <div className="ai-row"><span className="ai-lbl">Дата покупки</span><span className="ai-val">{new Date(assetInfo.purchase_date).toLocaleDateString('ru-RU')}</span></div>}
                     {assetInfo.warranty_until && <div className="ai-row"><span className="ai-lbl">Гарантия до</span><span className="ai-val">{new Date(assetInfo.warranty_until).toLocaleDateString('ru-RU')}</span></div>}
+                    {user?.is_admin && assetInfo.purchase_price && (() => {
+                      const cv = calcCurrentValue(assetInfo);
+                      return (
+                        <>
+                          <div className="ai-sec">Стоимость</div>
+                          <div className="ai-row"><span className="ai-lbl">Закупочная</span><span className="ai-val">{formatPrice(assetInfo.purchase_price)}</span></div>
+                          {cv && <div className="ai-row">
+                            <span className="ai-lbl">Рыночная</span>
+                            <span className="ai-val">
+                              {formatPrice(cv.value)}
+                              <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 6 }}>
+                                {cv.source === 'manual' ? 'вручную' : `авто, −${Math.round((1 - cv.value / assetInfo.purchase_price) * 100)}%`}
+                              </span>
+                            </span>
+                          </div>}
+                        </>
+                      );
+                    })()}
                     {assetInfo.comment && <div className="ai-row"><span className="ai-lbl">Комментарий</span><span className="ai-val" style={{ color: 'var(--text-muted)' }}>{assetInfo.comment}</span></div>}
 
                     {(assetInfo.type === 'Компьютер' || assetInfo.type === 'Ноутбук') && (
@@ -5252,6 +5414,52 @@ function App() {
       {showWindowsReportModal && (
         <div className="modal-backdrop fade show"></div>
       )}
+
+      {showDeprSettings && (
+        <div className="modal fade show" style={{ display: 'block' }} tabIndex="-1">
+          <div className="modal-dialog" style={{ maxWidth: 380 }}>
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Ставки амортизации</h5>
+                <button type="button" className="btn-close" onClick={() => setShowDeprSettings(false)}></button>
+              </div>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  Процент снижения стоимости в год. Применяется к расчётной рыночной стоимости. Минимум — 10% от закупочной цены.
+                </div>
+                {['Компьютер', 'Ноутбук', 'Монитор', 'Прочее'].map(type => (
+                  <div key={type} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ flex: 1, fontSize: 13, color: 'var(--text-primary)' }}>{type}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <input
+                        type="number"
+                        min="1" max="99"
+                        value={deprRatesForm[type] ?? 20}
+                        style={{ width: 64, textAlign: 'right', background: 'var(--bg-raised)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: 6, height: 34, padding: '0 10px', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
+                        onChange={e => setDeprRatesForm(prev => ({ ...prev, [type]: parseInt(e.target.value) || 1 }))}
+                        onFocus={e => e.target.style.borderColor = 'var(--accent)'}
+                        onBlur={e => e.target.style.borderColor = 'var(--border-color)'}
+                      />
+                      <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>% / год</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={() => {
+                  setDeprRatesForm({ Компьютер: 25, Ноутбук: 30, Монитор: 15, Прочее: 20 });
+                }}>Сбросить</button>
+                <button className="btn btn-success" onClick={() => {
+                  setDeprRates(deprRatesForm);
+                  localStorage.setItem('deprRates', JSON.stringify(deprRatesForm));
+                  setShowDeprSettings(false);
+                }}>Сохранить</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {showDeprSettings && <div className="modal-backdrop fade show"></div>}
 
       </div>{/* /app-main */}
     </div>

@@ -44,6 +44,8 @@ class Asset(Base):
     manual_age = Column(String, nullable=True)
     storage_type = Column(String, nullable=True)  # SSD / HDD / NVMe / eMMC
     storage_size = Column(String, nullable=True)  # 256 ГБ / 512 ГБ / 1 ТБ
+    purchase_price = Column(Integer, nullable=True)  # Закупочная стоимость (руб.)
+    market_value = Column(Integer, nullable=True)    # Рыночная стоимость override (руб.)
 
     # Связь с историей изменений
     history = relationship("AssetHistory", back_populates="asset", cascade="all, delete-orphan")

@@ -87,6 +87,8 @@ class AssetBase(BaseModel):
     manual_age: Optional[str] = None
     storage_type: Optional[str] = None
     storage_size: Optional[str] = None
+    purchase_price: Optional[int] = None
+    market_value: Optional[int] = None
 
 # --- Схемы для записей о ремонте ---
 class RepairRecordBase(BaseModel):

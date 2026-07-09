@@ -2054,6 +2054,7 @@ body {
   margin: 0 18px 18px;
 }
 .pg-info { font-size: 11px; color: var(--text-muted); }
+.mob-pg { margin: 0 0 16px; border-radius: 8px; border: 1px solid var(--border-color); }
 .pg-nav { display: flex; align-items: center; gap: 3px; }
 .pg-btn {
   min-width: 28px;
@@ -3275,14 +3276,20 @@ body {
   .sb.sb-sm .ni-txt { opacity: 0; pointer-events: none; }
 
   .ni-n {
-    font-size: 10.5px;
+    font-size: 10px;
+    font-weight: 600;
     color: var(--text-muted);
+    background: var(--bg-raised);
+    border-radius: 10px;
+    padding: 1px 6px;
+    min-width: 18px;
+    text-align: center;
     font-variant-numeric: tabular-nums;
     flex-shrink: 0;
     transition: opacity .15s;
   }
   .sb.sb-sm .ni-n  { opacity: 0; }
-  .ni.act   .ni-n  { color: var(--accent); opacity: .6; }
+  .ni.act   .ni-n  { color: var(--accent); background: var(--accent-light); opacity: 1; }
 
   .sb.sb-sm .ni:hover::after {
     content: attr(data-tip);
@@ -3526,3 +3533,53 @@ body {
   .ra-mi.ra-mi-d .ra-mi-ico { opacity: 1; }
   .ra-mhr { height: 1px; background: var(--border-color); margin: 4px 0; border: none; }
 }
+
+/* Hide number input spinners */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type=number] { -moz-appearance: textfield; }
+
+/* Finance block in analytics */
+.an-finance {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.an-finance-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main);
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.an-finance-cov {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+/* Fleet value in sidebar */
+.sb-fleet-val {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 4px 8px 2px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-color);
+  cursor: default;
+}
+.sb-fleet-ico { font-size: 10px; color: var(--text-muted); flex-shrink: 0; }
+.sb-fleet-lbl { font-size: 11px; color: var(--text-muted); flex: 1; }
+.sb-fleet-num { font-size: 12px; font-weight: 600; color: var(--text-main); font-variant-numeric: tabular-nums; }

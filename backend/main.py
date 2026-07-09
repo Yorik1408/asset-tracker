@@ -298,8 +298,32 @@ def export_to_excel(
     user_name: Optional[str] = None,
     status: Optional[str] = None,
     ids: Optional[str] = None,
+    depr_pc: int = 25,
+    depr_lt: int = 30,
+    depr_mn: int = 15,
+    depr_ot: int = 20,
     db: Session = Depends(get_db)
 ):
+
+    def _calc_current(asset):
+        price = asset.purchase_price
+        if not price:
+            return None
+        if asset.market_value:
+            return asset.market_value
+        import re as _re
+        rates = {'Компьютер': depr_pc/100, 'Ноутбук': depr_lt/100, 'Монитор': depr_mn/100, 'Прочее': depr_ot/100}
+        rate = rates.get(asset.type, 0.20)
+        years = 0
+        if asset.purchase_date:
+            from datetime import date as _date
+            years = (_date.today() - asset.purchase_date).days / 365.25
+        elif asset.manual_age:
+            m = _re.search(r'(\d+(?:\.\d+)?)', asset.manual_age or '')
+            if m:
+                years = float(m.group(1))
+        ratio = max(0.10, (1 - rate) ** max(0, years))
+        return round(price * ratio)
 
     FIELD_LABELS = {
         'id': 'ID',
@@ -457,7 +481,9 @@ def export_to_excel(
             "Тип накопителя": asset.storage_type,
             "Объем накопителя": asset.storage_size,
             "Возраст (ручной)": asset.manual_age,
-            "Возраст (рассчитанный)": calculate_age(asset)
+            "Возраст (рассчитанный)": calculate_age(asset),
+            "Закупочная стоимость, руб.": asset.purchase_price,
+            "Рыночная стоимость, руб.": _calc_current(asset)
         })
         # Добавляем историю изменений
         # Так как мы использовали joinedload, asset.history уже загружены
@@ -533,8 +559,31 @@ def export_to_csv(
     user_name: Optional[str] = None,
     status: Optional[str] = None,
     ids: Optional[str] = None,
+    depr_pc: int = 25,
+    depr_lt: int = 30,
+    depr_mn: int = 15,
+    depr_ot: int = 20,
     db: Session = Depends(get_db)
 ):
+    def _calc_current(asset):
+        price = asset.purchase_price
+        if not price:
+            return None
+        if asset.market_value:
+            return asset.market_value
+        import re as _re
+        rates = {'Компьютер': depr_pc/100, 'Ноутбук': depr_lt/100, 'Монитор': depr_mn/100, 'Прочее': depr_ot/100}
+        rate = rates.get(asset.type, 0.20)
+        years = 0
+        if asset.purchase_date:
+            from datetime import date as _date
+            years = (_date.today() - asset.purchase_date).days / 365.25
+        elif asset.manual_age:
+            m = _re.search(r'(\d+(?:\.\d+)?)', asset.manual_age or '')
+            if m:
+                years = float(m.group(1))
+        ratio = max(0.10, (1 - rate) ** max(0, years))
+        return round(price * ratio)
     query = db.query(models.Asset)
 
     if type and type in ["Монитор", "Компьютер", "Ноутбук", "Прочее"]:
@@ -594,6 +643,8 @@ def export_to_csv(
             "Тип накопителя": asset.storage_type,
             "Объем накопителя": asset.storage_size,
             "Возраст (ручной)": asset.manual_age,
+            "Закупочная стоимость, руб.": asset.purchase_price,
+            "Рыночная стоимость, руб.": _calc_current(asset),
         })
 
     buffer = BytesIO()
