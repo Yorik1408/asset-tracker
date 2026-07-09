@@ -1,3 +1,4 @@
+import json
 # main.py
 from fastapi import FastAPI, Depends, HTTPException, status, Response, UploadFile, File, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -257,13 +258,42 @@ def update_existing_asset(
 @app.delete("/assets/{asset_id}")
 def delete_existing_asset(
     asset_id: int,
+    reason: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_admin)
 ):
-    deleted = delete_asset(db, asset_id, changed_by_username=current_user.username)
+    deleted = delete_asset(db, asset_id, changed_by_username=current_user.username, reason=reason)
     if not deleted:
         raise HTTPException(status_code=404, detail="Актив не найден")
     return {"detail": "Актив удален"}
+
+
+DEPR_RATES_DEFAULTS = {"Компьютер": 25, "Ноутбук": 30, "Монитор": 15, "Прочее": 20}
+
+@app.get("/settings/depr-rates")
+def get_depr_rates(db: Session = Depends(get_db)):
+    row = db.query(models.AppSettings).filter(models.AppSettings.key == "depr_rates").first()
+    if row and row.value:
+        try:
+            return json.loads(row.value)
+        except Exception:
+            pass
+    return DEPR_RATES_DEFAULTS
+
+@app.put("/settings/depr-rates")
+def set_depr_rates(
+    rates: dict,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_admin)
+):
+    row = db.query(models.AppSettings).filter(models.AppSettings.key == "depr_rates").first()
+    if row:
+        row.value = json.dumps(rates)
+    else:
+        row = models.AppSettings(key="depr_rates", value=json.dumps(rates))
+        db.add(row)
+    db.commit()
+    return rates
 
 @app.get("/admin/deletion-log/", response_model=List[schemas.DeletionLogResponse]) # Создайте схему DeletionLogResponse
 def read_deletion_log(

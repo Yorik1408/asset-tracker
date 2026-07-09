@@ -239,7 +239,7 @@ def get_deletion_logs(db: Session, skip: int = 0, limit: int = 100, entity_type:
     return query.order_by(models.DeletionLog.deleted_at.desc()).offset(skip).limit(limit).all()
 
 # ---------------------------------------------
-def delete_asset(db: Session, asset_id: int, changed_by_username: str): # Убедитесь, что аргумент есть
+def delete_asset(db: Session, asset_id: int, changed_by_username: str, reason: str = None):
     db_asset = db.query(models.Asset).filter(models.Asset.id == asset_id).first()
     if db_asset:
         # --- Подготовка данных для лога ---
@@ -268,7 +268,7 @@ def delete_asset(db: Session, asset_id: int, changed_by_username: str): # Убе
             entity_id=asset_id,
             deleted_by=changed_by_username,
             entity_data=asset_data_to_log, # Передаем данные
-            reason=None # Или добавьте поле reason в UI и передавайте сюда
+            reason=reason
         )
         # --------------------------------
 

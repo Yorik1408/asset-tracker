@@ -60,6 +60,9 @@ function App() {
   const [showDeletionLogModal, setShowDeletionLogModal] = useState(false);
   const [deletionLogs, setDeletionLogs] = useState([]);
   const [deletionLogLoading, setDeletionLogLoading] = useState(false);
+  const [showDeleteReasonModal, setShowDeleteReasonModal] = useState(false);
+  const [deleteReasonText, setDeleteReasonText] = useState('');
+  const [pendingDeleteIds, setPendingDeleteIds] = useState([]);
   const [token, setToken] = useState(localStorage.getItem('token') || '');
   const [user, setUser] = useState(null);
   const [assetIdFromUrlHash, setAssetIdFromUrlHash] = useState(null);
@@ -175,12 +178,10 @@ function App() {
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
   const [bulkField, setBulkField] = useState(null); // 'status' | 'user_name' | null
   const [bulkValue, setBulkValue] = useState('');
-  const [deprRates, setDeprRates] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('deprRates')) || { Компьютер: 25, Ноутбук: 30, Монитор: 15, Прочее: 20 }; }
-    catch { return { Компьютер: 25, Ноутбук: 30, Монитор: 15, Прочее: 20 }; }
-  });
+  const DEPR_DEFAULTS = { Компьютер: 25, Ноутбук: 30, Монитор: 15, Прочее: 20 };
+  const [deprRates, setDeprRates] = useState(DEPR_DEFAULTS);
   const [showDeprSettings, setShowDeprSettings] = useState(false);
-  const [deprRatesForm, setDeprRatesForm] = useState({ Компьютер: 25, Ноутбук: 30, Монитор: 15, Прочее: 20 });
+  const [deprRatesForm, setDeprRatesForm] = useState(DEPR_DEFAULTS);
 
   const getStatusColor = (status) => {
     switch(status) {
@@ -1078,6 +1079,13 @@ function App() {
   };
 
   useEffect(() => {
+    apiFetch(`${API_BASE}/settings/depr-rates`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) { setDeprRates(data); setDeprRatesForm(data); } })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
     fetchAssets();
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
@@ -1107,11 +1115,14 @@ function App() {
         if (showDeprSettings) {
           setShowDeprSettings(false);
         }
+        if (showDeleteReasonModal) {
+          setShowDeleteReasonModal(false);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showExportModal, showImportModal, showQRModal, showAboutModal, isModalOpen, isEditing, showUserModal, showDeletionLogModal, showRepairsModal, showAssetInfoModal, showWindowsReportModal, showDeprSettings, token]);
+  }, [showExportModal, showImportModal, showQRModal, showAboutModal, isModalOpen, isEditing, showUserModal, showDeletionLogModal, showRepairsModal, showAssetInfoModal, showWindowsReportModal, showDeprSettings, showDeleteReasonModal, token]);
 
   useEffect(() => {
     if (!statusPopover.assetId) return;
@@ -1286,24 +1297,11 @@ function App() {
     } catch (err) { toast.dismiss(loadingToast); showToast.error('Ошибка сети при экспорте'); console.error(err); }
   };
 
-  const handleBulkDelete = async () => {
-    const ids = [...selectedIds];
+  const handleBulkDelete = () => {
     setBulkDeleteConfirm(false);
-    const loadingToast = showToast.loading(`Удаление ${ids.length} активов...`);
-    let deleted = 0;
-    for (const id of ids) {
-      try {
-        const res = await apiFetch(`${API_BASE}/assets/${id}`, {
-          method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (res.ok) deleted++;
-      } catch { /* skip */ }
-    }
-    toast.dismiss(loadingToast);
-    showToast.success(`Удалено ${deleted} из ${ids.length} активов`);
-    setSelectedIds(new Set());
-    await fetchAssets();
+    setPendingDeleteIds([...selectedIds]);
+    setDeleteReasonText('');
+    setShowDeleteReasonModal(true);
   };
 
   const performImport = async () => {
@@ -1680,34 +1678,56 @@ function App() {
     }
   };
 
-  const handleDelete = async (id) => {
-    showToast.deleteConfirm(
-      'Вы действительно хотите удалить этот актив?',
-      async () => {
-        const loadingToast = showToast.loading('Удаление актива...');
-        
+  const handleDelete = (id) => {
+    setPendingDeleteIds([id]);
+    setDeleteReasonText('');
+    setShowDeleteReasonModal(true);
+  };
+
+  const confirmDelete = async () => {
+    const reason = deleteReasonText.trim();
+    if (!reason) return;
+    setShowDeleteReasonModal(false);
+
+    if (pendingDeleteIds.length === 1) {
+      const id = pendingDeleteIds[0];
+      const loadingToast = showToast.loading('Удаление актива...');
+      try {
+        const res = await apiFetch(`${API_BASE}/assets/${id}?reason=${encodeURIComponent(reason)}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        toast.dismiss(loadingToast);
+        if (res.ok) {
+          showToast.success('Актив удалён');
+          fetchAssets();
+        } else {
+          showToast.error('Ошибка при удалении актива');
+        }
+      } catch (error) {
+        toast.dismiss(loadingToast);
+        showToast.error('Ошибка сети при удалении');
+      }
+    } else {
+      const ids = pendingDeleteIds;
+      const loadingToast = showToast.loading(`Удаление ${ids.length} активов...`);
+      let deleted = 0;
+      for (const id of ids) {
         try {
-          const res = await apiFetch(`${API_BASE}/assets/${id}`, {
+          const res = await apiFetch(`${API_BASE}/assets/${id}?reason=${encodeURIComponent(reason)}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${token}` }
           });
-          
-          toast.dismiss(loadingToast);
-          
-          if (res.ok) {
-            setAssets(assets.filter(a => a.id !== id));
-            showToast.success('Актив успешно удален', { icon: '🗑️' });
-            fetchAssets();
-          } else {
-            showToast.error('Ошибка при удалении актива');
-          }
-        } catch (error) {
-          toast.dismiss(loadingToast);
-          showToast.error('Ошибка сети при удалении');
-          console.error(error);
-        }
+          if (res.ok) deleted++;
+        } catch { /* skip */ }
       }
-    );
+      toast.dismiss(loadingToast);
+      showToast.success(`Удалено ${deleted} из ${ids.length} активов`);
+      setSelectedIds(new Set());
+      await fetchAssets();
+    }
+    setPendingDeleteIds([]);
+    setDeleteReasonText('');
   };
 
   const startEditing = (assetId, field, currentValue) => {
@@ -4873,6 +4893,7 @@ function App() {
                           <th style={{ width: '50px', padding: '7px 10px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--text-muted)', textAlign: 'left' }}>ID</th>
                           <th style={{ width: '130px', padding: '7px 10px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--text-muted)', textAlign: 'left' }}>Пользователь</th>
                           <th style={{ padding: '7px 10px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--text-muted)', textAlign: 'left' }}>Данные</th>
+                          <th style={{ padding: '7px 10px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--text-muted)', textAlign: 'left' }}>Причина</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -4893,6 +4914,7 @@ function App() {
                               <td style={{ padding: '7px 10px', fontSize: '12px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>{log.entity_id}</td>
                               <td style={{ padding: '7px 10px', fontSize: '12px', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={log.deleted_by}>{log.deleted_by}</td>
                               <td style={{ padding: '7px 10px', fontSize: '12px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={shortData}>{shortData}</td>
+                              <td style={{ padding: '7px 10px', fontSize: '12px', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={log.reason || ''}>{log.reason || <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
                             </tr>
                           );
                         })}
@@ -5264,6 +5286,9 @@ function App() {
       {showDeletionLogModal && (
         <div className="modal-backdrop fade show" onClick={() => setShowDeletionLogModal(false)}></div>
       )}
+      {showDeleteReasonModal && (
+        <div className="modal-backdrop fade show" onClick={() => setShowDeleteReasonModal(false)}></div>
+      )}
       {showRepairsModal && (
         <div className="modal-backdrop fade show" onClick={() => setShowRepairsModal(false)}></div>
       )}
@@ -5418,6 +5443,52 @@ function App() {
         <div className="modal-backdrop fade show"></div>
       )}
 
+      {showDeleteReasonModal && (
+        <div className="modal fade show" style={{ display: 'block' }} tabIndex="-1">
+          <div className="modal-dialog" style={{ maxWidth: 420 }}>
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Причина удаления</h5>
+                <button type="button" className="btn-close" onClick={() => setShowDeleteReasonModal(false)}></button>
+              </div>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>
+                  {pendingDeleteIds.length === 1
+                    ? 'Укажите причину удаления актива. Без причины удаление невозможно.'
+                    : `Укажите причину удаления ${pendingDeleteIds.length} активов. Без причины удаление невозможно.`}
+                </p>
+                <textarea
+                  autoFocus
+                  rows={3}
+                  value={deleteReasonText}
+                  onChange={e => setDeleteReasonText(e.target.value)}
+                  placeholder="Например: поломка, продажа, утеря, плановое списание..."
+                  style={{
+                    width: '100%', boxSizing: 'border-box', resize: 'vertical',
+                    background: 'var(--bg-raised)', color: 'var(--text-primary)',
+                    border: '1px solid var(--border-color)', borderRadius: '6px',
+                    padding: '8px 10px', fontSize: '13px', fontFamily: 'inherit',
+                    outline: 'none'
+                  }}
+                  onKeyDown={e => { if (e.key === 'Enter' && e.ctrlKey) confirmDelete(); }}
+                />
+              </div>
+              <div className="modal-footer">
+                <button className="btn-t" onClick={() => setShowDeleteReasonModal(false)}>Отмена</button>
+                <button
+                  className="btn-t"
+                  style={{ background: deleteReasonText.trim() ? '#D95252' : 'var(--bg-raised)', color: deleteReasonText.trim() ? '#fff' : 'var(--text-muted)', borderColor: deleteReasonText.trim() ? '#D95252' : 'var(--border-color)', cursor: deleteReasonText.trim() ? 'pointer' : 'not-allowed' }}
+                  onClick={confirmDelete}
+                  disabled={!deleteReasonText.trim()}
+                >
+                  Удалить
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showDeprSettings && (
         <div className="modal fade show" style={{ display: 'block' }} tabIndex="-1">
           <div className="modal-dialog" style={{ maxWidth: 380 }}>
@@ -5454,8 +5525,12 @@ function App() {
                 }}>Сбросить</button>
                 <button className="btn btn-success" onClick={() => {
                   setDeprRates(deprRatesForm);
-                  localStorage.setItem('deprRates', JSON.stringify(deprRatesForm));
                   setShowDeprSettings(false);
+                  apiFetch(`${API_BASE}/settings/depr-rates`, {
+                    method: 'PUT',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(deprRatesForm)
+                  }).catch(() => {});
                 }}>Сохранить</button>
               </div>
             </div>
