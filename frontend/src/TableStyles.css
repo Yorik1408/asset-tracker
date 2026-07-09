@@ -2135,11 +2135,14 @@ body {
   color: var(--text-muted);
   min-width: 114px;
   flex-shrink: 0;
+  user-select: text;
 }
 .ai-val {
   font-size: 13px;
   color: var(--text-primary);
   word-break: break-word;
+  user-select: text;
+  cursor: text;
 }
 .ai-mono { font-family: 'Consolas', 'Cascadia Code', 'SF Mono', monospace; font-size: 12px; }
 

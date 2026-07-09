@@ -1101,14 +1101,17 @@ function App() {
         if (showAssetInfoModal) {
           closeAssetInfoModal();
         }
-        if (showWindowsReportModal) { 
+        if (showWindowsReportModal) {
           setShowWindowsReportModal(false);
+        }
+        if (showDeprSettings) {
+          setShowDeprSettings(false);
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showExportModal, showImportModal, showQRModal, showAboutModal, isModalOpen, isEditing, showUserModal, showDeletionLogModal, showRepairsModal, showAssetInfoModal, showWindowsReportModal, token]);
+  }, [showExportModal, showImportModal, showQRModal, showAboutModal, isModalOpen, isEditing, showUserModal, showDeletionLogModal, showRepairsModal, showAssetInfoModal, showWindowsReportModal, showDeprSettings, token]);
 
   useEffect(() => {
     if (!statusPopover.assetId) return;
