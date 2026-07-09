@@ -1323,11 +1323,6 @@ body {
   padding: 11px 10px !important;
 }
 
-/* Serial number column */
-.custom-table tbody td:nth-child(3) {
-  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-  font-size: 12px;
-}
 
 /* === RESPONSIVE === */
 

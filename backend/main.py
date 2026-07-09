@@ -346,7 +346,11 @@ def export_to_excel(
         'manual_age': 'Возраст',
         'calculated_age': 'Возраст (полный)',
         'storage_type': 'Тип накопителя',
-        'storage_size': 'Объем накопителя'
+        'storage_size': 'Объем накопителя',
+        'purchase_price': 'Закупочная стоимость',
+        'market_value': 'Рыночная стоимость',
+        'created': 'Создание',
+        'deleted': 'Удалён',
     }
     # Формируем запрос с фильтрацией
     # Используем joinedload для предварительной загрузки связанных данных (repairs, history)
