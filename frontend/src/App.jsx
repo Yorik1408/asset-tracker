@@ -4233,8 +4233,8 @@ function App() {
           <span style={{ display: 'inline-block', padding: '2px 7px', borderRadius: '3px', fontSize: '11px', fontWeight: 500, background: `${color}22`, color }}>{text}</span>
         );
 
-        const pricedAssets = assets.filter(a => a.purchase_price);
-        const finTotalPurchase = pricedAssets.reduce((s, a) => s + (parseInt(a.purchase_price) || 0), 0);
+        const pricedAssets = assets.filter(a => a.purchase_price || a.market_value);
+        const finTotalPurchase = pricedAssets.reduce((s, a) => s + (parseInt(a.purchase_price) || parseInt(a.market_value) || 0), 0);
         const finTotalCurrent = pricedAssets.reduce((s, a) => { const cv = calcCurrentValue(a); return s + (cv ? cv.value : 0); }, 0);
         const finActive = pricedAssets.filter(a => a.status !== 'списано');
         const finRetired = pricedAssets.filter(a => a.status === 'списано');
@@ -4243,7 +4243,7 @@ function App() {
         const finByType = ['Компьютер', 'Ноутбук', 'Монитор', 'Прочее'].map(t => {
           const ta = pricedAssets.filter(a => a.type === t);
           if (!ta.length) return null;
-          const purch = ta.reduce((s, a) => s + (parseInt(a.purchase_price) || 0), 0);
+          const purch = ta.reduce((s, a) => s + (parseInt(a.purchase_price) || parseInt(a.market_value) || 0), 0);
           const curr = ta.reduce((s, a) => { const cv = calcCurrentValue(a); return s + (cv ? cv.value : 0); }, 0);
           const deprPct = purch > 0 ? Math.round((1 - curr / purch) * 100) : 0;
           return { type: t, count: ta.length, purchase: purch, current: curr, deprPct };
@@ -4268,7 +4268,7 @@ function App() {
                   <div className="an-stat">
                     <div className="an-stat-label">Закупочная стоимость</div>
                     <div className="an-stat-value" style={{ fontSize: '17px' }}>{formatPrice(finTotalPurchase)}</div>
-                    <div className="an-stat-sub">все активы с ценой</div>
+                    <div className="an-stat-sub">для БУ без цены — рыночная как база</div>
                   </div>
                   <div className="an-stat">
                     <div className="an-stat-label">Текущая стоимость</div>
