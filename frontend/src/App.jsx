@@ -3467,7 +3467,7 @@ function App() {
                               </div>
                             )}
                           </td>
-                          <td onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'location', asset.location)}>
+                          <td title={asset.location || ''} onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'location', asset.location)}>
                             {editingCell.assetId === asset.id && editingCell.field === 'location' ? (
                               <input
                                 type="text"
@@ -3482,7 +3482,7 @@ function App() {
                               <span className={user?.is_admin ? 'editable-cell' : ''}>{asset.location}</span>
                             )}
                           </td>
-                          <td onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'user_name', asset.user_name)}>
+                          <td title={asset.user_name || ''} onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'user_name', asset.user_name)}>
                             {editingCell.assetId === asset.id && editingCell.field === 'user_name' ? (
                               <input
                                 type="text"
@@ -3517,7 +3517,7 @@ function App() {
                             )}
                           </td>
 
-                          <td onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'comment', asset.comment)}>
+                          <td title={asset.comment || ''} onDoubleClick={() => user?.is_admin && startEditing(asset.id, 'comment', asset.comment)}>
                             {editingCell.assetId === asset.id && editingCell.field === 'comment' ? (
                               <textarea
                                 className="cell-input"
