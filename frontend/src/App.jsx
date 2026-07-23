@@ -536,12 +536,12 @@ function App() {
   const DEPR_MIN_RATIO = 0.10;
 
   const calcCurrentValue = (asset) => {
-    const price = parseInt(asset.purchase_price);
-    if (!price || isNaN(price)) return null;
-
     if (asset.market_value && parseInt(asset.market_value)) {
       return { value: parseInt(asset.market_value), source: 'manual' };
     }
+
+    const price = parseInt(asset.purchase_price);
+    if (!price || isNaN(price)) return null;
 
     const rate = (deprRates[asset.type] || 20) / 100;
     let years = 0;
@@ -1451,7 +1451,11 @@ function App() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => {
+      const next = { ...prev, [name]: value };
+      if (name === 'user_name' && !value.trim() && prev.type === 'Ноутбук') next.issue_date = '';
+      return next;
+    });
   };
 
   const openModal = (asset = null) => {
@@ -1517,6 +1521,9 @@ function App() {
 
   
   const submitAsset = async () => {
+    if (formData.type === 'Ноутбук' && formData.user_name && formData.user_name.trim() && !formData.issue_date) {
+      showToast.warning('А почему не заполнил дату выдачи?', { duration: 4000 });
+    }
     const loadingToast = showToast.loading(isEditing ? 'Сохранение изменений...' : 'Создание актива...');
   
     const payload = {};
@@ -2594,7 +2601,7 @@ function App() {
         </div>
         <div className="pg-jump" style={{ fontSize: '11px' }}>
           Перейти на стр.
-          <input className="pg-inp" type="number" min="1" max={total} value={inputValue}
+          <input className="pg-inp" type="number" onWheel={e => e.target.blur()} min="1" max={total} value={inputValue}
             onChange={(e) => { setInputValue(e.target.value); const n = parseInt(e.target.value, 10); if (n >= 1 && n <= total) setHistoryPage(n); }}
             onBlur={() => { const n = parseInt(inputValue, 10); if (isNaN(n) || n < 1 || n > total) setInputValue(historyPage.toString()); }}
           />
@@ -3640,7 +3647,7 @@ function App() {
                 Перейти на стр.
                 <input
                   className="pg-inp"
-                  type="number"
+                  type="number" onWheel={e => e.target.blur()}
                   min="1"
                   max={Math.ceil(filteredAssets.length / itemsPerPage)}
                   value={page}
@@ -4534,7 +4541,7 @@ function App() {
                   <div className="mrow">
                     <div className="mf">
                       <label>Закупочная стоимость, ₽</label>
-                      <input type="number" name="purchase_price" value={formData.purchase_price || ''} onChange={handleChange} placeholder="0" min="0" />
+                      <input type="number" onWheel={e => e.target.blur()} name="purchase_price" value={formData.purchase_price || ''} onChange={handleChange} placeholder="0" min="0" />
                     </div>
                     <div className="mf">
                       <label>
@@ -4544,7 +4551,7 @@ function App() {
                           return cv ? <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: 6, fontSize: 11 }}>авто: {formatPrice(cv.value)}</span> : null;
                         })()}
                       </label>
-                      <input type="number" name="market_value" value={formData.market_value || ''} onChange={handleChange} placeholder="оставить пустым — рассчитается автоматически" min="0" />
+                      <input type="number" onWheel={e => e.target.blur()} name="market_value" value={formData.market_value || ''} onChange={handleChange} placeholder="оставить пустым — рассчитается автоматически" min="0" />
                     </div>
                   </div>
                   )}
@@ -4970,12 +4977,12 @@ function App() {
                     <div className="ai-row"><span className="ai-lbl">Возраст</span><span className={`ai-val ${getAgeClass(assetInfo)}`}>{calculateAssetAge(assetInfo)}</span></div>
                     {assetInfo.purchase_date && <div className="ai-row"><span className="ai-lbl">Дата покупки</span><span className="ai-val">{new Date(assetInfo.purchase_date).toLocaleDateString('ru-RU')}</span></div>}
                     {assetInfo.warranty_until && <div className="ai-row"><span className="ai-lbl">Гарантия до</span><span className="ai-val">{new Date(assetInfo.warranty_until).toLocaleDateString('ru-RU')}</span></div>}
-                    {user?.is_admin && assetInfo.purchase_price && (() => {
+                    {user?.is_admin && (assetInfo.purchase_price || assetInfo.market_value) && (() => {
                       const cv = calcCurrentValue(assetInfo);
                       return (
                         <>
                           <div className="ai-sec">Стоимость</div>
-                          <div className="ai-row"><span className="ai-lbl">Закупочная</span><span className="ai-val">{formatPrice(assetInfo.purchase_price)}</span></div>
+                          {assetInfo.purchase_price && <div className="ai-row"><span className="ai-lbl">Закупочная</span><span className="ai-val">{formatPrice(assetInfo.purchase_price)}</span></div>}
                           {cv && <div className="ai-row">
                             <span className="ai-lbl">Рыночная</span>
                             <span className="ai-val">
@@ -5253,6 +5260,8 @@ function App() {
                     { icon: 'fas fa-shield-alt', text: 'Контроль гарантийных сроков и предупреждения' },
                     { icon: 'fas fa-wrench', text: 'Журнал ремонтов: даты, стоимость, исполнители' },
                     { icon: 'fas fa-qrcode', text: 'QR-коды для быстрой идентификации актива' },
+                    { icon: 'fas fa-percentage', text: 'Амортизация: расчёт рыночной стоимости по настраиваемым ставкам для каждого типа устройства' },
+                    { icon: 'fas fa-chart-bar', text: 'Аналитика: распределение парка по типам, возраст оборудования и балансовая стоимость парка' },
                   ].map(({ icon, text }, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '10px 12px', background: 'var(--bg-raised)', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
                       <i className={icon} style={{ color: 'var(--accent)', marginTop: '2px', flexShrink: 0, width: '14px', textAlign: 'center', fontSize: '13px' }}></i>
@@ -5506,7 +5515,7 @@ function App() {
                     <div style={{ flex: 1, fontSize: 13, color: 'var(--text-primary)' }}>{type}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <input
-                        type="number"
+                        type="number" onWheel={e => e.target.blur()}
                         min="1" max="99"
                         value={deprRatesForm[type] ?? 20}
                         style={{ width: 64, textAlign: 'right', background: 'var(--bg-raised)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: 6, height: 34, padding: '0 10px', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
