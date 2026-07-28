@@ -1,5 +1,5 @@
 # models.py
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Date, Text, DateTime, JSON
+from sqlalchemy import Boolean, Column, ForeignKey, Float, Integer, String, Date, Text, DateTime, JSON
 from sqlalchemy.orm import relationship
 from database import Base
 from passlib.context import CryptContext
@@ -132,3 +132,19 @@ class AppSettings(Base):
     __tablename__ = "app_settings"
     key = Column(String, primary_key=True)
     value = Column(String, nullable=True)
+
+
+
+class ProcurementItem(Base):
+    __tablename__ = "procurement_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    quantity = Column(Integer, default=1)
+    specs = Column(Text, nullable=True)
+    item_type = Column(String, default="consumable")
+    status = Column(String, default="needed")
+    comment = Column(Text, nullable=True)
+    price = Column(Float, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    created_by = Column(String, nullable=True)

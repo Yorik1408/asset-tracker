@@ -954,3 +954,61 @@ def finish_inventory_session(session_id: int, db: Session = Depends(get_db), cur
     db.commit()
     db.refresh(session)
     return session
+
+
+
+# ──────────────────────────────────────────────────────
+# Закупки
+# ──────────────────────────────────────────────────────
+
+@app.get("/procurement/", response_model=List[schemas.ProcurementItemResponse])
+def get_procurement_items(
+    status: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    query = db.query(models.ProcurementItem)
+    if status:
+        query = query.filter(models.ProcurementItem.status == status)
+    return query.order_by(models.ProcurementItem.created_at.desc()).all()
+
+@app.post("/procurement/", response_model=schemas.ProcurementItemResponse, status_code=201)
+def create_procurement_item(
+    item: schemas.ProcurementItemCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_admin)
+):
+    db_item = models.ProcurementItem(**item.dict(), created_by=current_user.username)
+    db.add(db_item)
+    db.commit()
+    db.refresh(db_item)
+    return db_item
+
+@app.put("/procurement/{item_id}", response_model=schemas.ProcurementItemResponse)
+def update_procurement_item(
+    item_id: int,
+    item_update: schemas.ProcurementItemUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_admin)
+):
+    db_item = db.query(models.ProcurementItem).filter(models.ProcurementItem.id == item_id).first()
+    if not db_item:
+        raise HTTPException(status_code=404, detail="Позиция не найдена")
+    for k, v in item_update.dict(exclude_unset=True).items():
+        setattr(db_item, k, v)
+    db.commit()
+    db.refresh(db_item)
+    return db_item
+
+@app.delete("/procurement/{item_id}")
+def delete_procurement_item(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_admin)
+):
+    db_item = db.query(models.ProcurementItem).filter(models.ProcurementItem.id == item_id).first()
+    if not db_item:
+        raise HTTPException(status_code=404, detail="Позиция не найдена")
+    db.delete(db_item)
+    db.commit()
+    return {"detail": "Позиция удалена"}

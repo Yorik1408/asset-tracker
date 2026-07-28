@@ -158,6 +158,11 @@ function App() {
   const [inventoryUserName, setInventoryUserName] = useState('');
   const [inventoryLocation, setInventoryLocation] = useState('');
   const [showInventoryFinish, setShowInventoryFinish] = useState(false);
+  // Закупки
+  const [procurement, setProcurement] = useState([]);
+  const [showProcurementModal, setShowProcurementModal] = useState(false);
+  const [editingProcItem, setEditingProcItem] = useState(null);
+  const [procForm, setProcForm] = useState({ name: '', quantity: 1, specs: '', item_type: 'consumable', status: 'needed', comment: '', price: '' });
   const [inventoryChangedUsers, setInventoryChangedUsers] = useState(0);
 
   // Export modal
@@ -606,6 +611,39 @@ function App() {
       setUniqueUsers(userOptions);
     }
   }, [assets]);
+
+
+  const fetchProcurement = async () => {
+    const res = await apiFetch(`${API_BASE}/procurement/`);
+    if (res.ok) setProcurement(await res.json());
+  };
+
+  const saveProcItem = async () => {
+    const url = editingProcItem ? `${API_BASE}/procurement/${editingProcItem.id}` : `${API_BASE}/procurement/`;
+    const method = editingProcItem ? 'PUT' : 'POST';
+    const res = await apiFetch(url, { method, body: JSON.stringify(procForm) });
+    if (res.ok) {
+      fetchProcurement();
+      setShowProcurementModal(false);
+      setEditingProcItem(null);
+      setProcForm({ name: '', quantity: 1, specs: '', item_type: 'consumable', status: 'needed', comment: '', price: '' });
+      showToast.success(editingProcItem ? 'Позиция обновлена' : 'Позиция добавлена');
+    }
+  };
+
+  const deleteProcItem = (id) => {
+    showToast.deleteConfirm('Удалить позицию из списка закупок?', () => confirmDeleteProcItem(id));
+  };
+
+  const confirmDeleteProcItem = async (id) => {
+    const res = await apiFetch(`${API_BASE}/procurement/${id}`, { method: 'DELETE' });
+    if (res.ok) { fetchProcurement(); showToast.success('Позиция удалена'); }
+  };
+
+  const changeProcStatus = async (id, newStatus) => {
+    const res = await apiFetch(`${API_BASE}/procurement/${id}`, { method: 'PUT', body: JSON.stringify({ status: newStatus }) });
+    if (res.ok) fetchProcurement();
+  };
 
   const fetchDeletionLogs = async () => {
     if (!token || !user?.is_admin) return;
@@ -1118,11 +1156,14 @@ function App() {
         if (showDeleteReasonModal) {
           setShowDeleteReasonModal(false);
         }
+        if (showProcurementModal) {
+          setShowProcurementModal(false);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showExportModal, showImportModal, showQRModal, showAboutModal, isModalOpen, isEditing, showUserModal, showDeletionLogModal, showRepairsModal, showAssetInfoModal, showWindowsReportModal, showDeprSettings, showDeleteReasonModal, token]);
+  }, [showExportModal, showImportModal, showQRModal, showAboutModal, isModalOpen, isEditing, showUserModal, showDeletionLogModal, showRepairsModal, showAssetInfoModal, showWindowsReportModal, showDeprSettings, showDeleteReasonModal, showProcurementModal, token]);
 
   useEffect(() => {
     if (!statusPopover.assetId) return;
@@ -1148,6 +1189,7 @@ function App() {
         setUser(userData);
         if (userData.is_admin) {
           fetchUsers();
+    fetchProcurement();
         }
       })
       .catch(() => {
@@ -2737,6 +2779,18 @@ function App() {
                 <div className="ni" data-tip="Журнал" onClick={() => openDeletionLogModal()}>
                   <span className="ni-ico"><i className="fas fa-file-alt"></i></span><span className="ni-txt">Журнал</span>
                 </div>
+                <div className={`ni${activeTab === 'procurement' ? ' act' : ''}`} data-tip="Закупки"
+                  onClick={() => setActiveTab('procurement')}>
+                  <span className="ni-ico"><i className="fas fa-shopping-cart"></i></span>
+                  <span className="ni-txt">
+                    Закупки
+                    {procurement.filter(i => i.status !== 'received').length > 0 && (
+                      <span style={{marginLeft:'6px',background:'var(--bs-primary)',color:'#fff',borderRadius:'10px',padding:'1px 7px',fontSize:'11px'}}>
+                        {procurement.filter(i => i.status !== 'received').length}
+                      </span>
+                    )}
+                  </span>
+                </div>
               </>
             )}
 
@@ -2791,6 +2845,7 @@ function App() {
       {token && user && (() => {
         const desktopTitle =
           activeTab === 'analytics' ? 'Аналитика' :
+          activeTab === 'procurement' ? 'Закупки' :
           activeTab === 'reports'   ? 'Гарантия заканчивается' :
           disposedFilter            ? 'Списано' :
           warrantyFilter === 'active' ? 'На гарантии' :
@@ -5546,6 +5601,187 @@ function App() {
           </div>
         </div>
       )}
+
+      {activeTab === 'procurement' && token && (
+        <div className="reports-section">
+          {user?.is_admin && (
+            <div style={{marginBottom:'16px'}}>
+              <button className="btn-t" onClick={() => {
+                setEditingProcItem(null);
+                setProcForm({ name: '', quantity: 1, specs: '', item_type: 'consumable', status: 'needed', comment: '', price: '' });
+                setShowProcurementModal(true);
+              }}>+ Добавить</button>
+            </div>
+          )}
+          <div style={{border:'1px solid var(--border-color)',borderRadius:'6px',overflowX:'auto'}}>
+            <table style={{width:'100%',borderCollapse:'collapse'}}>
+              <thead>
+                <tr style={{background:'var(--bg-raised)',borderBottom:'1px solid var(--border-color)'}}>
+                  <th style={{padding:'8px 12px',textAlign:'left',fontSize:'10px',fontWeight:600,textTransform:'uppercase',letterSpacing:'.06em',color:'var(--text-muted)'}}>Позиция</th>
+                  <th style={{padding:'8px 12px',textAlign:'left',fontSize:'10px',fontWeight:600,textTransform:'uppercase',letterSpacing:'.06em',color:'var(--text-muted)',width:'100px'}}>Тип</th>
+                  <th style={{padding:'8px 12px',textAlign:'left',fontSize:'10px',fontWeight:600,textTransform:'uppercase',letterSpacing:'.06em',color:'var(--text-muted)',width:'160px'}}>Статус</th>
+                  <th style={{padding:'8px 12px',textAlign:'right',fontSize:'10px',fontWeight:600,textTransform:'uppercase',letterSpacing:'.06em',color:'var(--text-muted)',width:'110px'}}>Сумма</th>
+                  {user?.is_admin && <th style={{padding:'8px 12px',width:'80px'}}></th>}
+                </tr>
+              </thead>
+              <tbody>
+                {procurement.length === 0 ? (
+                  <tr><td colSpan={user?.is_admin ? 5 : 4} style={{padding:'24px',textAlign:'center',color:'var(--text-muted)',fontSize:'13px'}}>Список закупок пуст</td></tr>
+                ) : procurement.map((item, idx) => (
+                  <tr key={item.id} style={{borderBottom: idx < procurement.length - 1 ? '1px solid var(--bg-raised)' : 'none', opacity: item.status === 'received' ? 0.5 : 1}}>
+                    <td style={{padding:'10px 12px'}}>
+                      <div style={{fontWeight:600,fontSize:'13px',color:'var(--text-primary)'}}>{item.name}</div>
+                      {(item.quantity > 1 || item.specs) && (
+                        <div style={{fontSize:'12px',color:'var(--text-muted)',marginTop:'2px'}}>
+                          {item.quantity > 1 && <span style={{marginRight:'8px'}}>×{item.quantity}</span>}
+                          {item.specs && <span>{item.specs}</span>}
+                        </div>
+                      )}
+                      {item.comment && <div style={{fontSize:'12px',color:'var(--text-muted)',marginTop:'2px'}}>{item.comment}</div>}
+                    </td>
+                    <td style={{padding:'10px 12px'}}>
+                      <span className={`pill ${item.item_type === 'asset' ? 'pill-on' : 'pill-off'}`}>
+                        <span className="pill-dot"></span>
+                        {item.item_type === 'asset' ? 'Актив' : 'Расходник'}
+                      </span>
+                    </td>
+                    <td style={{padding:'10px 12px'}}>
+                      {user?.is_admin ? (
+                        <select value={item.status} onChange={e => changeProcStatus(item.id, e.target.value)}
+                          style={{background:'var(--bg-input)',border:'1px solid var(--border-color)',borderRadius:'5px',color:'var(--text-primary)',padding:'4px 8px',fontSize:'12px',cursor:'pointer',width:'100%'}}>
+                          <option value="needed">Нужно купить</option>
+                          <option value="ordered">Заказано</option>
+                          <option value="received">Получено</option>
+                        </select>
+                      ) : (
+                        <span style={{fontSize:'12px',color: item.status === 'needed' ? '#ef4444' : item.status === 'ordered' ? '#f59e0b' : '#22c55e'}}>
+                          {item.status === 'needed' ? 'Нужно купить' : item.status === 'ordered' ? 'Заказано' : 'Получено'}
+                        </span>
+                      )}
+                    </td>
+                    <td style={{padding:'10px 12px',textAlign:'right'}}>
+                      {item.price != null ? (
+                        <div>
+                          <div style={{fontWeight:600,fontSize:'13px',color:'var(--text-primary)'}}>
+                            {(item.price * item.quantity).toLocaleString('ru-RU')} ₽
+                          </div>
+                          {item.quantity > 1 && (
+                            <div style={{fontSize:'11px',color:'var(--text-muted)'}}>
+                              {item.price.toLocaleString('ru-RU')} × {item.quantity}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span style={{color:'var(--text-muted)',fontSize:'12px'}}>—</span>
+                      )}
+                    </td>
+                    {user?.is_admin && (
+                      <td style={{padding:'10px 12px'}}>
+                        <div className="ra-row" style={{justifyContent:'flex-end'}}>
+                          <button className="ra-btn" title="Изменить" onClick={() => {
+                            setEditingProcItem(item);
+                            setProcForm({ name: item.name, quantity: item.quantity, specs: item.specs || '', item_type: item.item_type, status: item.status, comment: item.comment || '', price: item.price != null ? String(item.price) : '' });
+                            setShowProcurementModal(true);
+                          }}>✎</button>
+                          <button className="ra-btn ra-del" title="Удалить" onClick={() => deleteProcItem(item.id)}><i className="fas fa-trash-alt"></i></button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+              {(() => {
+                const total = procurement.reduce((sum, i) => i.price != null ? sum + i.price * i.quantity : sum, 0);
+                const hasPrice = procurement.some(i => i.price != null);
+                if (!hasPrice || procurement.length === 0) return null;
+                const colCount = user?.is_admin ? 5 : 4;
+                return (
+                  <tfoot>
+                    <tr style={{borderTop:'2px solid var(--border-color)',background:'var(--bg-raised)'}}>
+                      <td colSpan={colCount - 1} style={{padding:'8px 12px',fontSize:'12px',color:'var(--text-muted)',textAlign:'right'}}>Итого:</td>
+                      <td style={{padding:'8px 12px',textAlign:'right',fontWeight:700,fontSize:'14px',color:'var(--text-primary)'}}>
+                        {total.toLocaleString('ru-RU')} ₽
+                      </td>
+                    </tr>
+                  </tfoot>
+                );
+              })()}
+            </table>
+          </div>
+        </div>
+      )}
+
+      {showProcurementModal && (
+        <div className="modal fade show d-block" tabIndex="-1">
+          <div className="modal-dialog">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">{editingProcItem ? 'Изменить позицию' : 'Добавить в закупки'}</h5>
+                <button type="button" className="btn-close" onClick={() => setShowProcurementModal(false)}></button>
+              </div>
+              <div className="modal-body" style={{display:'flex',flexDirection:'column',gap:'13px'}}>
+                <div className="mrow">
+                  <div className="mf">
+                    <label>Название *</label>
+                    <input type="text" value={procForm.name} autoFocus
+                      onChange={e => setProcForm({...procForm, name: e.target.value})} />
+                  </div>
+                  <div className="mf" style={{maxWidth:'90px',flexShrink:0}}>
+                    <label>Кол-во</label>
+                    <input type="text" inputMode="numeric" value={procForm.quantity}
+                      onChange={e => { const v = e.target.value.replace(/[^0-9]/g,''); setProcForm({...procForm, quantity: v === '' ? 1 : parseInt(v)}); }} />
+                  </div>
+                  <div className="mf" style={{maxWidth:'120px',flexShrink:0}}>
+                    <label>Цена, ₽</label>
+                    <input type="text" inputMode="decimal" placeholder="0"
+                      value={procForm.price}
+                      onChange={e => { const v = e.target.value.replace(/[^0-9.]/g,''); setProcForm({...procForm, price: v}); }} />
+                  </div>
+                </div>
+                <div className="mrow">
+                  <div className="mf">
+                    <label>Тип</label>
+                    <select value={procForm.item_type} onChange={e => setProcForm({...procForm, item_type: e.target.value})}>
+                      <option value="consumable">Расходник (не заносить в учёт)</option>
+                      <option value="asset">Станет активом (занести при получении)</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="mrow">
+                  <div className="mf" style={{maxWidth:'200px'}}>
+                    <label>Статус</label>
+                    <select value={procForm.status} onChange={e => setProcForm({...procForm, status: e.target.value})}>
+                      <option value="needed">Нужно купить</option>
+                      <option value="ordered">Заказано</option>
+                      <option value="received">Получено</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="mrow">
+                  <div className="mf">
+                    <label>Характеристики</label>
+                    <input type="text" placeholder="12V 9Ah, механическая USB-A, ..."
+                      value={procForm.specs} onChange={e => setProcForm({...procForm, specs: e.target.value})} />
+                  </div>
+                </div>
+                <div className="mrow">
+                  <div className="mf">
+                    <label>Комментарий</label>
+                    <textarea rows="2" value={procForm.comment}
+                      onChange={e => setProcForm({...procForm, comment: e.target.value})} />
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button className="btn-sec" onClick={() => setShowProcurementModal(false)}>Отмена</button>
+                <button className="btn-ok" onClick={saveProcItem} disabled={!procForm.name.trim()}>Сохранить</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {showProcurementModal && <div className="modal-backdrop fade show"></div>}
+
       {showDeprSettings && <div className="modal-backdrop fade show"></div>}
 
       </div>{/* /app-main */}

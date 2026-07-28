@@ -174,3 +174,35 @@ class AssetResponse(AssetBase):
 
 
 
+
+
+
+# --- Закупки ---
+class ProcurementItemBase(BaseModel):
+    name: str
+    quantity: int = 1
+    specs: Optional[str] = None
+    item_type: str = "consumable"
+    status: str = "needed"
+    comment: Optional[str] = None
+    price: Optional[float] = None
+
+class ProcurementItemCreate(ProcurementItemBase):
+    pass
+
+class ProcurementItemUpdate(BaseModel):
+    name: Optional[str] = None
+    quantity: Optional[int] = None
+    specs: Optional[str] = None
+    item_type: Optional[str] = None
+    status: Optional[str] = None
+    comment: Optional[str] = None
+    price: Optional[float] = None
+
+class ProcurementItemResponse(ProcurementItemBase):
+    id: int
+    created_at: datetime
+    created_by: Optional[str] = None
+
+    class Config:
+        from_attributes = True
