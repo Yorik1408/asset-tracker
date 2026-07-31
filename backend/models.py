@@ -148,3 +148,4 @@ class ProcurementItem(Base):
     price = Column(Float, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     created_by = Column(String, nullable=True)
+    received_at = Column(DateTime, nullable=True)

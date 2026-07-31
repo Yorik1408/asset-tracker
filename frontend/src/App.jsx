@@ -162,7 +162,23 @@ function App() {
   const [procurement, setProcurement] = useState([]);
   const [showProcurementModal, setShowProcurementModal] = useState(false);
   const [editingProcItem, setEditingProcItem] = useState(null);
+  const [procPeriod, setProcPeriod] = useState('all');
+  const [procMonth, setProcMonth] = useState(() => {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  });
   const [procForm, setProcForm] = useState({ name: '', quantity: 1, specs: '', item_type: 'consumable', status: 'needed', comment: '', price: '' });
+  const procInPeriod = (item) => {
+    if (procPeriod === 'all') return true;
+    const d = item.received_at ? new Date(item.received_at) : (item.created_at ? new Date(item.created_at) : null);
+    if (!d) return false;
+    if (procPeriod === 'month') {
+      const [y, m] = procMonth.split('-').map(Number);
+      return d.getFullYear() === y && d.getMonth() === m - 1;
+    }
+    if (procPeriod === 'year') return d.getFullYear() === new Date().getFullYear();
+    return true;
+  };
   const [inventoryChangedUsers, setInventoryChangedUsers] = useState(0);
 
   // Export modal
@@ -4462,6 +4478,38 @@ function App() {
               </div>
             </div>
 
+            {(() => {
+              const MONTH_SHORT = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
+              const received = procurement.filter(i => i.received_at && i.price != null);
+              if (!received.length) return null;
+              const now = new Date();
+              const months = Array.from({length: 6}, (_, i) => {
+                const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+                return { year: d.getFullYear(), month: d.getMonth() };
+              });
+              const data = months.map(m => ({
+                label: MONTH_SHORT[m.month],
+                sum: received.filter(i => { const d = new Date(i.received_at); return d.getFullYear() === m.year && d.getMonth() === m.month; })
+                             .reduce((s, i) => s + i.price * i.quantity, 0),
+              }));
+              const maxSum = Math.max(...data.map(d => d.sum), 1);
+              if (!data.some(d => d.sum > 0)) return null;
+              return (
+                <div className="an-card" style={{marginBottom:'10px'}}>
+                  <div className="an-card-title">Расходы на закупки — последние 6 месяцев</div>
+                  {data.map(({ label, sum }) => (
+                    <div key={label} className="an-bar-row" style={{gridTemplateColumns:'36px 1fr 90px'}}>
+                      <div className="an-bar-label" style={{textAlign:'left'}}>{label}</div>
+                      <div className="an-bar-track">
+                        <div className="an-bar-fill" style={{width:`${sum > 0 ? Math.max(Math.round(sum / maxSum * 100), 2) : 0}%`, background:'#3A9D6E'}}></div>
+                      </div>
+                      <div className="an-bar-count">{sum > 0 ? sum.toLocaleString('ru-RU') + ' ₽' : '—'}</div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+
             <div className="an-priority-card">
               <div className="an-priority-head">
                 <span>Приоритет апгрейда</span>
@@ -5613,6 +5661,66 @@ function App() {
               }}>+ Добавить</button>
             </div>
           )}
+          {procurement.some(i => i.price != null) && (() => {
+            const now = new Date();
+            const periodLabel = procPeriod === 'year' ? 'год' : null;
+            const rcv = procurement.filter(i => i.status === 'received' && procInPeriod(i));
+            const ord = procurement.filter(i => i.status === 'ordered');
+            const ned = procurement.filter(i => i.status === 'needed');
+            const sumOf = arr => arr.reduce((s, i) => i.price != null ? s + i.price * i.quantity : s, 0);
+            const subOf = (arr, t) => arr.filter(i => i.item_type === t).reduce((s, i) => i.price != null ? s + i.price * i.quantity : s, 0);
+            const fmt = n => n > 0 ? n.toLocaleString('ru-RU') + ' ₽' : '—';
+            const sub = arr => {
+              const a = subOf(arr, 'asset'), c = subOf(arr, 'consumable');
+              if (a === 0 || c === 0) return null;
+              return 'обор. ' + a.toLocaleString('ru-RU') + ' ₽ · расх. ' + c.toLocaleString('ru-RU') + ' ₽';
+            };
+            const tRcv = sumOf(rcv), tOrd = sumOf(ord), tNed = sumOf(ned);
+            const btnStyle = active => ({padding:'4px 12px',fontSize:'12px',borderRadius:'5px',border:'1px solid var(--border-color)',cursor:'pointer',fontWeight:active?600:400,background:active?'var(--bg-raised)':'transparent',color:active?'var(--text-primary)':'var(--text-muted)'});
+            return (
+              <>
+                <div style={{display:'flex',gap:'4px',alignItems:'center',marginBottom:'12px',flexWrap:'wrap'}}>
+                  <button onClick={() => setProcPeriod('all')} style={btnStyle(procPeriod==='all')}>Всё время</button>
+                  <button onClick={() => setProcPeriod('month')} style={btnStyle(procPeriod==='month')}>Месяц</button>
+                  {procPeriod === 'month' && (() => {
+                    const [selYear, selMon] = procMonth.split('-').map(Number);
+                    const curYear = now.getFullYear();
+                    const years = [curYear - 2, curYear - 1, curYear];
+                    const months = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+                    const sel = {padding:'4px 8px',fontSize:'12px',borderRadius:'5px',border:'1px solid var(--border-color)',background:'var(--bg-input)',color:'var(--text-primary)',cursor:'pointer'};
+                    return (
+                      <>
+                        <select value={selMon} onChange={e => setProcMonth(selYear + '-' + String(e.target.value).padStart(2,'0'))} style={sel}>
+                          {months.map((m,i) => <option key={i+1} value={i+1}>{m}</option>)}
+                        </select>
+                        <select value={selYear} onChange={e => setProcMonth(e.target.value + '-' + String(selMon).padStart(2,'0'))} style={sel}>
+                          {years.map(y => <option key={y} value={y}>{y}</option>)}
+                        </select>
+                      </>
+                    );
+                  })()}
+                  <button onClick={() => setProcPeriod('year')} style={btnStyle(procPeriod==='year')}>Год</button>
+                </div>
+                <div className="an-stat-row" style={{gridTemplateColumns:'repeat(3,1fr)',marginBottom:'16px'}}>
+                  <div className="an-stat">
+                    <div className="an-stat-label">Потрачено{periodLabel ? ' · ' + periodLabel : ''}</div>
+                    <div className="an-stat-value" style={{fontSize:'20px',color:tRcv>0?'#3A9D6E':'var(--text-muted)'}}>{fmt(tRcv)}</div>
+                    {sub(rcv) && <div className="an-stat-sub">{sub(rcv)}</div>}
+                  </div>
+                  <div className="an-stat">
+                    <div className="an-stat-label">В заказе</div>
+                    <div className="an-stat-value" style={{fontSize:'20px',color:tOrd>0?'#D4882A':'var(--text-muted)'}}>{fmt(tOrd)}</div>
+                    {sub(ord) && <div className="an-stat-sub">{sub(ord)}</div>}
+                  </div>
+                  <div className="an-stat">
+                    <div className="an-stat-label">Планируется</div>
+                    <div className="an-stat-value" style={{fontSize:'20px',color:'var(--text-primary)'}}>{fmt(tNed)}</div>
+                    {sub(ned) && <div className="an-stat-sub">{sub(ned)}</div>}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
           <div style={{border:'1px solid var(--border-color)',borderRadius:'6px',overflowX:'auto'}}>
             <table style={{width:'100%',borderCollapse:'collapse'}}>
               <thead>
@@ -5625,10 +5733,17 @@ function App() {
                 </tr>
               </thead>
               <tbody>
-                {procurement.length === 0 ? (
-                  <tr><td colSpan={user?.is_admin ? 5 : 4} style={{padding:'24px',textAlign:'center',color:'var(--text-muted)',fontSize:'13px'}}>Список закупок пуст</td></tr>
-                ) : procurement.map((item, idx) => (
-                  <tr key={item.id} style={{borderBottom: idx < procurement.length - 1 ? '1px solid var(--bg-raised)' : 'none', opacity: item.status === 'received' ? 0.5 : 1}}>
+                {(() => {
+                  const rows = procPeriod === 'all'
+                    ? procurement
+                    : procurement.filter(i => i.status === 'received' && procInPeriod(i));
+                  if (rows.length === 0) return (
+                    <tr><td colSpan={user?.is_admin ? 5 : 4} style={{padding:'24px',textAlign:'center',color:'var(--text-muted)',fontSize:'13px'}}>
+                      {procPeriod === 'all' ? 'Список закупок пуст' : 'Нет закупок за выбранный период'}
+                    </td></tr>
+                  );
+                  return rows.map((item, idx) => (
+                  <tr key={item.id} style={{borderBottom: idx < rows.length - 1 ? '1px solid var(--bg-raised)' : 'none', opacity: item.status === 'received' ? 0.5 : 1}}>
                     <td style={{padding:'10px 12px'}}>
                       <div style={{fontWeight:600,fontSize:'13px',color:'var(--text-primary)'}}>{item.name}</div>
                       {(item.quantity > 1 || item.specs) && (
@@ -5688,24 +5803,9 @@ function App() {
                       </td>
                     )}
                   </tr>
-                ))}
+                  ));
+                })()}
               </tbody>
-              {(() => {
-                const total = procurement.reduce((sum, i) => i.price != null ? sum + i.price * i.quantity : sum, 0);
-                const hasPrice = procurement.some(i => i.price != null);
-                if (!hasPrice || procurement.length === 0) return null;
-                const colCount = user?.is_admin ? 5 : 4;
-                return (
-                  <tfoot>
-                    <tr style={{borderTop:'2px solid var(--border-color)',background:'var(--bg-raised)'}}>
-                      <td colSpan={colCount - 1} style={{padding:'8px 12px',fontSize:'12px',color:'var(--text-muted)',textAlign:'right'}}>Итого:</td>
-                      <td style={{padding:'8px 12px',textAlign:'right',fontWeight:700,fontSize:'14px',color:'var(--text-primary)'}}>
-                        {total.toLocaleString('ru-RU')} ₽
-                      </td>
-                    </tr>
-                  </tfoot>
-                );
-              })()}
             </table>
           </div>
         </div>

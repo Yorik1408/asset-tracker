@@ -994,7 +994,13 @@ def update_procurement_item(
     db_item = db.query(models.ProcurementItem).filter(models.ProcurementItem.id == item_id).first()
     if not db_item:
         raise HTTPException(status_code=404, detail="Позиция не найдена")
-    for k, v in item_update.dict(exclude_unset=True).items():
+    update_data = item_update.dict(exclude_unset=True)
+    if 'status' in update_data:
+        if update_data['status'] == 'received' and db_item.status != 'received':
+            db_item.received_at = datetime.utcnow()
+        elif update_data['status'] != 'received':
+            db_item.received_at = None
+    for k, v in update_data.items():
         setattr(db_item, k, v)
     db.commit()
     db.refresh(db_item)

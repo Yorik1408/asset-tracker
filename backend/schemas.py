@@ -203,6 +203,7 @@ class ProcurementItemResponse(ProcurementItemBase):
     id: int
     created_at: datetime
     created_by: Optional[str] = None
+    received_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
