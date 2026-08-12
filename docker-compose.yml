@@ -8,10 +8,17 @@ services:
       context: .
       dockerfile: Dockerfile.backend
     container_name: asset-tracker-backend
+    restart: unless-stopped
     ports:
       - "8000:8000"
     volumes:
       - ./backend/test.db:/app/test.db:Z
+      - ./backend/main.py:/app/main.py:Z
+      - ./backend/models.py:/app/models.py:Z
+      - ./backend/crud.py:/app/crud.py:Z
+      - ./backend/schemas.py:/app/schemas.py:Z
+      - ./backend/alembic.ini:/app/alembic.ini:Z
+      - ./backend/alembic/versions:/app/alembic/versions:Z
     environment:
       - DATABASE_URL=sqlite:///./test.db
     network_mode: "bridge"
@@ -21,6 +28,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile.frontend
     container_name: asset-tracker-frontend
+    restart: unless-stopped
     ports:
       - "5173:5173"
     volumes:
